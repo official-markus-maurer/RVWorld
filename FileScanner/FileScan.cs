@@ -207,7 +207,6 @@ public class FileScan
         return scannedFile;
     }
 
-
     private const int Buffersize = 4096 * 1024;
     private static BlockingCollection<byte[]> bytebuffer = new BlockingCollection<byte[]>();
     static byte[] getbuffer()
@@ -297,7 +296,11 @@ public class FileScan
                     tsha1 = new ThreadSHA1();
                     atlmd5 = new ThreadMD5();
                     altsha1 = new ThreadSHA1();
-                    if (scanSHA256) tsha256 = new ThreadSHA256();
+                    if (scanSHA256)
+                    {
+                        tsha256 = new ThreadSHA256();
+                        altsha256 = new ThreadSHA256();
+                    }
                 }
 
                 if (sizenow > actualHeaderSize)
@@ -309,7 +312,7 @@ public class FileScan
                     tcrc32?.Trigger(_buffer0, actualHeaderSize);
                     tmd5?.Trigger(_buffer0, actualHeaderSize);
                     tsha1?.Trigger(_buffer0, actualHeaderSize);
-                    tsha256?.Trigger(_buffer0, sizenow);
+                    tsha256?.Trigger(_buffer0, actualHeaderSize);
                     tcrc32?.Wait();
                     tmd5?.Wait();
                     tsha1?.Wait();
@@ -317,14 +320,11 @@ public class FileScan
 
                     // put the rest of what we read into the second buffer, and scan with all hashers
                     int restSize = sizenow - actualHeaderSize;
-                    for (int i = 0; i < restSize; i++)
-                    {
-                        _buffer1[i] = _buffer0[actualHeaderSize + i];
-                    }
+                    Buffer.BlockCopy(_buffer0, actualHeaderSize, _buffer1, 0, restSize);
                     tcrc32?.Trigger(_buffer1, restSize);
                     tmd5?.Trigger(_buffer1, restSize);
                     tsha1?.Trigger(_buffer1, restSize);
-                    tsha256?.Trigger(_buffer1, sizenow);
+                    tsha256?.Trigger(_buffer1, restSize);
                     altcrc32.Trigger(_buffer1, restSize);
                     atlmd5?.Trigger(_buffer1, restSize);
                     altsha1?.Trigger(_buffer1, restSize);
@@ -415,7 +415,6 @@ public class FileScan
                         persentReporting = persentNow;
                     }
                 }
-
 
                 byte[] buffer = whichBuffer ? _buffer0 : _buffer1;
                 tcrc32?.Trigger(buffer, sizebuffer);
@@ -527,11 +526,12 @@ public class FileScan
         return 0;
     }
 
-
-
-
     private static bool ByteArrCompare(byte[] b0, byte[] b1)
     {
+        if (ReferenceEquals(b0, b1))
+        {
+            return true;
+        }
         if (b0 == null || b1 == null)
         {
             return false;
