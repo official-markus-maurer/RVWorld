@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Directory = RVIO.Directory;
 using Path = RVIO.Path;
 
@@ -48,11 +49,13 @@ namespace Compress
             Directory.CreateDirectory(strTemp);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool CompareString(string s1, string s2)
         {
             return string.Equals(s1, s2, StringComparison.Ordinal);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool CompareStringSlash(string s1, string s2)
         {
             if (s1 == null || s2 == null) return false;
@@ -78,6 +81,7 @@ namespace Compress
         }
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool ByteArrCompare(byte[] b0, byte[] b1)
         {
             if (b0 != null && ReferenceEquals(b0, b1))

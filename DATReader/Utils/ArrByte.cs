@@ -1,4 +1,5 @@
-﻿namespace DATReader.Utils
+﻿using System.Runtime.CompilerServices;
+namespace DATReader.Utils
 {
     public static class ArrByte
     {
@@ -18,6 +19,7 @@
         }
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool bCompare(byte[] b1, byte[] b2)
         {
             if (b1 != null && ReferenceEquals(b1, b2))
@@ -44,6 +46,7 @@
 
             return true;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool nCompare(byte[] b1, byte[] b2)
         {
             if (ReferenceEquals(b1, b2))
@@ -71,6 +74,7 @@
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int iCompare(byte[] b1, byte[] b2)
         {
             int b1Len = b1 == null ? 0 : b1.Length;

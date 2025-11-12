@@ -1,7 +1,9 @@
+using System.Runtime.CompilerServices;
 namespace CHDSharpLib.Utils;
 
 internal static class Util
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsAllZeroArray(byte[] b)
     {
         if (b == null) return true;
@@ -11,6 +13,7 @@ internal static class Util
         return true;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool ByteArrEquals(byte[] b0, byte[] b1)
     {
         if (b0 != null && ReferenceEquals(b0, b1))

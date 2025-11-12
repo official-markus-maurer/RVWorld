@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace Compress.SevenZip
 {
@@ -77,6 +78,7 @@ namespace Compress.SevenZip
         }
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Compare(this byte[] b1, byte[] b2)
         {
             if ((b1 == null) || (b2 == null))
@@ -360,6 +362,7 @@ namespace Compress.SevenZip
             return (uint?)((crc[0] << 24) | (crc[1] << 16) | (crc[2] << 8) | (crc[3] << 0));
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool ByteArrCompare(byte[] b0, byte[] b1)
         {
             if (b0 != null && ReferenceEquals(b0, b1))

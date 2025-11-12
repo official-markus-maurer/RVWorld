@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace RomVaultCore.Utils
 {
@@ -41,6 +42,7 @@ namespace RomVaultCore.Utils
         }
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool BCompare(byte[] b1, byte[] b2)
         {
             if (b1 != null && ReferenceEquals(b1, b2))
@@ -68,6 +70,7 @@ namespace RomVaultCore.Utils
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool ECompare(byte[] b1, byte[] b2)
         {
             if (ReferenceEquals(b1, b2))
@@ -96,6 +99,7 @@ namespace RomVaultCore.Utils
         }
 
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int ICompare(byte[] b1, byte[] b2)
         {
             int b1Len = b1?.Length ?? 0;

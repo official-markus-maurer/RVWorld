@@ -8,6 +8,7 @@ using Compress.File;
 using Stream = System.IO.Stream;
 using Compress.StructuredZip;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 
 namespace FileScanner;
 
@@ -391,11 +392,12 @@ public class FileScan
             bool whichBuffer = true;
 
             bool doReporting = progress != null && sizetotal > 0;
-            int persentReporting = -1;
+            const int ReportStep = 2;
+            int persentReporting = -ReportStep;
             if (doReporting)
             {
                 int persentNow = (int)(sizeSoFar * 100 / sizetotal);
-                progress?.Invoke($"Hashing: {persentNow}%");
+                progress?.Invoke(string.Concat("Hashing: ", persentNow.ToString(), "%"));
                 persentReporting = persentNow;
             }
 
@@ -412,9 +414,9 @@ public class FileScan
                 if (doReporting)
                 {
                     int persentNow = (int)((sizeSoFar + totalSize - (ulong)sizetogo) * 100 / sizetotal);
-                    if (persentNow > persentReporting)
+                    if (persentNow - persentReporting >= ReportStep)
                     {
-                        progress?.Invoke($"Hashing: {persentNow}%");
+                        progress?.Invoke(string.Concat("Hashing: ", persentNow.ToString(), "%"));
                         persentReporting = persentNow;
                     }
                 }
@@ -529,6 +531,7 @@ public class FileScan
         return 0;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool ByteArrCompare(byte[] b0, byte[] b1)
     {
         if (ReferenceEquals(b0, b1))
