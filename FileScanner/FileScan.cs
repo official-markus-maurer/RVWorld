@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Compress;
 using Compress.SevenZip;
 using Compress.ThreadReaders;
@@ -6,7 +7,7 @@ using Compress.ZipFile;
 using Compress.File;
 using Stream = System.IO.Stream;
 using Compress.StructuredZip;
-using System.Collections.Concurrent;
+using System.Buffers;
 
 namespace FileScanner;
 
@@ -38,6 +39,10 @@ public delegate void Message(string message);
 
 public class FileScan
 {
+    private static readonly byte[] ZeroCRC = new byte[] { 0, 0, 0, 0 };
+    private static readonly byte[] EmptySHA1 = new byte[] { 0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x07, 0x09 };
+    private static readonly byte[] EmptySHA256 = new byte[] { 0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55 };
+    private static readonly byte[] EmptyMD5 = new byte[] { 0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x00, 0xb2, 0x04, 0xe9, 0x80, 0x09, 0x98, 0xec, 0xf8, 0x42, 0x7e };
 
     public ZipReturn ScanArchiveFile(FileType archiveType, string filename, long timeStamp, bool deepScan, out ScannedFile scannedArchive, bool useDosDateTime = false, bool scanSHA256 = false,  Message progress = null)
     {
@@ -148,10 +153,10 @@ public class FileScan
             scannedFile.HeaderFileType = HeaderFileType.Nothing;
             scannedFile.GotStatus = GotStatus.Got;
             scannedFile.Size = 0;
-            scannedFile.CRC = new byte[] { 0, 0, 0, 0 };
-            scannedFile.SHA1 = new byte[] { 0xda, 0x39, 0xa3, 0xee, 0x5e, 0x6b, 0x4b, 0x0d, 0x32, 0x55, 0xbf, 0xef, 0x95, 0x60, 0x18, 0x90, 0xaf, 0xd8, 0x07, 0x09 };
-            scannedFile.SHA256 = new byte[] { 0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55 };
-            scannedFile.MD5 = new byte[] { 0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x00, 0xb2, 0x04, 0xe9, 0x80, 0x09, 0x98, 0xec, 0xf8, 0x42, 0x7e };
+            scannedFile.CRC = ZeroCRC;
+            scannedFile.SHA1 = EmptySHA1;
+            scannedFile.SHA256 = EmptySHA256;
+            scannedFile.MD5 = EmptyMD5;
 
             scannedFile.StatusFlags |= FileStatus.CRCFromHeader | FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified | FileStatus.SHA256Verified;
             return scannedFile;
@@ -208,17 +213,15 @@ public class FileScan
     }
 
     private const int Buffersize = 4096 * 1024;
-    private static BlockingCollection<byte[]> bytebuffer = new BlockingCollection<byte[]>();
+    private static readonly ArrayPool<byte> _bufferPool = ArrayPool<byte>.Shared;
     static byte[] getbuffer()
     {
-        if (bytebuffer.TryTake(out byte[] buffer))
-            return buffer;
-
-        return new byte[Buffersize];
+        return _bufferPool.Rent(Buffersize);
     }
     static void putbuffer(byte[] buffer)
     {
-        bytebuffer.Add(buffer);
+        if (buffer != null)
+            _bufferPool.Return(buffer);
     }
 
     public int CheckSumRead(Stream inStream, ScannedFile scannedFile, ulong totalSize, bool fullScan, bool scanSHA256, Message progress, ulong sizetotal, ulong sizeSoFar)
