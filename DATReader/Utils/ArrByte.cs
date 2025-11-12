@@ -20,6 +20,10 @@
 
         public static bool bCompare(byte[] b1, byte[] b2)
         {
+            if (b1 != null && ReferenceEquals(b1, b2))
+            {
+                return true;
+            }
             if ((b1 == null) || (b2 == null))
             {
                 return false;
@@ -42,6 +46,10 @@
         }
         public static bool nCompare(byte[] b1, byte[] b2)
         {
+            if (ReferenceEquals(b1, b2))
+            {
+                return true;
+            }
             if ((b1 == null) || (b2 == null))
             {
                 return true;

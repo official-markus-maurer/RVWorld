@@ -43,6 +43,10 @@ namespace RomVaultCore.Utils
 
         public static bool BCompare(byte[] b1, byte[] b2)
         {
+            if (b1 != null && ReferenceEquals(b1, b2))
+            {
+                return true;
+            }
             if (b1 == null || b2 == null)
             {
                 return false;
@@ -66,6 +70,10 @@ namespace RomVaultCore.Utils
 
         public static bool ECompare(byte[] b1, byte[] b2)
         {
+            if (ReferenceEquals(b1, b2))
+            {
+                return true;
+            }
             if (b1 == null || b2 == null)
             {
                 return true;

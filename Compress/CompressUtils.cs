@@ -80,6 +80,10 @@ namespace Compress
 
         public static bool ByteArrCompare(byte[] b0, byte[] b1)
         {
+            if (b0 != null && ReferenceEquals(b0, b1))
+            {
+                return true;
+            }
             if ((b0 == null) || (b1 == null))
             {
                 return false;
