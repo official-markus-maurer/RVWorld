@@ -546,14 +546,6 @@ public class FileScan
         {
             return false;
         }
-
-        for (int i = 0; i < b0.Length; i++)
-        {
-            if (b0[i] != b1[i])
-            {
-                return false;
-            }
-        }
-        return true;
+        return b0.AsSpan().SequenceEqual(b1);
     }
 }

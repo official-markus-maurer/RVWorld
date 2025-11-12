@@ -59,15 +59,7 @@ namespace RomVaultCore.Utils
                 return false;
             }
 
-            for (int i = 0; i < b1.Length; i++)
-            {
-                if (b1[i] != b2[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return b1.AsSpan().SequenceEqual(b2);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -82,20 +74,7 @@ namespace RomVaultCore.Utils
                 return true;
             }
 
-            if (b1.Length != b2.Length)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < b1.Length; i++)
-            {
-                if (b1[i] != b2[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return b1.AsSpan().SequenceEqual(b2);
         }
 
 

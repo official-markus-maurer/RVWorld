@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Text;
 using System.Runtime.CompilerServices;
 
@@ -81,6 +82,10 @@ namespace Compress.SevenZip
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Compare(this byte[] b1, byte[] b2)
         {
+            if (ReferenceEquals(b1, b2))
+            {
+                return true;
+            }
             if ((b1 == null) || (b2 == null))
             {
                 return false;
@@ -90,16 +95,7 @@ namespace Compress.SevenZip
             {
                 return false;
             }
-
-            for (int i = 0; i < b1.Length; i++)
-            {
-                if (b1[i] != b2[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return b1.AsSpan().SequenceEqual(b2);
         }
 
 
@@ -377,15 +373,7 @@ namespace Compress.SevenZip
             {
                 return false;
             }
-
-            for (int i = 0; i < b0.Length; i++)
-            {
-                if (b0[i] != b1[i])
-                {
-                    return false;
-                }
-            }
-            return true;
+            return b0.AsSpan().SequenceEqual(b1);
         }
     }
 }
