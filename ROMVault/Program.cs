@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -57,10 +57,7 @@ namespace ROMVault
          
             Dark.dark.darkEnabled = Settings.rvSettings.Darkness;
 
-            if (!Settings.rvSettings.Darkness)
-            {
-                Application.EnableVisualStyles();
-            }
+            Application.EnableVisualStyles();
 #if !DEBUG
             Application.ThreadException += ReportError.UnhandledExceptionHandler;
 #endif

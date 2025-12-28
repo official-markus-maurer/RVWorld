@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="550"
+        x:Class="ROMVault.Avalonia.Views.SettingsWindow"
+        Title="RomVault Settings" Width="500" Height="600"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*, Auto" Margin="10">
+        <ScrollViewer Grid.Row="0">
+            <StackPanel Spacing="10">
+                <!-- Core Settings -->
+                <Grid ColumnDefinitions="100, *, Auto" RowDefinitions="Auto, Auto">
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Core Settings :" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                     
+                     <TextBlock Grid.Row="0" Grid.Column="1" Text="DATRoot:" VerticalAlignment="Center" Margin="0,5"/>
+                     
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="DATRoot:" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Name="lblDATRoot" IsReadOnly="True" Margin="0,5"/>
+                     <Button Grid.Row="1" Grid.Column="2" Name="btnDAT" Content="Set" Margin="5,0,0,0"/>
+                </Grid>
+                
+                <Grid ColumnDefinitions="100, *" RowDefinitions="Auto">
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Fixing Level:" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                     <ComboBox Grid.Row="0" Grid.Column="1" Name="cboFixLevel" HorizontalAlignment="Stretch"/>
+                </Grid>
+                
+                <Separator/>
+
+                <!-- Compression -->
+                 <Grid ColumnDefinitions="100, *" RowDefinitions="Auto, Auto">
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Compression :" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                     
+                     <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="Auto, *" Margin="0,5">
+                         <TextBlock Grid.Column="0" Text="Max ZSTD workers:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                         <ComboBox Grid.Column="1" Name="cboCores" HorizontalAlignment="Stretch"/>
+                     </Grid>
+
+                     <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto, *" Margin="0,5">
+                         <TextBlock Grid.Column="0" Text="Default 7Z type:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                         <ComboBox Grid.Column="1" Name="cbo7zStruct" HorizontalAlignment="Stretch"/>
+                     </Grid>
+                </Grid>
+
+                <Separator/>
+                
+                <CheckBox Name="chkDoubleCheckDelete" Content="Double check file exists elsewhere before deleting"/>
+                
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox Name="chkCacheSaveTimer" Content="Save Cache on timer every"/>
+                    <NumericUpDown Name="upTime" Minimum="5" Maximum="60" Increment="5" Value="10" Margin="10,0"/>
+                    <TextBlock Text="Minutes" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <CheckBox Name="chkDarkMode" Content="Dark Mode (Restart required.)"/>
+
+                <Separator/>
+
+                <!-- DATVault -->
+                <Grid ColumnDefinitions="100, *" RowDefinitions="Auto">
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="DATVault :" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                     <StackPanel Grid.Row="0" Grid.Column="1">
+                         <CheckBox Name="chkSendFoundMIA" Content="Send Found MIA notifications"/>
+                         <CheckBox Name="chkSendFoundMIAAnon" Content="Send anonymously" Margin="20,0,0,0"/>
+                         <CheckBox Name="chkDeleteOldCueFiles" Content="Delete previous Cue file zips in ToSort"/>
+                     </StackPanel>
+                </Grid>
+
+                <Separator/>
+
+                <!-- Logging -->
+                <Grid ColumnDefinitions="100, *" RowDefinitions="Auto">
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Logging :" FontWeight="Bold" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+                     <StackPanel Grid.Row="0" Grid.Column="1">
+                         <CheckBox Name="chkDetailedReporting" Content="Show detailed actions in Fixing Status window"/>
+                         <CheckBox Name="chkDebugLogs" Content="Enable Debug logging"/>
+                         <CheckBox Name="chkDoNotReportFeedback" Content="Do not report feedback"/>
+                     </StackPanel>
+                </Grid>
+
+                <Separator/>
+
+                <TextBlock Text="Filenames not to remove:&#x0a;- One rule per line&#x0a;- Basic rules support * and ? wildcards&#x0a;- Regex rules must start with 'regex:'&#x0a;- Scanning Ignore rules must start with 'ignore:'"/>
+                <TextBox Name="textBox1" AcceptsReturn="True" TextWrapping="Wrap" Height="100"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,10,0,0">
+            <Button Name="btnOK" Content="OK" Width="80"/>
+            <Button Name="btnCancel" Content="Cancel" Width="80"/>
+        </StackPanel>
+    </Grid>
+</Window>

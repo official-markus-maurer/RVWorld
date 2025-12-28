@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="200"
+        x:Class="ROMVault.Avalonia.Views.MessageBoxWindow"
+        Title="Message"
+        Width="400" Height="200"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+    <StackPanel Margin="20" Spacing="20">
+        <TextBlock Name="MessageText" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+        <Button Content="OK" HorizontalAlignment="Center" Click="OnOkClick"/>
+    </StackPanel>
+</Window>

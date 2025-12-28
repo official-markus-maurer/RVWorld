@@ -1,0 +1,12 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        Width="985" Height="148"
+        x:Class="ROMVault.Avalonia.Views.RomInfoWindow"
+        Title="Rom Occurrence list"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="Full">
+    <TextBox Name="textBox1" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+</Window>
