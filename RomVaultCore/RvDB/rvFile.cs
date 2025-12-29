@@ -525,7 +525,9 @@ namespace RomVaultCore.RvDB
                 _datStatus = DatStatus.InToSort;
 
             _gotStatus = (GotStatus)br.ReadByte();
-            RepStatusReset();
+            
+            List<RepStatus> rs = RepairStatus.StatusCheck[(int)FileType, (int)_datStatus, (int)_gotStatus];
+            _repStatus = rs?[0] ?? RepStatus.Error;
 
             if (DBTypeGet.isCompressedDir(FileType))
             {
@@ -617,7 +619,11 @@ namespace RomVaultCore.RvDB
                     _datStatus = DatStatus.InToSort;
 
                 RvFile tChild = new RvFile(br, parentDirDats, this);
-                _children?.Add(tChild);
+                
+                _children.Insert(i, tChild);
+                DirStatus.RepStatusAddRemove(tChild.RepStatus, 1);
+                if (tChild.IsDirectory)
+                    DirStatus.RepStatusArrayAddRemove(tChild.DirStatus, 1);
             }
             if (baseDir)
                 _datStatus = DatStatus.InDatCollect;

@@ -54,6 +54,15 @@ public partial class MainWindow : Window
             };
         }
 
+        // Ensure status is calculated
+        if (DB.DirRoot != null)
+        {
+             // Force initialization of RepairStatus
+             RepairStatus.InitStatusCheck();
+             // Force aggregation of DirStatus since it's not persisted and RepStatusReset might skip it
+             AggregateDirStatus(DB.DirRoot);
+        }
+
         // Initialize Events
         chkBoxShowComplete.Click += (s, e) => UpdateGameGrid();
         chkBoxShowPartial.Click += (s, e) => UpdateGameGrid();
@@ -77,6 +86,33 @@ public partial class MainWindow : Window
             if (rvTree != null)
             {
                 rvTree.SetSelected(tGame);
+            }
+        }
+    }
+
+    private void AggregateDirStatus(RvFile dir)
+    {
+        if (dir.ChildCount == 0) return;
+
+        // Reset the DirStatus for the current directory
+        // Since we don't have a Clear method, we assume it's fresh (all zeros) on load.
+        // If this is called multiple times, counts would be wrong, but we only call it once on startup.
+
+        for (int i = 0; i < dir.ChildCount; i++)
+        {
+            RvFile child = dir.Child(i);
+            
+            if (child.IsDirectory)
+            {
+                AggregateDirStatus(child);
+            }
+
+            // Manually add child status to parent (dir)
+            dir.DirStatus.RepStatusAddRemove(child.RepStatus, 1);
+            
+            if (child.IsDirectory)
+            {
+                dir.DirStatus.RepStatusArrayAddRemove(child.DirStatus, 1);
             }
         }
     }
@@ -250,11 +286,7 @@ public partial class MainWindow : Window
 
         if (tGame.Game != null)
         {
-            // For now, treating EmuArc same as Standard for basic fields, 
-            // as EmuArc in WinForms also shows Description, CloneOf, RomOf, Year, Category (mostly).
-            // WinForms hides Manufacturer for EmuArc, but shows others.
-            // We will show what we have available if it's not empty, simplifying logic.
-            
+            // Note: Treating EmuArc same as Standard for basic fields to match WinForms behavior
             bool isEmuArc = tGame.Game.GetData(RvGame.GameData.EmuArc) == "yes";
 
             // Description
@@ -1189,7 +1221,6 @@ public partial class MainWindow : Window
         this.Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Wait);
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         if (rvTree != null) rvTree.Working = true;
-        // TODO: Disable other UI controls
     }
 
     private void Finish()

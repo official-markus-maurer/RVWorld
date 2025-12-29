@@ -51,6 +51,10 @@ namespace ROMVault.Avalonia.Views
         {
             RepairStatus.InitStatusCheck();
             DB.Read(thWrk);
+            if (DB.DirRoot != null)
+            {
+                RepairStatus.ReportStatusReset(DB.DirRoot);
+            }
         }
 
         private void BgwProgressChanged(object e)

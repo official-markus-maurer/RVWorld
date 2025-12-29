@@ -23,7 +23,6 @@
       <MenuItem Header="Update DATs">
          <MenuItem Header="Update New DATs" Click="OnUpdateNewDatsClick"/>
          <MenuItem Header="Update All DATs" Click="OnUpdateAllDatsClick"/>
-         // TODO: Add DV Entry once Gordon shares its code.
       </MenuItem>
       <MenuItem Header="Scan Roms">
          <MenuItem Header="Level 1" Tag="Level1" Click="OnScanRomsClick"/>
@@ -304,10 +303,24 @@
                               <DataGridTextColumn Header="Game (Directory / Zip)" Binding="{Binding Name}" Width="200"/>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="200"/>
                               <DataGridTextColumn Header="Modified" Binding="{Binding DateTime}"/>
-                              <DataGridTemplateColumn Header="ROM Status">
+                              <DataGridTemplateColumn Header="ROM Status" Width="300">
                                   <DataGridTemplateColumn.CellTemplate>
                                       <DataTemplate>
-                                          <Image Width="16" Height="16" Source="{Binding ., Converter={StaticResource BitmapAssetValueConverter}}"/>
+                                          <ItemsControl ItemsSource="{Binding ., Converter={StaticResource GameStatusDisplayConverter}}">
+                                              <ItemsControl.ItemsPanel>
+                                                  <ItemsPanelTemplate>
+                                                      <StackPanel Orientation="Horizontal"/>
+                                                  </ItemsPanelTemplate>
+                                              </ItemsControl.ItemsPanel>
+                                              <ItemsControl.ItemTemplate>
+                                                  <DataTemplate>
+                                                      <StackPanel Orientation="Horizontal" Margin="4,0">
+                                                          <Image Width="16" Height="16" Source="{Binding Icon}" VerticalAlignment="Center"/>
+                                                          <TextBlock Text="{Binding Count}" VerticalAlignment="Center" Margin="2,0,0,0" FontSize="11"/>
+                                                      </StackPanel>
+                                                  </DataTemplate>
+                                              </ItemsControl.ItemTemplate>
+                                          </ItemsControl>
                                       </DataTemplate>
                                   </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
