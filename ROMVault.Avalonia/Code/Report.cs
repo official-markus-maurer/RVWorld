@@ -10,6 +10,9 @@ using RomVaultCore.Utils;
 
 namespace ROMVault.Avalonia.Code
 {
+    /// <summary>
+    /// Provides functionality for generating various reports about the ROM collection.
+    /// </summary>
     public static class Report
     {
         private static StreamWriter? _ts;
@@ -18,6 +21,9 @@ namespace ROMVault.Avalonia.Code
         private static int _fileSizeLength;
         private static int _repStatusLength;
 
+        /// <summary>
+        /// Statuses considered for partial missing reports.
+        /// </summary>
         private static readonly RepStatus[] Partial =
         {
             RepStatus.UnScanned,
@@ -28,6 +34,9 @@ namespace ROMVault.Avalonia.Code
             RepStatus.CorruptCanBeFixed
         };
 
+        /// <summary>
+        /// Statuses considered for fixing reports.
+        /// </summary>
         private static readonly RepStatus[] Fixing =
         {
             RepStatus.CanBeFixed,
@@ -40,11 +49,19 @@ namespace ROMVault.Avalonia.Code
             RepStatus.MoveToCorrupt
         };
 
+        /// <summary>
+        /// Generates a clean timestamp string for filenames.
+        /// </summary>
+        /// <returns>A formatted date string.</returns>
         private static string CleanTime()
         {
             return " (" + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ")";
         }
 
+        /// <summary>
+        /// Generates a full report of the collection status.
+        /// </summary>
+        /// <param name="parent">The parent window for the file picker dialog.</param>
         public static async Task GenerateReport(Window parent)
         {
             var topLevel = TopLevel.GetTopLevel(parent);
@@ -85,6 +102,10 @@ namespace ROMVault.Avalonia.Code
             }
         }
 
+        /// <summary>
+        /// Generates a report specifically for fixable issues.
+        /// </summary>
+        /// <param name="parent">The parent window for the file picker dialog.</param>
         public static async Task GenerateFixReport(Window parent)
         {
             var topLevel = TopLevel.GetTopLevel(parent);
@@ -115,6 +136,12 @@ namespace ROMVault.Avalonia.Code
             }
         }
 
+        /// <summary>
+        /// Creates fix DAT files for the selected directory.
+        /// </summary>
+        /// <param name="parent">The parent window for the folder picker dialog.</param>
+        /// <param name="baseDir">The base directory to start creating fix DATs from.</param>
+        /// <param name="redOnly">If true, only includes missing items (red status).</param>
         public static async Task CreateFixDat(Window parent, RvFile baseDir, bool redOnly)
         {
             var topLevel = TopLevel.GetTopLevel(parent);
@@ -139,7 +166,11 @@ namespace ROMVault.Avalonia.Code
             FixDatReport.RecursiveDatTree(Settings.rvSettings.FixDatOutPath, baseDir, redOnly);
         }
 
-
+        /// <summary>
+        /// Recursively traverses the directory tree to generate report data for a specific DAT.
+        /// </summary>
+        /// <param name="b">The current directory or file being processed.</param>
+        /// <param name="rt">The type of report to generate.</param>
         private static void FindAllDats(RvFile b, ReportType rt)
         {
             RvFile d = b;
@@ -237,13 +268,23 @@ namespace ROMVault.Avalonia.Code
             }
         }
 
+        /// <summary>
+        /// Removes the base directory from a path string.
+        /// </summary>
+        /// <param name="name">The full path.</param>
+        /// <returns>The path relative to the base directory.</returns>
         private static string RemoveBase(string name)
         {
             int p = name.IndexOf("\\", StringComparison.Ordinal);
             return p > 0 ? name.Substring(p + 1) : name;
         }
 
-
+        /// <summary>
+        /// Calculates the maximum column widths for the report table by scanning the files.
+        /// </summary>
+        /// <param name="dir">The directory to scan.</param>
+        /// <param name="dat">The DAT file associated with the report.</param>
+        /// <param name="rt">The report type.</param>
         private static void ReportMissingFindSizes(RvFile dir, RvDat dat, ReportType rt)
         {
             for (int i = 0; i < dir.ChildCount; i++)
@@ -290,11 +331,20 @@ namespace ROMVault.Avalonia.Code
             }
         }
 
+        /// <summary>
+        /// Writes the horizontal separator bars for the report table.
+        /// </summary>
         private static void ReportDrawBars()
         {
             _ts?.WriteLine("+" + new string('-', _fileNameLength + 2) + "+" + new string('-', _fileSizeLength + 2) + "+----------+" + new string('-', _repStatusLength + 2) + "+");
         }
 
+        /// <summary>
+        /// Writes the missing file details to the report.
+        /// </summary>
+        /// <param name="dir">The directory to scan.</param>
+        /// <param name="dat">The DAT file associated with the report.</param>
+        /// <param name="rt">The report type.</param>
         private static void ReportMissing(RvFile dir, RvDat dat, ReportType rt)
         {
             for (int i = 0; i < dir.ChildCount; i++)
@@ -331,11 +381,26 @@ namespace ROMVault.Avalonia.Code
             }
         }
 
+        /// <summary>
+        /// Defines the types of reports that can be generated.
+        /// </summary>
         private enum ReportType
         {
+            /// <summary>
+            /// Report for fully complete DAT sets.
+            /// </summary>
             Complete,
+            /// <summary>
+            /// Report for completely missing DAT sets.
+            /// </summary>
             CompletelyMissing,
+            /// <summary>
+            /// Report for DAT sets with some missing files.
+            /// </summary>
             PartialMissing,
+            /// <summary>
+            /// Report for items that need fixing.
+            /// </summary>
             Fixing
         }
     }

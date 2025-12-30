@@ -25,6 +25,10 @@ using File = System.IO.File;
 
 namespace ROMVault.Avalonia;
 
+/// <summary>
+/// The main window of the ROMVault Avalonia application.
+/// Handles the primary UI logic, including the directory tree, game grid, and main menu actions.
+/// </summary>
 public partial class MainWindow : Window
 {
     private RvFile? _gameGridSource;
@@ -32,6 +36,10 @@ public partial class MainWindow : Window
     private bool _working = false;
     private GridLength _lastArtworkWidth = new GridLength(300);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainWindow"/> class.
+    /// Sets up the directory tree, event handlers, and initial status aggregation.
+    /// </summary>
     public MainWindow()
     {
         InitializeComponent();
@@ -90,6 +98,11 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Recursively aggregates directory status counts from children to parents.
+    /// This is necessary because DirStatus is not persisted and needs to be recalculated on load.
+    /// </summary>
+    /// <param name="dir">The directory to process.</param>
     private void AggregateDirStatus(RvFile dir)
     {
         if (dir.ChildCount == 0) return;
@@ -117,11 +130,21 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles the selection event from the RvTree control.
+    /// </summary>
+    /// <param name="sender">The source of the event.</param>
+    /// <param name="e">The selected RvFile.</param>
     private void OnRvTreeSelected(object? sender, RvFile e)
     {
         DatSetSelected(e);
     }
 
+    /// <summary>
+    /// Updates the UI when a DAT or Directory is selected in the tree.
+    /// Populates the DAT Info panel and updates the game grid.
+    /// </summary>
+    /// <param name="cf">The selected RvFile (Directory or DAT).</param>
     private void DatSetSelected(RvFile? cf)
     {
         if (cf == null) return;
@@ -157,6 +180,10 @@ public partial class MainWindow : Window
         UpdateGameGrid(cf);
     }
 
+    /// <summary>
+    /// Updates the Game Grid (main list of games/files) based on the selected directory and filters.
+    /// </summary>
+    /// <param name="tDir">The directory to display. If null, uses the previously selected directory.</param>
     private void UpdateGameGrid(RvFile? tDir = null)
     {
         if (tDir != null)
@@ -219,6 +246,12 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles the selection change event in the Game Grid.
+    /// Updates the metadata panel, ROM grid, and artwork based on the selected game.
+    /// </summary>
+    /// <param name="sender">The source of the event.</param>
+    /// <param name="e">The event arguments.</param>
     private void GameGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_updatingGameGrid) return;
@@ -236,6 +269,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Updates the Game Metadata panel (description, manufacturer, year, etc.) for the selected game.
+    /// </summary>
+    /// <param name="tGame">The selected game file.</param>
     private void UpdateGameMetaData(RvFile? tGame)
     {
         var lblGameName = this.FindControl<TextBox>("lblGameName");
@@ -331,6 +368,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Hides all artwork tabs and collapses the artwork column.
+    /// </summary>
     private void HideAllArtworkTabs()
     {
         if (GameListGrid != null && GameListGrid.ColumnDefinitions[2].Width.Value > 0)
@@ -349,6 +389,9 @@ public partial class MainWindow : Window
         if (GameListGrid != null) GameListGrid.ColumnDefinitions[2].Width = new GridLength(0);
     }
 
+    /// <summary>
+    /// Shows the artwork section and restores its width.
+    /// </summary>
     private void ShowArtworkSection()
     {
         if (ArtworkSplitter != null) ArtworkSplitter.IsVisible = true;
@@ -356,6 +399,11 @@ public partial class MainWindow : Window
         if (GameListGrid != null) GameListGrid.ColumnDefinitions[2].Width = _lastArtworkWidth.Value > 0 ? _lastArtworkWidth : new GridLength(300);
     }
 
+    /// <summary>
+    /// Updates the visibility of artwork tabs based on available assets for the selected game.
+    /// Checks for emulator specific artwork first, then NFOs, then C64 specifics.
+    /// </summary>
+    /// <param name="tGame">The selected game file.</param>
     private void UpdateArtworkVisibility(RvFile tGame)
     {
         HideAllArtworkTabs();
@@ -402,6 +450,11 @@ public partial class MainWindow : Window
             found = LoadC64Pannel(tGame);
     }
 
+    /// <summary>
+    /// Loads MAME-style artwork panels (artwork, logo, screenshots, cabinets).
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <param name="extraPath">The path to the artwork assets.</param>
     private void LoadMamePannels(RvFile tGame, string extraPath)
     {
         string[] path = extraPath.Split('\\');
@@ -449,6 +502,16 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Loads MAME Software List style artwork panels.
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <param name="extraPath">The path to the artwork assets.</param>
+    /// <summary>
+    /// Loads MAME Software List style artwork panels.
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <param name="extraPath">The path to the artwork assets.</param>
     private void LoadMameSLPannels(RvFile tGame, string extraPath)
     {
         string[] path = extraPath.Split('\\');
@@ -486,6 +549,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Loads TruRip specific artwork panels.
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
     private void LoadTruRipPannel(RvFile tGame)
     {
         bool artLoaded = TryLoadImage(picArtwork, tGame, "Artwork/artwork_front");
@@ -510,6 +577,11 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Loads C64 specific artwork panels (Front, Cassette, Inlay).
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <returns>True if any artwork was loaded.</returns>
     private bool LoadC64Pannel(RvFile tGame)
     {
         bool artLoaded = TryLoadImage(picArtwork, tGame, "Front");
@@ -528,6 +600,11 @@ public partial class MainWindow : Window
         return false;
     }
 
+    /// <summary>
+    /// Loads NFO and DIZ files for display.
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <returns>True if any text file was loaded.</returns>
     private bool LoadNFOPannel(RvFile tGame)
     {
         bool storyLoaded = LoadNFO(txtInfo, tGame, "*.nfo");
@@ -554,11 +631,17 @@ public partial class MainWindow : Window
 
     // --- Helpers ---
 
+    /// <summary>
+    /// Tries to load an image with .png or .jpg extension.
+    /// </summary>
     private bool TryLoadImage(global::Avalonia.Controls.Image pic, RvFile tGame, string filename)
     {
         return LoadImage(pic, tGame, filename + ".png") || LoadImage(pic, tGame, filename + ".jpg");
     }
 
+    /// <summary>
+    /// Loads an image from a file or zip entry into an Image control.
+    /// </summary>
     private bool LoadImage(global::Avalonia.Controls.Image picBox, RvFile tGame, string filename)
     {
         picBox.Source = null;
@@ -579,6 +662,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Loads text from a file or zip entry into a TextBox.
+    /// </summary>
     private bool LoadText(TextBox txtBox, RvFile tGame, string filename)
     {
         txtBox.Text = "";
@@ -595,6 +681,9 @@ public partial class MainWindow : Window
         catch { return false; }
     }
 
+    /// <summary>
+    /// Loads NFO text, attempting to handle CodePage 437 or ASCII.
+    /// </summary>
     private bool LoadNFO(TextBox txtBox, RvFile tGame, string search)
     {
         if (!LoadBytes(tGame, search, out byte[] memBuffer))
@@ -623,6 +712,9 @@ public partial class MainWindow : Window
         catch { return false; }
     }
 
+    /// <summary>
+    /// Converts a wildcard pattern to a regex.
+    /// </summary>
     private static Regex WildcardToRegex(string pattern)
     {
         if (pattern.ToLower().StartsWith("regex:"))
@@ -633,6 +725,9 @@ public partial class MainWindow : Window
         Replace("\\?", ".") + "$", RegexOptions.IgnoreCase);
     }
 
+    /// <summary>
+    /// Loads bytes from a file or a zip entry matching the filename pattern.
+    /// </summary>
     private static bool LoadBytes(RvFile tGame, string filename, out byte[] memBuffer)
     {
         memBuffer = Array.Empty<byte>();
@@ -717,11 +812,15 @@ public partial class MainWindow : Window
         }
         catch (Exception e)
         {
-            Console.WriteLine(e);
+            Debug.WriteLine(e);
             return false;
         }
     }
 
+    /// <summary>
+    /// Updates the ROM Grid (list of individual ROMs inside a game) for the selected game.
+    /// </summary>
+    /// <param name="tGame">The selected game file.</param>
     private void UpdateRomGrid(RvFile tGame)
     {
         var fileList = new List<RvFile>();
@@ -729,6 +828,12 @@ public partial class MainWindow : Window
         RomGrid.ItemsSource = fileList;
     }
 
+    /// <summary>
+    /// Recursively adds files from a directory to the file list for the ROM Grid.
+    /// </summary>
+    /// <param name="tGame">The current directory to process.</param>
+    /// <param name="pathAdd">The path prefix to add to file names.</param>
+    /// <param name="fileList">The list to populate.</param>
     private void AddDir(RvFile tGame, string pathAdd, ref List<RvFile> fileList)
     {
         if (tGame == null) return;
@@ -759,6 +864,12 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    /// <summary>
+    /// Adds a single ROM file to the file list if it meets the display criteria.
+    /// </summary>
+    /// <param name="tFile">The file to add.</param>
+    /// <param name="pathAdd">The path prefix.</param>
+    /// <param name="fileList">The list to populate.</param>
     private void AddRom(RvFile tFile, string pathAdd, ref List<RvFile> fileList)
     {
         try
@@ -774,6 +885,10 @@ public partial class MainWindow : Window
     }
 
     // Context Menu Handlers
+    
+    /// <summary>
+    /// Handles the "Scan" context menu click on the tree.
+    /// </summary>
     private void OnTreeScanClick(object? sender, RoutedEventArgs e)
     {
         if (_working) return;
@@ -787,6 +902,10 @@ public partial class MainWindow : Window
         ScanRoms(scanLevel, rvTree?.Selected);
     }
 
+    /// <summary>
+    /// Handles the "Set Dir Dat Settings" context menu click.
+    /// Opens the directory settings window.
+    /// </summary>
     private async void OnSetDirDatSettingsClick(object? sender, RoutedEventArgs e) 
     {
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -804,6 +923,11 @@ public partial class MainWindow : Window
              }
         }
     }
+
+    /// <summary>
+    /// Handles the "Set Dir Mappings" context menu click.
+    /// Opens the directory mappings window for a specific directory.
+    /// </summary>
     private async void OnSetDirMappingsClick(object? sender, RoutedEventArgs e) 
     {
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -817,6 +941,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles the "Global Dir Mappings" menu click.
+    /// Opens the global directory mappings window.
+    /// </summary>
     private async void OnGlobalDirMappingsClick(object? sender, RoutedEventArgs e)
     {
          if (_working) return;
@@ -825,6 +953,10 @@ public partial class MainWindow : Window
          await win.ShowDialog(this);
     }
 
+    /// <summary>
+    /// Handles the "Open Directory" context menu click.
+    /// Opens the selected directory in the OS file explorer.
+    /// </summary>
     private void OnOpenDirectoryClick(object? sender, RoutedEventArgs e) 
     {
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -846,6 +978,11 @@ public partial class MainWindow : Window
              }
         }
     }
+
+    /// <summary>
+    /// Handles the "Save Fix DATs" context menu click.
+    /// Generates fix DATs for the selected directory.
+    /// </summary>
     private async void OnSaveFixDatsClick(object? sender, RoutedEventArgs e) 
     {
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -855,6 +992,11 @@ public partial class MainWindow : Window
              await Code.Report.CreateFixDat(this, selected, true);
         }
     }
+
+    /// <summary>
+    /// Handles the "Save Full DAT" context menu click.
+    /// Saves the DAT file to disk.
+    /// </summary>
     private async void OnSaveFullDatClick(object? sender, RoutedEventArgs e) 
     {
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -885,6 +1027,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles the pointer press event on the instance count text block.
+    /// Shows the ROM Info window for the selected file.
+    /// </summary>
     private void OnInstanceCountPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var textBlock = sender as TextBlock;
@@ -898,6 +1044,9 @@ public partial class MainWindow : Window
     }
 
 
+    /// <summary>
+    /// Handles the "Scan" context menu click on the Game Grid.
+    /// </summary>
     private void OnGameGridScanClick(object? sender, RoutedEventArgs e)
     {
         if (_working) return;
@@ -917,6 +1066,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Handles the "Open Directory" context menu click on the Game Grid.
+    /// Opens the directory or zip file location in the OS file explorer.
+    /// </summary>
     private void OnGameGridOpenDirClick(object? sender, RoutedEventArgs e) 
     { 
         if (GameGrid.SelectedItem is RvFile thisFile)
@@ -955,6 +1108,10 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    /// <summary>
+    /// Handles the "Open Parent Directory" context menu click on the Game Grid.
+    /// </summary>
     private void OnGameGridOpenParentClick(object? sender, RoutedEventArgs e) 
     { 
         if (GameGrid.SelectedItem is RvFile thisFile)
@@ -978,6 +1135,10 @@ public partial class MainWindow : Window
             }
         }
     }
+
+    /// <summary>
+    /// Handles the "Launch Emulator" context menu click.
+    /// </summary>
     private void OnLaunchEmulatorClick(object? sender, RoutedEventArgs e) 
     { 
         if (GameGrid.SelectedItem is RvFile tGame)
@@ -985,6 +1146,11 @@ public partial class MainWindow : Window
             LaunchEmulator(tGame);
         }
     }
+
+    /// <summary>
+    /// Handles the "Open Web Page" context menu click.
+    /// Opens the No-Intro or Redump page for the game if available.
+    /// </summary>
     private void OnOpenWebPageClick(object? sender, RoutedEventArgs e) 
     { 
         if (GameGrid.SelectedItem is RvFile thisGame)
@@ -1006,12 +1172,20 @@ public partial class MainWindow : Window
     }
 
     // Main Menu / Toolbar Handlers
+    
+    /// <summary>
+    /// Handles the "Update New DATs" menu click.
+    /// </summary>
     private void OnUpdateNewDatsClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         UpdateDats();
     }
 
+    /// <summary>
+    /// Handles the "Update All DATs" menu click.
+    /// Checks for changes in all DATs and updates the database.
+    /// </summary>
     private void OnUpdateAllDatsClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
@@ -1019,6 +1193,9 @@ public partial class MainWindow : Window
         UpdateDats();
     }
 
+    /// <summary>
+    /// Handles the "Scan ROMs" menu click.
+    /// </summary>
     private void OnScanRomsClick(object? sender, RoutedEventArgs e) 
     {
          if (_working) return;
@@ -1029,24 +1206,39 @@ public partial class MainWindow : Window
         }
         ScanRoms(scanLevel);
     }
+
     private void OnFixRomsClick(object? sender, RoutedEventArgs e) { }
+    
+    /// <summary>
+    /// Handles the "Fix DAT Report" menu click.
+    /// </summary>
     private async void OnFixDatReportClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         await Code.Report.CreateFixDat(this, DB.DirRoot.Child(0), true);
     }
     
+    /// <summary>
+    /// Handles the "Generate Full Report" menu click.
+    /// </summary>
     private async void OnFullReportClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         await Code.Report.GenerateReport(this);
     }
     
+    /// <summary>
+    /// Handles the "Generate Fix Report" menu click.
+    /// </summary>
     private async void OnFixReportClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         await Code.Report.GenerateFixReport(this);
     }
+    
+    /// <summary>
+    /// Handles the "Global Dir Dat Settings" menu click.
+    /// </summary>
     private async void OnGlobalDirDatSettingsClick(object? sender, RoutedEventArgs e)
     {
          if (_working) return;
@@ -1061,12 +1253,20 @@ public partial class MainWindow : Window
          }
     }
 
+    /// <summary>
+    /// Handles the "Settings" menu click.
+    /// </summary>
     private async void OnRomVaultSettingsClick(object? sender, RoutedEventArgs e)
     {
         if (_working) return;
         var win = new Views.SettingsWindow();
         await win.ShowDialog(this);
     }
+
+    /// <summary>
+    /// Handles the "Add To Sort" menu click.
+    /// Adds a new directory to be sorted into the database.
+    /// </summary>
     private async void OnAddToSortClick(object? sender, RoutedEventArgs e)
     {
         if (_working) return;
@@ -1109,53 +1309,90 @@ public partial class MainWindow : Window
         DatSetSelected(ts);
         DB.Write();
     }
+
+    /// <summary>
+    /// Shows the TorrentZip help window.
+    /// </summary>
     private void OnHelpTorrentZipClick(object? sender, RoutedEventArgs e) 
     {
         var win = new Views.TrrntZipWindow();
         win.Show();
     }
+
+    /// <summary>
+    /// Opens the online Wiki.
+    /// </summary>
     private void OnHelpWikiClick(object? sender, RoutedEventArgs e) 
     {
         try { Process.Start(new ProcessStartInfo { FileName = "https://wiki.romvault.com/doku.php?id=help", UseShellExecute = true }); } catch { }
     }
+
+    /// <summary>
+    /// Shows the Color Key window.
+    /// </summary>
     private void OnHelpColorKeyClick(object? sender, RoutedEventArgs e) 
     {
         var win = new Views.KeyWindow();
         win.Show(this);
     }
+
+    /// <summary>
+    /// Opens the What's New online page.
+    /// </summary>
     private void OnHelpWhatsNewClick(object? sender, RoutedEventArgs e) 
     {
         try { Process.Start(new ProcessStartInfo { FileName = "https://wiki.romvault.com/doku.php?id=whats_new", UseShellExecute = true }); } catch { }
     }
+
+    /// <summary>
+    /// Shows the About window.
+    /// </summary>
     private void OnHelpAboutClick(object? sender, RoutedEventArgs e) 
     {
         var win = new Views.HelpAboutWindow();
         win.ShowDialog(this);
     }
 
+    /// <summary>
+    /// Handles the "Update DATs" toolbar button click.
+    /// </summary>
     private void OnUpdateDatsClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         UpdateDats();
     }
 
+    /// <summary>
+    /// Handles the "Find Fixes" toolbar button click.
+    /// </summary>
     private void OnFindFixesClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         FindFixes();
     }
     
+    /// <summary>
+    /// Handles the "Fix Files" toolbar button click.
+    /// </summary>
     private void OnFixFilesClick(object? sender, RoutedEventArgs e) 
     {
          if (_working) return;
          FixFiles();
     }
+
+    /// <summary>
+    /// Handles the "Report" toolbar button click.
+    /// </summary>
     private async void OnReportClick(object? sender, RoutedEventArgs e) 
     {
         if (_working) return;
         await Code.Report.CreateFixDat(this, DB.DirRoot.Child(0), true);
     }
 
+    /// <summary>
+    /// Launches the configured emulator for the selected game.
+    /// </summary>
+    /// <param name="tGame">The game file to launch.</param>
     private void LaunchEmulator(RvFile tGame)
     {
         EmulatorInfo? ei = FindEmulatorInfo(tGame);
@@ -1188,6 +1425,11 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Finds the configured emulator information for a given game path.
+    /// </summary>
+    /// <param name="tGame">The game file.</param>
+    /// <returns>The <see cref="EmulatorInfo"/> if found, otherwise null.</returns>
     private EmulatorInfo? FindEmulatorInfo(RvFile tGame)
     {
         string path = tGame.Parent.DatTreeFullName;
@@ -1215,6 +1457,9 @@ public partial class MainWindow : Window
 
     // Worker Functions
 
+    /// <summary>
+    /// Sets the UI to a "Working" state (busy cursor, disabled controls).
+    /// </summary>
     private void Start()
     {
         _working = true;
@@ -1223,6 +1468,9 @@ public partial class MainWindow : Window
         if (rvTree != null) rvTree.Working = true;
     }
 
+    /// <summary>
+    /// Resets the UI from a "Working" state.
+    /// </summary>
     private void Finish()
     {
         _working = false;
@@ -1235,6 +1483,11 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Starts the ROM scanning process in a background thread.
+    /// </summary>
+    /// <param name="sd">The scan level (depth).</param>
+    /// <param name="StartAt">The file/directory to start scanning from. If null, scans everything.</param>
     public void ScanRoms(EScanLevel sd, RvFile? StartAt = null)
     {
         FileScanning.StartAt = StartAt;
@@ -1264,6 +1517,10 @@ public partial class MainWindow : Window
         });
     }
 
+    /// <summary>
+    /// Starts the DAT update process in a background thread.
+    /// Updates the internal database from DAT files.
+    /// </summary>
     public void UpdateDats()
     {
         // Preserve selection
@@ -1312,6 +1569,9 @@ public partial class MainWindow : Window
         thWrk.StartAsync();
     }
 
+    /// <summary>
+    /// Starts the process to find fixes for missing/broken ROMs.
+    /// </summary>
     public void FindFixes()
     {
         Start();
@@ -1325,6 +1585,9 @@ public partial class MainWindow : Window
         thWrk.StartAsync();
     }
 
+    /// <summary>
+    /// Starts the process to apply fixes (move/rename/copy files).
+    /// </summary>
     public void FixFiles()
     {
         Start();

@@ -9,14 +9,36 @@ using RomVaultCore.RvDB;
 
 namespace ROMVault.Avalonia.Converters
 {
+    /// <summary>
+    /// Represents a single status item to be displayed (Icon + Count).
+    /// </summary>
     public class GameStatusItem
     {
+        /// <summary>
+        /// The icon representing the status.
+        /// </summary>
         public Bitmap? Icon { get; set; }
+
+        /// <summary>
+        /// The count of items with this status.
+        /// </summary>
         public int Count { get; set; }
     }
 
+    /// <summary>
+    /// Converts an RvFile (Directory) into a list of GameStatusItems for display in the UI.
+    /// Used to show icons and counts for missing, correct, corrupt, etc. items.
+    /// </summary>
     public class GameStatusDisplayConverter : IValueConverter
     {
+        /// <summary>
+        /// Converts the value.
+        /// </summary>
+        /// <param name="value">The value to convert (RvFile).</param>
+        /// <param name="targetType">The type of the target.</param>
+        /// <param name="parameter">The parameter.</param>
+        /// <param name="culture">The culture info.</param>
+        /// <returns>A list of <see cref="GameStatusItem"/>.</returns>
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is RvFile tRvDir)
@@ -84,6 +106,9 @@ namespace ROMVault.Avalonia.Converters
             return null;
         }
 
+        /// <summary>
+        /// Converts the value back. Not implemented.
+        /// </summary>
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             throw new NotImplementedException();

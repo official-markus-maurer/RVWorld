@@ -10,125 +10,147 @@ using System.Collections.Generic;
 
 namespace ROMVault.Avalonia.Views;
 
-public partial class SettingsWindow : Window
-{
-    public SettingsWindow()
+/// <summary>
+    /// Window for configuring global application settings.
+    /// Handles DAT root location, fix levels, file ignore rules, and other preferences.
+    /// </summary>
+    public partial class SettingsWindow : Window
     {
-        InitializeComponent();
-        InitializeControls();
-        LoadSettings();
-    }
-
-    private void InitializeControls()
-    {
-        cboFixLevel.Items.Add("Level 1 - Fast copy Match on CRC");
-        cboFixLevel.Items.Add("Level 2 - Fast copy if SHA1 scanned");
-        cboFixLevel.Items.Add("Level 3 - Uncompress/Hash/Compress");
-
-        cboCores.Items.Add("Auto");
-        for (int i = 1; i <= 64; i++)
-            cboCores.Items.Add(i.ToString());
-
-        cbo7zStruct.Items.Add("LZMA Solid - rv7z");
-        cbo7zStruct.Items.Add("LZMA Non-Solid");
-        cbo7zStruct.Items.Add("ZSTD Solid");
-        cbo7zStruct.Items.Add("ZSTD Non-Solid");
-
-        chkSendFoundMIA.Click += (s, e) => chkSendFoundMIAAnon.IsEnabled = chkSendFoundMIA.IsChecked == true;
-        
-        btnDAT.Click += BtnDatClick;
-        btnOK.Click += BtnOkClick;
-        btnCancel.Click += BtnCancelClick;
-    }
-
-    private void LoadSettings()
-    {
-        lblDATRoot.Text = Settings.rvSettings.DatRoot;
-        cboFixLevel.SelectedIndex = (int)Settings.rvSettings.FixLevel;
-
-        textBox1.Text = "";
-        foreach (string file in Settings.rvSettings.IgnoreFiles)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SettingsWindow"/> class.
+        /// </summary>
+        public SettingsWindow()
         {
-            textBox1.Text += file + Environment.NewLine;
+            InitializeComponent();
+            InitializeControls();
+            LoadSettings();
         }
-        chkSendFoundMIA.IsChecked = Settings.rvSettings.MIACallback;
-        chkSendFoundMIAAnon.IsChecked = Settings.rvSettings.MIAAnon;
-        chkSendFoundMIAAnon.IsEnabled = Settings.rvSettings.MIACallback;
 
-        chkDetailedReporting.IsChecked = Settings.rvSettings.DetailedFixReporting;
-        chkDoubleCheckDelete.IsChecked = Settings.rvSettings.DoubleCheckDelete;
-        chkCacheSaveTimer.IsChecked = Settings.rvSettings.CacheSaveTimerEnabled;
-        upTime.Value = Settings.rvSettings.CacheSaveTimePeriod;
-        chkDebugLogs.IsChecked = Settings.rvSettings.DebugLogsEnabled;
-        chkDeleteOldCueFiles.IsChecked = Settings.rvSettings.DeleteOldCueFiles;
-        
-        cboCores.SelectedIndex = Settings.rvSettings.zstdCompCount >= cboCores.ItemCount ? 0 : Settings.rvSettings.zstdCompCount;
-        cbo7zStruct.SelectedIndex = Settings.rvSettings.sevenZDefaultStruct;
-        chkDarkMode.IsChecked = Settings.rvSettings.Darkness;
-        chkDoNotReportFeedback.IsChecked = Settings.rvSettings.DoNotReportFeedback;
-    }
-
-    private async void BtnDatClick(object? sender, RoutedEventArgs e)
-    {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
-
-        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        /// <summary>
+        /// Sets up the dropdown items and event handlers.
+        /// </summary>
+        private void InitializeControls()
         {
-            Title = "Select a folder for DAT Root",
-            AllowMultiple = false
-        });
+            cboFixLevel.Items.Add("Level 1 - Fast copy Match on CRC");
+            cboFixLevel.Items.Add("Level 2 - Fast copy if SHA1 scanned");
+            cboFixLevel.Items.Add("Level 3 - Uncompress/Hash/Compress");
 
-        if (folders.Count == 0) return;
+            cboCores.Items.Add("Auto");
+            for (int i = 1; i <= 64; i++)
+                cboCores.Items.Add(i.ToString());
 
-        string selectedPath = folders[0].Path.LocalPath;
-        lblDATRoot.Text = RelativePath.MakeRelative(AppDomain.CurrentDomain.BaseDirectory, selectedPath);
-    }
+            cbo7zStruct.Items.Add("LZMA Solid - rv7z");
+            cbo7zStruct.Items.Add("LZMA Non-Solid");
+            cbo7zStruct.Items.Add("ZSTD Solid");
+            cbo7zStruct.Items.Add("ZSTD Non-Solid");
 
-    private void BtnOkClick(object? sender, RoutedEventArgs e)
-    {
-        Settings.rvSettings.DatRoot = lblDATRoot.Text;
-        Settings.rvSettings.FixLevel = (EFixLevel)cboFixLevel.SelectedIndex;
-        
-        string strtxt = textBox1.Text ?? "";
-        strtxt = strtxt.Replace("\r", "");
-        string[] strsplit = strtxt.Split('\n');
+            chkSendFoundMIA.Click += (s, e) => chkSendFoundMIAAnon.IsEnabled = chkSendFoundMIA.IsChecked == true;
+            
+            btnDAT.Click += BtnDatClick;
+            btnOK.Click += BtnOkClick;
+            btnCancel.Click += BtnCancelClick;
+        }
 
-        Settings.rvSettings.IgnoreFiles = new List<string>(strsplit);
-        for (int i = 0; i < Settings.rvSettings.IgnoreFiles.Count; i++)
+        /// <summary>
+        /// Loads the current settings into the UI controls.
+        /// </summary>
+        private void LoadSettings()
         {
-            Settings.rvSettings.IgnoreFiles[i] = Settings.rvSettings.IgnoreFiles[i].Trim();
-            if (string.IsNullOrEmpty(Settings.rvSettings.IgnoreFiles[i]))
+            lblDATRoot.Text = Settings.rvSettings.DatRoot;
+            cboFixLevel.SelectedIndex = (int)Settings.rvSettings.FixLevel;
+
+            textBox1.Text = "";
+            foreach (string file in Settings.rvSettings.IgnoreFiles)
             {
-                Settings.rvSettings.IgnoreFiles.RemoveAt(i);
-                i--;
+                textBox1.Text += file + Environment.NewLine;
             }
+            chkSendFoundMIA.IsChecked = Settings.rvSettings.MIACallback;
+            chkSendFoundMIAAnon.IsChecked = Settings.rvSettings.MIAAnon;
+            chkSendFoundMIAAnon.IsEnabled = Settings.rvSettings.MIACallback;
+
+            chkDetailedReporting.IsChecked = Settings.rvSettings.DetailedFixReporting;
+            chkDoubleCheckDelete.IsChecked = Settings.rvSettings.DoubleCheckDelete;
+            chkCacheSaveTimer.IsChecked = Settings.rvSettings.CacheSaveTimerEnabled;
+            upTime.Value = Settings.rvSettings.CacheSaveTimePeriod;
+            chkDebugLogs.IsChecked = Settings.rvSettings.DebugLogsEnabled;
+            chkDeleteOldCueFiles.IsChecked = Settings.rvSettings.DeleteOldCueFiles;
+            
+            cboCores.SelectedIndex = Settings.rvSettings.zstdCompCount >= cboCores.ItemCount ? 0 : Settings.rvSettings.zstdCompCount;
+            cbo7zStruct.SelectedIndex = Settings.rvSettings.sevenZDefaultStruct;
+            chkDarkMode.IsChecked = Settings.rvSettings.Darkness;
+            chkDoNotReportFeedback.IsChecked = Settings.rvSettings.DoNotReportFeedback;
         }
-        Settings.rvSettings.SetRegExRules();
 
-        Settings.rvSettings.DetailedFixReporting = chkDetailedReporting.IsChecked == true;
-        Settings.rvSettings.DoubleCheckDelete = chkDoubleCheckDelete.IsChecked == true;
-        Settings.rvSettings.DebugLogsEnabled = chkDebugLogs.IsChecked == true;
-        Settings.rvSettings.CacheSaveTimerEnabled = chkCacheSaveTimer.IsChecked == true;
-        Settings.rvSettings.CacheSaveTimePeriod = (int)(upTime.Value ?? 10);
+        /// <summary>
+        /// Opens a folder picker to select the DAT root directory.
+        /// </summary>
+        private async void BtnDatClick(object? sender, RoutedEventArgs e)
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
 
-        Settings.rvSettings.MIACallback = chkSendFoundMIA.IsChecked == true;
-        Settings.rvSettings.MIAAnon = chkSendFoundMIAAnon.IsChecked == true;
-        Settings.rvSettings.DeleteOldCueFiles = chkDeleteOldCueFiles.IsChecked == true;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select a folder for DAT Root",
+                AllowMultiple = false
+            });
 
-        Settings.rvSettings.zstdCompCount = cboCores.SelectedIndex;
+            if (folders.Count == 0) return;
 
-        Settings.rvSettings.sevenZDefaultStruct = cbo7zStruct.SelectedIndex;
-        Settings.rvSettings.Darkness = chkDarkMode.IsChecked == true;
+            string selectedPath = folders[0].Path.LocalPath;
+            lblDATRoot.Text = RelativePath.MakeRelative(AppDomain.CurrentDomain.BaseDirectory, selectedPath);
+        }
 
-        Settings.rvSettings.DoNotReportFeedback = chkDoNotReportFeedback.IsChecked == true;
+        /// <summary>
+        /// Saves the settings and closes the window.
+        /// </summary>
+        private void BtnOkClick(object? sender, RoutedEventArgs e)
+        {
+            Settings.rvSettings.DatRoot = lblDATRoot.Text;
+            Settings.rvSettings.FixLevel = (EFixLevel)cboFixLevel.SelectedIndex;
+            
+            string strtxt = textBox1.Text ?? "";
+            strtxt = strtxt.Replace("\r", "");
+            string[] strsplit = strtxt.Split('\n');
 
-        Settings.WriteConfig(Settings.rvSettings);
-        Close();
+            Settings.rvSettings.IgnoreFiles = new List<string>(strsplit);
+            for (int i = 0; i < Settings.rvSettings.IgnoreFiles.Count; i++)
+            {
+                Settings.rvSettings.IgnoreFiles[i] = Settings.rvSettings.IgnoreFiles[i].Trim();
+                if (string.IsNullOrEmpty(Settings.rvSettings.IgnoreFiles[i]))
+                {
+                    Settings.rvSettings.IgnoreFiles.RemoveAt(i);
+                    i--;
+                }
+            }
+            Settings.rvSettings.SetRegExRules();
+
+            Settings.rvSettings.DetailedFixReporting = chkDetailedReporting.IsChecked == true;
+            Settings.rvSettings.DoubleCheckDelete = chkDoubleCheckDelete.IsChecked == true;
+            Settings.rvSettings.DebugLogsEnabled = chkDebugLogs.IsChecked == true;
+            Settings.rvSettings.CacheSaveTimerEnabled = chkCacheSaveTimer.IsChecked == true;
+            Settings.rvSettings.CacheSaveTimePeriod = (int)(upTime.Value ?? 10);
+
+            Settings.rvSettings.MIACallback = chkSendFoundMIA.IsChecked == true;
+            Settings.rvSettings.MIAAnon = chkSendFoundMIAAnon.IsChecked == true;
+            Settings.rvSettings.DeleteOldCueFiles = chkDeleteOldCueFiles.IsChecked == true;
+
+            Settings.rvSettings.zstdCompCount = cboCores.SelectedIndex;
+
+            Settings.rvSettings.sevenZDefaultStruct = cbo7zStruct.SelectedIndex;
+            Settings.rvSettings.Darkness = chkDarkMode.IsChecked == true;
+
+            Settings.rvSettings.DoNotReportFeedback = chkDoNotReportFeedback.IsChecked == true;
+
+            Settings.WriteConfig(Settings.rvSettings);
+            Close();
+        }
+
+        /// <summary>
+        /// Closes the window without saving changes.
+        /// </summary>
+        private void BtnCancelClick(object? sender, RoutedEventArgs e)
+        {
+            Close();
+        }
     }
-
-    private void BtnCancelClick(object? sender, RoutedEventArgs e)
-    {
-        Close();
-    }
-}

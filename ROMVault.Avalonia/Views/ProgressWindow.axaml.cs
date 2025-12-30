@@ -10,6 +10,9 @@ using System.Collections.ObjectModel;
 
 namespace ROMVault.Avalonia.Views
 {
+    /// <summary>
+    /// A window for displaying the progress of background operations (scanning, updating, fixing).
+    /// </summary>
     public partial class ProgressWindow : Window
     {
         private ThreadWorker? _thWrk;
@@ -21,12 +24,18 @@ namespace ROMVault.Avalonia.Views
         private bool _errorOpen = false;
         private ObservableCollection<LogEntry> _logEntries;
 
+        /// <summary>
+        /// Represents a log entry in the error/log grid.
+        /// </summary>
         public class LogEntry
         {
             public string? Time { get; set; }
             public string? Log { get; set; }
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ProgressWindow"/> class.
+        /// </summary>
         public ProgressWindow()
         {
             InitializeComponent();
@@ -35,6 +44,10 @@ namespace ROMVault.Avalonia.Views
             if (errorGrid != null) errorGrid.ItemsSource = _logEntries;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ProgressWindow"/> class with a background worker.
+        /// </summary>
+        /// <param name="thWrk">The worker thread instance.</param>
         public ProgressWindow(ThreadWorker thWrk) : this()
         {
             _thWrk = thWrk;
@@ -52,6 +65,10 @@ namespace ROMVault.Avalonia.Views
             AvaloniaXamlLoader.Load(this);
         }
 
+        /// <summary>
+        /// Handles the window closing event.
+        /// Prevents closing if the background worker is still running, unless explicitly cancelled.
+        /// </summary>
         private void ProgressWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
             if (!_isClosing && _thWrk != null && !_thWrk.Finished)
@@ -63,17 +80,21 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Handles the Cancel button click.
+        /// Cancels the background operation or closes the window if finished.
+        /// </summary>
         private void OnCancelClick(object sender, RoutedEventArgs e)
         {
-             var btnCancel = this.FindControl<Button>("btnCancel");
-             if (_isClosing || (btnCancel != null && btnCancel.Content?.ToString() == "Close"))
-             {
-                 _isClosing = true;
-                 Close();
-                 return;
-             }
+            var btnCancel = this.FindControl<Button>("btnCancel");
+            if (_isClosing || (btnCancel != null && btnCancel.Content?.ToString() == "Close"))
+            {
+                _isClosing = true;
+                Close();
+                return;
+            }
 
-             if (_thWrk != null && !_thWrk.Finished)
+            if (_thWrk != null && !_thWrk.Finished)
             {
                 _thWrk.Cancel();
                 if (btnCancel != null) btnCancel.IsEnabled = false;
@@ -85,6 +106,11 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Updates the UI based on progress reports from the background worker.
+        /// Handles progress bars, status text, and error logging.
+        /// </summary>
+        /// <param name="obj">The progress object sent by the worker.</param>
         private void BgwProgressChanged(object obj)
         {
             Dispatcher.UIThread.Post(() =>
@@ -180,6 +206,10 @@ namespace ROMVault.Avalonia.Views
             });
         }
 
+        /// <summary>
+        /// Logs a timed message to the error/log grid.
+        /// </summary>
+        /// <param name="message">The message to log.</param>
         private void TimeLogShow(string message)
         {
             var errorGrid = this.FindControl<DataGrid>("ErrorGrid");
@@ -206,6 +236,10 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Handles the completion of the background worker.
+        /// Changes the Cancel button to "Close" and enables closing the window.
+        /// </summary>
         private void BgwRunWorkerCompleted()
         {
             Dispatcher.UIThread.Post(() =>

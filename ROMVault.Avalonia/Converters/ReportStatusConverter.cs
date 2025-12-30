@@ -9,8 +9,16 @@ using RomVaultCore;
 
 namespace ROMVault.Avalonia.Converters
 {
+    /// <summary>
+    /// Converts a Report Status (RepStatus) to a background Brush color.
+    /// </summary>
     public class ReportStatusToBrushConverter : IValueConverter
     {
+        /// <summary>
+        /// Dims the color if dark mode is enabled.
+        /// </summary>
+        /// <param name="c">The color to adjust.</param>
+        /// <returns>The adjusted color.</returns>
         private static Color Down(Color c)
         {
             if (Settings.rvSettings.Darkness)
@@ -23,6 +31,14 @@ namespace ROMVault.Avalonia.Converters
             return c;
         }
 
+        /// <summary>
+        /// Converts a RepStatus to a SolidColorBrush.
+        /// </summary>
+        /// <param name="value">The value to convert.</param>
+        /// <param name="targetType">The target type.</param>
+        /// <param name="parameter">The parameter.</param>
+        /// <param name="culture">The culture info.</param>
+        /// <returns>A SolidColorBrush corresponding to the status.</returns>
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is RepStatus status)
@@ -42,8 +58,19 @@ namespace ROMVault.Avalonia.Converters
         }
     }
 
+    /// <summary>
+    /// Converts a Report Status (RepStatus) to a foreground Brush color (text color).
+    /// </summary>
     public class ReportStatusToForegroundConverter : IValueConverter
     {
+        /// <summary>
+        /// Converts a RepStatus to a SolidColorBrush for text.
+        /// </summary>
+        /// <param name="value">The value to convert.</param>
+        /// <param name="targetType">The target type.</param>
+        /// <param name="parameter">The parameter.</param>
+        /// <param name="culture">The culture info.</param>
+        /// <returns>A SolidColorBrush for the text.</returns>
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is RepStatus status)

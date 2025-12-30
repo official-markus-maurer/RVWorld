@@ -8,8 +8,15 @@ using System.Reflection;
 
 namespace ROMVault.Avalonia.Views
 {
+    /// <summary>
+    /// Window that displays application version information and links to the website and donation page.
+    /// </summary>
     public partial class HelpAboutWindow : Window
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="HelpAboutWindow"/> class.
+        /// Sets the window title and version label.
+        /// </summary>
         public HelpAboutWindow()
         {
             InitializeComponent();
@@ -28,6 +35,10 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Handles click on the website link.
+        /// Opens the ROMVault website in the default browser.
+        /// </summary>
         private void Website_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             try 
@@ -41,6 +52,10 @@ namespace ROMVault.Avalonia.Views
             catch { }
         }
 
+        /// <summary>
+        /// Handles click on the PayPal link.
+        /// Opens the PayPal donation page in the default browser.
+        /// </summary>
         private void PayPal_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             try 

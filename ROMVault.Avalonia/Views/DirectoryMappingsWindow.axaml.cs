@@ -15,6 +15,9 @@ using System.Linq;
 
 namespace ROMVault.Avalonia.Views
 {
+    /// <summary>
+    /// Window for managing directory mappings (where ROMs are stored on disk vs where they appear in the tree).
+    /// </summary>
     public partial class DirectoryMappingsWindow : Window
     {
         private Color _cMagenta = Color.FromRgb(255, 214, 255);
@@ -25,6 +28,9 @@ namespace ROMVault.Avalonia.Views
         private DirMapping _rule = null!;
         private bool _displayType;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DirectoryMappingsWindow"/> class.
+        /// </summary>
         public DirectoryMappingsWindow()
         {
             InitializeComponent();
@@ -65,6 +71,10 @@ namespace ROMVault.Avalonia.Views
             SetDisplay();
         }
 
+        /// <summary>
+        /// Sets the directory location to edit.
+        /// </summary>
+        /// <param name="dLocation">The directory key (tree path).</param>
         public void SetLocation(string dLocation)
         {
             _rule = FindRule(dLocation);
@@ -72,6 +82,10 @@ namespace ROMVault.Avalonia.Views
             UpdateGrid();
         }
 
+        /// <summary>
+        /// Configures the window display mode (Global vs Specific).
+        /// </summary>
+        /// <param name="type">If true, shows specific directory editing mode. If false, shows global mapping list.</param>
         public void SetDisplayType(bool type)
         {
             _displayType = type;
@@ -96,6 +110,9 @@ namespace ROMVault.Avalonia.Views
             CanResize = !type;
         }
 
+        /// <summary>
+        /// Finds an existing mapping rule or creates a new one for the given location.
+        /// </summary>
         private static DirMapping FindRule(string dLocation)
         {
             foreach (DirMapping t in Settings.rvSettings.DirMappings)
@@ -107,6 +124,9 @@ namespace ROMVault.Avalonia.Views
             return new DirMapping { DirKey = dLocation };
         }
 
+        /// <summary>
+        /// Updates the UI text blocks with the current rule values.
+        /// </summary>
         private void SetDisplay()
         {
             var txtDATLocation = this.FindControl<TextBlock>("txtDATLocation");
@@ -116,6 +136,10 @@ namespace ROMVault.Avalonia.Views
             if (txtROMLocation != null) txtROMLocation.Text = _rule.DirPath;
         }
 
+        /// <summary>
+        /// Updates the DataGrid with the list of directory mappings.
+        /// Applies color coding based on mapping status.
+        /// </summary>
         private void UpdateGrid()
         {
             var dgRules = this.FindControl<DataGrid>("DGDirectoryMappingRules");
@@ -151,6 +175,9 @@ namespace ROMVault.Avalonia.Views
             dgRules.ItemsSource = items;
         }
 
+        /// <summary>
+        /// Clears the ROM location for the current rule.
+        /// </summary>
         private void BtnClearROMLocation_Click(object? sender, RoutedEventArgs e)
         {
             var txtROMLocation = this.FindControl<TextBlock>("txtROMLocation");
@@ -171,6 +198,9 @@ namespace ROMVault.Avalonia.Views
             txtROMLocation.Text = null;
         }
 
+        /// <summary>
+        /// Opens a folder picker to set the ROM location.
+        /// </summary>
         private async void BtnSetROMLocationClick(object? sender, RoutedEventArgs e)
         {
             var txtROMLocation = this.FindControl<TextBlock>("txtROMLocation");
@@ -192,6 +222,9 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Applies the changes to the current mapping rule and saves settings.
+        /// </summary>
         private void BtnApplyClick(object? sender, RoutedEventArgs e)
         {
             var txtROMLocation = this.FindControl<TextBlock>("txtROMLocation");
@@ -236,6 +269,9 @@ namespace ROMVault.Avalonia.Views
                 Close();
         }
 
+        /// <summary>
+        /// Deletes the current mapping rule.
+        /// </summary>
         private void BtnDeleteClick(object? sender, RoutedEventArgs e)
         {
             string datLocation = _rule.DirKey;
@@ -263,6 +299,9 @@ namespace ROMVault.Avalonia.Views
             Close();
         }
 
+        /// <summary>
+        /// Deletes selected mapping rules from the grid.
+        /// </summary>
         private void BtnDeleteSelectedClick(object? sender, RoutedEventArgs e)
         {
             var dgRules = this.FindControl<DataGrid>("DGDirectoryMappingRules");
@@ -294,6 +333,9 @@ namespace ROMVault.Avalonia.Views
             UpdateGrid();
         }
 
+        /// <summary>
+        /// Resets all directory mappings to defaults.
+        /// </summary>
         private void BtnResetAllClick(object? sender, RoutedEventArgs e)
         {
             Settings.rvSettings.ResetDirMappings();
@@ -308,6 +350,9 @@ namespace ROMVault.Avalonia.Views
             Close();
         }
 
+        /// <summary>
+        /// Handles double-click on the data grid to edit a rule.
+        /// </summary>
         private void DataGridGamesDoubleClick(object? sender, global::Avalonia.Input.TappedEventArgs e)
         {
             var dgRules = this.FindControl<DataGrid>("DGDirectoryMappingRules");
@@ -323,6 +368,9 @@ namespace ROMVault.Avalonia.Views
         }
     }
 
+    /// <summary>
+    /// ViewModel for displaying directory mappings in the DataGrid.
+    /// </summary>
     public class DirMappingViewModel
     {
         public string DirKey { get; set; }

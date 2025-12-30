@@ -13,6 +13,10 @@ using System.IO;
 
 namespace ROMVault.Avalonia.Views
 {
+    /// <summary>
+    /// A custom tree control for displaying the ROMVault directory structure.
+    /// Handles custom rendering of tree nodes, icons, checkboxes, and expansion logic.
+    /// </summary>
     public class RvTree : Control
     {
         private class UiTree
@@ -30,12 +34,30 @@ namespace ROMVault.Avalonia.Views
         private double _maxWidth;
         private Dictionary<string, Bitmap> _bitmapCache = new Dictionary<string, Bitmap>();
 
+        /// <summary>
+        /// Gets the currently selected file/directory in the tree.
+        /// </summary>
         public RvFile? Selected { get; private set; }
+        
+        /// <summary>
+        /// Indicates if the tree is currently performing a background operation (e.g., scanning).
+        /// </summary>
         public bool Working { get; set; }
 
+        /// <summary>
+        /// Event raised when a node is selected.
+        /// </summary>
         public event EventHandler<RvFile>? RvSelected;
+        
+        /// <summary>
+        /// Event raised when a node's checkbox is toggled.
+        /// </summary>
         public event EventHandler<RvFile>? RvChecked;
 
+        /// <summary>
+        /// Sets the selected node programmatically.
+        /// </summary>
+        /// <param name="selected">The file to select.</param>
         public void SetSelected(RvFile? selected)
         {
             Selected = selected;
@@ -43,6 +65,10 @@ namespace ROMVault.Avalonia.Views
             if (selected != null)
                 RvSelected?.Invoke(this, selected);
         }
+        
+        /// <summary>
+        /// Event raised when a node is right-clicked.
+        /// </summary>
         public event EventHandler<RvFile>? RvRightClicked;
 
         public RvTree()
@@ -196,12 +222,20 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Sets up the tree data structure for rendering.
+        /// Call this when the tree structure changes.
+        /// </summary>
+        /// <param name="dirTree">The root directory.</param>
         public void Setup(RvFile dirTree)
         {
             _lTree = dirTree;
             SetupInt();
         }
 
+        /// <summary>
+        /// Internal method to recalculate the layout of the tree.
+        /// </summary>
         private void SetupInt()
         {
             _yPos = 0;
@@ -224,6 +258,11 @@ namespace ROMVault.Avalonia.Views
             this.InvalidateVisual();
         }
 
+        /// <summary>
+        /// Recursively calculates the layout for a tree node and its children.
+        /// </summary>
+        /// <param name="pTree">The current tree node.</param>
+        /// <param name="pTreeBranches">The string representing the branch structure for this node.</param>
         private void SetupTree(RvFile pTree, string pTreeBranches)
         {
             int nodeDepth = pTreeBranches.Length - 1;
@@ -304,6 +343,10 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Renders the tree control.
+        /// </summary>
+        /// <param name="context">The drawing context.</param>
         public override void Render(DrawingContext context)
         {
             base.Render(context);
@@ -331,6 +374,11 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Paints a single tree node and its visible children.
+        /// </summary>
+        /// <param name="pTree">The tree node to paint.</param>
+        /// <param name="context">The drawing context.</param>
         private void PaintTree(RvFile pTree, DrawingContext context)
         {
             UiTree uTree = (UiTree)pTree.Tree.UiObject;
@@ -475,6 +523,11 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Retrieves a bitmap from the cache or loads it from resources.
+        /// </summary>
+        /// <param name="name">The name of the asset (without extension).</param>
+        /// <returns>The loaded bitmap, or null if not found.</returns>
         private Bitmap? GetBitmap(string name)
         {
             if (_bitmapCache.TryGetValue(name, out var bmp))

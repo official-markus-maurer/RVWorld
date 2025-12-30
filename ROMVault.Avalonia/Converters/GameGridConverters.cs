@@ -9,6 +9,9 @@ using System.Globalization;
 
 namespace ROMVault.Avalonia.Converters;
 
+/// <summary>
+/// Defines color constants and helper methods for the ROMVault UI.
+/// </summary>
 public static class RvColors
 {
     public static readonly Color CBlue = Color.FromRgb(214, 214, 255);
@@ -30,6 +33,11 @@ public static class RvColors
     public static readonly Color COrange = Color.FromRgb(255, 214, 140);
     public static readonly Color CWhite = Color.FromRgb(255, 255, 255);
 
+    /// <summary>
+    /// dims the color if dark mode is enabled.
+    /// </summary>
+    /// <param name="c">The color to dim.</param>
+    /// <returns>The adjusted color.</returns>
     public static Color Down(Color c)
     {
         if (Settings.rvSettings.Darkness)
@@ -102,35 +110,24 @@ public static class RvColors
 
     private static Color Contrasty(Color a)
     {
-        // Simple luminance check
-        // Adjusted threshold to be slightly higher to favor black text on mid-tones
-        // Or ensure white text on very dark backgrounds.
-        // Current: > 128 (0.5) is Black.
-        // If color is very light (e.g. 214, 214, 255 -> 0.85), it returns Black. Correct.
-        // If color is very dark (e.g. 255, 0, 0 -> 0.3), it returns White. Correct.
-        // The issue user reported: "displayed text ... bright".
-        // This implies White text on Light background?
-        // Let's check logic:
-        // (L > 128) ? Black : White
-        // If L is high (bright), we return Black.
-        // If L is low (dark), we return White.
-        // This seems correct for standard luminance.
-        
-        // Wait, if the user sees "no text" and "bright", maybe they are seeing White text on Light background?
-        // That would mean L <= 128 for a light background, which is wrong.
-        
-        // Let's verify standard Rec 601 coefficients:
-        // R*0.299 + G*0.587 + B*0.114
-        
-        // Maybe the user's "bright" means the background is bright pastel, and text is white?
-        // Let's force Black for anything reasonably bright.
-        
+        // Simple luminance check  
         return (a.R * 0.299 + a.G * 0.587 + a.B * 0.114) > 128 ? Colors.Black : Colors.White;
     }
 }
 
+/// <summary>
+/// Converts a file/directory status to a background color for the game grid.
+/// </summary>
 public class GameGridBackgroundConverter : IValueConverter
 {
+    /// <summary>
+    /// Converts the value.
+    /// </summary>
+    /// <param name="value">The RvFile to evaluate.</param>
+    /// <param name="targetType">The target type.</param>
+    /// <param name="parameter">Optional parameter.</param>
+    /// <param name="culture">Culture info.</param>
+    /// <returns>A SolidColorBrush based on the status.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is RvFile tRvDir)
@@ -151,14 +148,28 @@ public class GameGridBackgroundConverter : IValueConverter
         return Brushes.Transparent;
     }
 
+    /// <summary>
+    /// Converts back. Not implemented.
+    /// </summary>
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
 }
 
+/// <summary>
+/// Converts a file/directory status to a foreground (text) color for the game grid.
+/// </summary>
 public class GameGridForegroundConverter : IValueConverter
 {
+    /// <summary>
+    /// Converts the value.
+    /// </summary>
+    /// <param name="value">The RvFile to evaluate.</param>
+    /// <param name="targetType">The target type.</param>
+    /// <param name="parameter">Optional parameter.</param>
+    /// <param name="culture">Culture info.</param>
+    /// <returns>A SolidColorBrush for the text.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is RvFile tRvDir)
@@ -181,6 +192,9 @@ public class GameGridForegroundConverter : IValueConverter
         return null; 
     }
 
+    /// <summary>
+    /// Converts back. Not implemented.
+    /// </summary>
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();

@@ -12,14 +12,26 @@ using System.Collections.Generic;
 
 namespace ROMVault.Avalonia.Views
 {
+    /// <summary>
+    /// A window that displays a legend of the various status icons and colors used in ROMVault.
+    /// Explains what each status means (Correct, Missing, ToSort, etc.).
+    /// </summary>
     public partial class KeyWindow : Window
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyWindow"/> class.
+        /// Populates the key with status icons and descriptions.
+        /// </summary>
         public KeyWindow()
         {
             InitializeComponent();
             LoadKey();
         }
 
+        /// <summary>
+        /// Loads the list of statuses and populates the UI.
+        /// Grouped by Basic, Fix, and Problem statuses.
+        /// </summary>
         private void LoadKey()
         {
             var mainStack = this.FindControl<StackPanel>("MainStackPanel");
@@ -68,6 +80,11 @@ namespace ROMVault.Avalonia.Views
             }
         }
 
+        /// <summary>
+        /// Adds a section label to the stack panel.
+        /// </summary>
+        /// <param name="stack">The parent stack panel.</param>
+        /// <param name="text">The label text.</param>
         private void AddLabel(StackPanel stack, string text)
         {
             stack.Children.Add(new TextBlock
@@ -79,6 +96,11 @@ namespace ROMVault.Avalonia.Views
             });
         }
 
+        /// <summary>
+        /// Adds a status row (icon and description) to the stack panel.
+        /// </summary>
+        /// <param name="stack">The parent stack panel.</param>
+        /// <param name="status">The status to display.</param>
         private void AddRow(StackPanel stack, RepStatus status)
         {
             var grid = new Grid
@@ -140,6 +162,11 @@ namespace ROMVault.Avalonia.Views
             stack.Children.Add(grid);
         }
 
+        /// <summary>
+        /// Gets the descriptive text for a given status.
+        /// </summary>
+        /// <param name="status">The status enum.</param>
+        /// <returns>The description string.</returns>
         private string GetStatusText(RepStatus status)
         {
             switch (status)
