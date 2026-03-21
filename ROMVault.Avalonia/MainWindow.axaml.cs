@@ -43,6 +43,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        if (lblStatusLeft != null) lblStatusLeft.Text = "";
+        if (lblStatusRight != null) lblStatusRight.Text = "";
         
         // Initialize Tree
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
@@ -149,6 +152,11 @@ public partial class MainWindow : Window
     {
         if (cf == null) return;
 
+        if (lblStatusLeft != null)
+        {
+            lblStatusLeft.Text = cf.FullName;
+        }
+
         // Populate Dat Info
         if (cf.Dat != null)
         {
@@ -158,7 +166,6 @@ public partial class MainWindow : Window
             lblDITVersion.Text = cf.Dat.GetData(RvDat.DatData.Version);
             lblDITAuthor.Text = cf.Dat.GetData(RvDat.DatData.Author);
             lblDITDate.Text = cf.Dat.GetData(RvDat.DatData.Date);
-            // lblDITPath.Text = cf.Dat.GetData(RvDat.DatData.RootDir); // Assuming logic
         }
         else
         {
@@ -169,7 +176,6 @@ public partial class MainWindow : Window
             lblDITAuthor.Text = "";
             lblDITDate.Text = "";
         }
-        lblDITPath.Text = cf.FullName;
 
         // Populate Stats
         lblDITRomsGot.Text = cf.DirStatus.CountCorrect().ToString();
@@ -197,6 +203,7 @@ public partial class MainWindow : Window
         
         var gameList = new List<RvFile>();
         string searchLowerCase = txtFilter.Text?.ToLower() ?? "";
+        bool showDescriptionColumn = false;
 
         for (int j = 0; j < _gameGridSource.ChildCount; j++)
         {
@@ -205,6 +212,15 @@ public partial class MainWindow : Window
 
             if (searchLowerCase.Length > 0 && !tChildDir.Name.ToLower().Contains(searchLowerCase))
                 continue;
+
+            if (!showDescriptionColumn && tChildDir.Game != null)
+            {
+                string desc = tChildDir.Game.GetData(RvGame.GameData.Description);
+                if (!string.IsNullOrWhiteSpace(desc) && desc != "¤")
+                {
+                    showDescriptionColumn = true;
+                }
+            }
 
             ReportStatus tDirStat = tChildDir.DirStatus;
 
@@ -232,6 +248,9 @@ public partial class MainWindow : Window
                 gameList.Add(tChildDir);
             }
         }
+
+        var gameDescColumn = GameGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Description", StringComparison.Ordinal));
+        if (gameDescColumn != null) gameDescColumn.IsVisible = showDescriptionColumn;
 
         GameGrid.ItemsSource = gameList;
         _updatingGameGrid = false;
@@ -278,22 +297,22 @@ public partial class MainWindow : Window
         var lblGameName = this.FindControl<TextBox>("lblGameName");
         
         var lblGameDescriptionLabel = this.FindControl<TextBlock>("lblGameDescriptionLabel");
-        var lblGameDescription = this.FindControl<TextBox>("lblGameDescription");
+        var lblGameDescription = this.FindControl<TextBlock>("lblGameDescription");
         
         var lblGameManufacturerLabel = this.FindControl<TextBlock>("lblGameManufacturerLabel");
-        var lblGameManufacturer = this.FindControl<TextBox>("lblGameManufacturer");
+        var lblGameManufacturer = this.FindControl<TextBlock>("lblGameManufacturer");
         
         var lblGameCloneOfLabel = this.FindControl<TextBlock>("lblGameCloneOfLabel");
-        var lblGameCloneOf = this.FindControl<TextBox>("lblGameCloneOf");
+        var lblGameCloneOf = this.FindControl<TextBlock>("lblGameCloneOf");
         
         var lblGameRomOfLabel = this.FindControl<TextBlock>("lblGameRomOfLabel");
-        var lblGameRomOf = this.FindControl<TextBox>("lblGameRomOf");
+        var lblGameRomOf = this.FindControl<TextBlock>("lblGameRomOf");
         
         var lblGameYearLabel = this.FindControl<TextBlock>("lblGameYearLabel");
-        var lblGameYear = this.FindControl<TextBox>("lblGameYear");
+        var lblGameYear = this.FindControl<TextBlock>("lblGameYear");
         
         var lblGameCategoryLabel = this.FindControl<TextBlock>("lblGameCategoryLabel");
-        var lblGameCategory = this.FindControl<TextBox>("lblGameCategory");
+        var lblGameCategory = this.FindControl<TextBlock>("lblGameCategory");
 
         void SetVisible(bool visible, params Control?[] controls)
         {
@@ -825,6 +844,62 @@ public partial class MainWindow : Window
     {
         var fileList = new List<RvFile>();
         AddDir(tGame, "", ref fileList);
+
+        bool showMergeColumn = false;
+        bool altFound = false;
+        bool showStatus = false;
+        bool showFileModDate = false;
+
+        for (int i = 0; i < fileList.Count; i++)
+        {
+            var tFile = fileList[i];
+
+            if (!showMergeColumn && !string.IsNullOrWhiteSpace(tFile.Merge))
+            {
+                showMergeColumn = true;
+            }
+
+            if (!altFound)
+            {
+                altFound = (tFile.AltSize != null) || (tFile.AltCRC != null) || (tFile.AltSHA1 != null) || (tFile.AltMD5 != null);
+            }
+
+            if (!showStatus && !string.IsNullOrWhiteSpace(tFile.Status))
+            {
+                showStatus = true;
+            }
+
+            if (!showFileModDate)
+            {
+                showFileModDate =
+                    (tFile.FileModTimeStamp != 0) &&
+                    (tFile.FileModTimeStamp != long.MinValue) &&
+                    (tFile.FileModTimeStamp != Compress.StructuredZip.StructuredZip.TrrntzipDateTime) &&
+                    (tFile.FileModTimeStamp != Compress.StructuredZip.StructuredZip.TrrntzipDosDateTime);
+            }
+        }
+
+        var romMergeColumn = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Merge", StringComparison.Ordinal));
+        if (romMergeColumn != null) romMergeColumn.IsVisible = showMergeColumn;
+
+        var romAltSizeColumn = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Alt Size", StringComparison.Ordinal));
+        if (romAltSizeColumn != null) romAltSizeColumn.IsVisible = altFound;
+
+        var romAltCRC32Column = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Alt CRC32", StringComparison.Ordinal));
+        if (romAltCRC32Column != null) romAltCRC32Column.IsVisible = altFound;
+
+        var romAltSHA1Column = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Alt SHA1", StringComparison.Ordinal));
+        if (romAltSHA1Column != null) romAltSHA1Column.IsVisible = altFound;
+
+        var romAltMD5Column = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Alt MD5", StringComparison.Ordinal));
+        if (romAltMD5Column != null) romAltMD5Column.IsVisible = altFound;
+
+        var romStatusColumn = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Status", StringComparison.Ordinal));
+        if (romStatusColumn != null) romStatusColumn.IsVisible = showStatus;
+
+        var romFileModDateColumn = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Modified Date/Time", StringComparison.Ordinal));
+        if (romFileModDateColumn != null) romFileModDateColumn.IsVisible = showFileModDate;
+
         RomGrid.ItemsSource = fileList;
     }
 
@@ -1207,7 +1282,11 @@ public partial class MainWindow : Window
         ScanRoms(scanLevel);
     }
 
-    private void OnFixRomsClick(object? sender, RoutedEventArgs e) { }
+    private void OnFixRomsClick(object? sender, RoutedEventArgs e)
+    {
+        if (_working) return;
+        FixFiles();
+    }
     
     /// <summary>
     /// Handles the "Fix DAT Report" menu click.
@@ -1370,6 +1449,28 @@ public partial class MainWindow : Window
         if (_working) return;
         FindFixes();
     }
+
+    private void OnTreePresetPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control control) return;
+        if (control.Tag is not string tag) return;
+        if (!int.TryParse(tag, out int index)) return;
+        bool set = e.GetCurrentPoint(control).Properties.IsRightButtonPressed;
+        TreeDefault(set, index);
+    }
+
+    private void TreeDefault(bool set, int index)
+    {
+        var dtss = new DatTreeStatusStore();
+        if (set)
+        {
+            dtss.write(index);
+            return;
+        }
+        dtss.read(index);
+        var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        rvTree?.Setup(DB.DirRoot);
+    }
     
     /// <summary>
     /// Handles the "Fix Files" toolbar button click.
@@ -1464,6 +1565,7 @@ public partial class MainWindow : Window
     {
         _working = true;
         this.Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Wait);
+        if (lblStatusRight != null) lblStatusRight.Text = "Working...";
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         if (rvTree != null) rvTree.Working = true;
     }
@@ -1475,6 +1577,7 @@ public partial class MainWindow : Window
     {
         _working = false;
         this.Cursor = global::Avalonia.Input.Cursor.Default;
+        if (lblStatusRight != null) lblStatusRight.Text = "";
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         if (rvTree != null)
         {

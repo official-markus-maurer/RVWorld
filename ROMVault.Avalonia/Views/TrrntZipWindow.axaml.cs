@@ -482,7 +482,7 @@ namespace ROMVault.Avalonia.Views;
         private void ErrorCallBack(int processId, string message)
         {
             // TODO: Implement error log
-            Debug.WriteLine($"Error {processId}: {message}");
+            System.Diagnostics.Debug.WriteLine($"Error {processId}: {message}");
         }
 
     #endregion

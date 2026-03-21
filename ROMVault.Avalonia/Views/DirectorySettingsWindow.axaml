@@ -4,62 +4,71 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="600"
         x:Class="ROMVault.Avalonia.Views.DirectorySettingsWindow"
-        Title="Set DAT Rules" Width="700" Height="620"
+        Title="Set DAT Rules" Width="820" Height="720" MinWidth="720" MinHeight="650"
         WindowStartupLocation="CenterOwner">
-    <Grid RowDefinitions="Auto, Auto, Auto, *">
+    <Grid RowDefinitions="Auto, 3*, Auto, 2*">
         <!-- Top: Location -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="10">
             <TextBlock Text="Rule Path:" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <TextBox Name="txtDATLocation" IsReadOnly="True" Width="527"/>
+            <Border BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10,6" Background="{DynamicResource SurfaceBackgroundAltBrush}">
+                <TextBlock Name="txtDATLocation"/>
+            </Border>
         </StackPanel>
 
         <!-- Middle: Tabs -->
-        <TabControl Grid.Row="1" Margin="10" Height="350">
+        <TabControl Grid.Row="1" Margin="10" MinHeight="260">
             <TabItem Header="Directory/Merge Rules" FontSize="12">
-                <Grid>
-                    <Grid.RowDefinitions>
-                         <RowDefinition Height="Auto"/>
-                         <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    
-                    <!-- Multi DAT Directory Setting -->
-                    <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1" Margin="0,0,0,10" Padding="5">
-                        <StackPanel>
-                            <TextBlock Text="Multi DAT Directory Setting" FontWeight="Bold" Margin="0,0,0,5" FontSize="12"/>
-                            <CheckBox Name="chkMultiDatDirOverride" Content="Don't auto add DAT directories" FontSize="12"/>
-                        </StackPanel>
-                    </Border>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,18,0">
+                    <StackPanel Spacing="10">
+                        <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Multi DAT Directory Setting" FontWeight="Bold" FontSize="12"/>
+                                <CheckBox Name="chkMultiDatDirOverride" Content="Don't auto add DAT directories" FontSize="12"/>
+                            </StackPanel>
+                        </Border>
 
-                    <!-- DAT Rule Settings -->
-                    <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="1" Padding="5">
-                        <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto" ColumnDefinitions="Auto, 150, Auto, Auto">
-                            <TextBlock Text="DAT Rule Settings" FontWeight="Bold" Grid.ColumnSpan="4" Margin="0,0,0,5" FontSize="12"/>
+                        <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="DAT Rule Settings" FontWeight="Bold" FontSize="12"/>
 
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Archive Type:" VerticalAlignment="Center" Margin="5" FontSize="12"/>
-                            <ComboBox Grid.Row="1" Grid.Column="1" Name="cboFileType" Width="140" FontSize="12" Height="25" Padding="5,0"/>
-                            <CheckBox Grid.Row="1" Grid.Column="2" Name="chkFileTypeOverride" Content="Override DAT" Margin="5,0" FontSize="12"/>
+                                <Grid ColumnDefinitions="160,*,160,*"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      ColumnSpacing="12"
+                                      RowSpacing="10">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Archive Type:" VerticalAlignment="Center" FontSize="12"/>
+                                    <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <ComboBox Grid.Column="0" Name="cboFileType" FontSize="12" Height="28" Padding="8,0"/>
+                                        <CheckBox Grid.Column="1" Name="chkFileTypeOverride" Content="Override DAT" VerticalAlignment="Center" FontSize="12"/>
+                                    </Grid>
 
-                            <TextBlock Grid.Row="1" Grid.Column="2" Text="ROM/CHD Filter:" VerticalAlignment="Center" Margin="110,0,0,0" Grid.ColumnSpan="2" FontSize="12"/>
-                            <ComboBox Grid.Row="1" Grid.Column="3" Name="cboFilterType" Width="100" FontSize="12" Height="25" Padding="5,0" Margin="110,0,0,0"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="ROM/CHD Filter:" VerticalAlignment="Center" FontSize="12"/>
+                                    <ComboBox Grid.Row="0" Grid.Column="3" Name="cboFilterType" FontSize="12" Height="28" Padding="8,0"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Compression Type:" VerticalAlignment="Center" Margin="5" FontSize="12"/>
-                            <ComboBox Grid.Row="2" Grid.Column="1" Name="cboCompression" Width="140" FontSize="12" Height="25" Padding="5,0"/>
-                            <CheckBox Grid.Row="2" Grid.Column="2" Name="chkConvertWhenFixing" Content="Convert when fixing" Margin="5,0" FontSize="12"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Compression Type:" VerticalAlignment="Center" FontSize="12"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="1" Name="cboCompression" FontSize="12" Height="28" Padding="8,0"/>
 
-                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Header Type:" VerticalAlignment="Center" Margin="140,0,0,0" Grid.ColumnSpan="2" FontSize="12"/>
-                            <ComboBox Grid.Row="2" Grid.Column="3" Name="cboHeaderType" Width="100" FontSize="12" Height="25" Padding="5,0" Margin="110,0,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Header Type:" VerticalAlignment="Center" FontSize="12"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="3" Name="cboHeaderType" FontSize="12" Height="28" Padding="8,0"/>
 
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Merge Type:" VerticalAlignment="Center" Margin="5" FontSize="12"/>
-                            <ComboBox Grid.Row="3" Grid.Column="1" Name="cboMergeType" Width="140" FontSize="12" Height="25" Padding="5,0"/>
-                            <CheckBox Grid.Row="3" Grid.Column="2" Name="chkMergeTypeOverride" Content="Override DAT" Margin="5,0" FontSize="12"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Merge Type:" VerticalAlignment="Center" FontSize="12"/>
+                                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <ComboBox Grid.Column="0" Name="cboMergeType" FontSize="12" Height="28" Padding="8,0"/>
+                                        <CheckBox Grid.Column="1" Name="chkMergeTypeOverride" Content="Override DAT" VerticalAlignment="Center" FontSize="12"/>
+                                    </Grid>
 
-                            <CheckBox Grid.Row="4" Grid.Column="0" Name="chkSingleArchive" Content="Single Archive" Margin="5" FontSize="12"/>
-                            <ComboBox Grid.Row="4" Grid.Column="1" Name="cboDirType" Width="300" Grid.ColumnSpan="3" FontSize="12" Height="25" Padding="5,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="Convert when fixing:" VerticalAlignment="Center" FontSize="12"/>
+                                    <CheckBox Grid.Row="2" Grid.Column="3" Name="chkConvertWhenFixing" VerticalAlignment="Center" FontSize="12"/>
 
-                            <CheckBox Grid.Row="5" Grid.Column="0" Name="chkUseDescription" Content="Use description (instead of name) for auto added paths" Grid.ColumnSpan="4" Margin="5" FontSize="12"/>
-                        </Grid>
-                    </Border>
-                </Grid>
+                                    <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Name="chkSingleArchive" Content="Single archive" VerticalAlignment="Center" FontSize="12"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="Subdir mode:" VerticalAlignment="Center" FontSize="12"/>
+                                    <ComboBox Grid.Row="3" Grid.Column="3" Name="cboDirType" FontSize="12" Height="28" Padding="8,0"/>
+
+                                    <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Name="chkUseDescription" Content="Use description (instead of name) for auto added paths" FontSize="12"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Filename Exclude" FontSize="12">
                  <Grid RowDefinitions="Auto, Auto, *">
@@ -69,20 +78,22 @@
                  </Grid>
             </TabItem>
             <TabItem Header="Advanced Options" FontSize="12">
-                 <Grid ColumnDefinitions="*, Auto">
+                 <Grid ColumnDefinitions="*, Auto" ColumnSpacing="10">
                      <StackPanel Grid.Column="0" Margin="5">
                          <CheckBox Name="chkAddCategorySubDirs" Content="Add Category Sub Directories" FontSize="12"/>
                          <CheckBox Name="chkUseIdForName" Content="Use ID for Numbered DAT Names (No-Intro DATs)" FontSize="12"/>
                          <CheckBox Name="chkCompleteOnly" Content="Only Keep Complete Sets" FontSize="12"/>
                      </StackPanel>
-                     <Grid Grid.Column="1" RowDefinitions="*, Auto, Auto, *" Margin="5">
-                         <DataGrid Name="dgCategories" Width="150" Height="150" Grid.RowSpan="4" Margin="0,0,40,0">
+                     <Grid Grid.Column="1" ColumnDefinitions="260,Auto" ColumnSpacing="8" Margin="5">
+                         <DataGrid Name="dgCategories" Grid.Column="0" MinWidth="260" MinHeight="220">
                              <DataGrid.Columns>
                                  <DataGridTextColumn Header="Category Priority" Binding="{Binding}" Width="*"/>
                              </DataGrid.Columns>
                          </DataGrid>
-                         <Button Name="btnUp" Grid.Row="1" Width="30" Height="30" Margin="115,0,0,5" Content="^" FontSize="12"/>
-                         <Button Name="btnDown" Grid.Row="2" Width="30" Height="30" Margin="115,5,0,0" Content="v" FontSize="12"/>
+                         <StackPanel Grid.Column="1" VerticalAlignment="Top" Spacing="8">
+                             <Button Name="btnUp" Width="36" Height="36" Content="↑" FontSize="14"/>
+                             <Button Name="btnDown" Width="36" Height="36" Content="↓" FontSize="14"/>
+                         </StackPanel>
                      </Grid>
                  </Grid>
             </TabItem>
@@ -97,12 +108,12 @@
 
         <!-- Bottom: Grid and Buttons -->
         <Grid Grid.Row="3" RowDefinitions="*, Auto" Margin="10" Name="BottomGrid">
-             <DataGrid Name="DataGridGames" AutoGenerateColumns="False" CanUserResizeColumns="True" GridLinesVisibility="All">
+             <DataGrid Name="DataGridGames" AutoGenerateColumns="False" CanUserResizeColumns="True" GridLinesVisibility="All" MinHeight="150">
                   <DataGrid.Columns>
                       <DataGridTextColumn Header="Rule Path" Binding="{Binding DirKey}" Width="*"/>
                       <DataGridTextColumn Header="Archive Type" Binding="{Binding CompressionSub}" Width="100"/>
                       <DataGridTextColumn Header="Merge Type" Binding="{Binding Merge}" Width="100"/>
-                      <DataGridCheckBoxColumn Header="Single" Binding="{Binding SingleArchive}" Width="50"/>
+                      <DataGridCheckBoxColumn Header="Single" Binding="{Binding SingleArchive}" Width="70"/>
                   </DataGrid.Columns>
              </DataGrid>
              <Grid Grid.Row="1" Margin="0,10,0,0">
