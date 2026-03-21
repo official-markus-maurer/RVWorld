@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using RomVaultCore;
 using RomVaultCore.Utils;
 using System;
@@ -143,6 +144,11 @@ namespace ROMVault.Avalonia.Views;
             Settings.rvSettings.DoNotReportFeedback = chkDoNotReportFeedback.IsChecked == true;
 
             Settings.WriteConfig(Settings.rvSettings);
+            
+            if (Application.Current != null)
+            {
+                Application.Current.RequestedThemeVariant = Settings.rvSettings.Darkness ? ThemeVariant.Dark : ThemeVariant.Light;
+            }
             Close();
         }
 

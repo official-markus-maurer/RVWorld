@@ -1,18 +1,40 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:styling="clr-namespace:Avalonia.Styling;assembly=Avalonia.Base"
              x:Class="ROMVault.Avalonia.App"
              RequestedThemeVariant="Default">
   
     <Application.Resources>
-        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>
-        <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="SurfaceBackgroundAltBrush" Color="#FAFAFC"/>
-        <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#E2E5EE"/>
-        <SolidColorBrush x:Key="SurfaceBorderBrushStrong" Color="#CBD1E1"/>
-        <SolidColorBrush x:Key="AccentBrush" Color="#2B7FFF"/>
-        <SolidColorBrush x:Key="AccentWeakBrush" Color="#1A2B7FFF"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7280"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827"/>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="{x:Static styling:ThemeVariant.Light}">
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F6F7FB"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundAltBrush" Color="#FAFAFC"/>
+                    <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#E2E5EE"/>
+                    <SolidColorBrush x:Key="SurfaceBorderBrushStrong" Color="#CBD1E1"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#2B7FFF"/>
+                    <SolidColorBrush x:Key="AccentWeakBrush" Color="#1A2B7FFF"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6B7280"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827"/>
+                    <SolidColorBrush x:Key="DataGridHoverRowBrush" Color="#08000000"/>
+                    <SolidColorBrush x:Key="DataGridSelectedRowBrush" Color="#12000000"/>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static styling:ThemeVariant.Dark}">
+                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0F1115"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#151821"/>
+                    <SolidColorBrush x:Key="SurfaceBackgroundAltBrush" Color="#1B2030"/>
+                    <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#2B3245"/>
+                    <SolidColorBrush x:Key="SurfaceBorderBrushStrong" Color="#3A4560"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#2B7FFF"/>
+                    <SolidColorBrush x:Key="AccentWeakBrush" Color="#332B7FFF"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A3A8B6"/>
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#E7E9EF"/>
+                    <SolidColorBrush x:Key="DataGridHoverRowBrush" Color="#14FFFFFF"/>
+                    <SolidColorBrush x:Key="DataGridSelectedRowBrush" Color="#22FFFFFF"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
@@ -93,14 +115,11 @@
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-        <Style Selector="DataGridRow:nth-child(even)">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundAltBrush}"/>
-        </Style>
         <Style Selector="DataGridRow:pointerover">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundAltBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource DataGridHoverRowBrush}"/>
         </Style>
         <Style Selector="DataGridRow:selected">
-            <Setter Property="Background" Value="{DynamicResource AccentWeakBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource DataGridSelectedRowBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
         </Style>
 

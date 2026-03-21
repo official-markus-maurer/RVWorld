@@ -63,7 +63,7 @@
                             <NumericUpDown Grid.Column="1" Name="upTime" Minimum="5" Maximum="60" Increment="5" Value="10" Width="110" FormatString="0"/>
                             <TextBlock Grid.Column="2" Text="minutes" Classes="Muted" VerticalAlignment="Center"/>
                         </Grid>
-                        <CheckBox Name="chkDarkMode" Content="Dark mode (restart required)"/>
+                        <CheckBox Name="chkDarkMode" Content="Dark mode"/>
                     </StackPanel>
                 </Border>
 
