@@ -8,5 +8,12 @@
         Title="Rom Occurrence list"
         WindowStartupLocation="CenterOwner"
         SystemDecorations="Full">
-    <TextBox Name="textBox1" AcceptsReturn="True" TextWrapping="NoWrap" ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+    <Border Margin="16" Classes="Card" Padding="12">
+        <TextBox Name="textBox1"
+                 AcceptsReturn="True"
+                 TextWrapping="NoWrap"
+                 FontFamily="Consolas, Courier New, monospace"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+    </Border>
 </Window>

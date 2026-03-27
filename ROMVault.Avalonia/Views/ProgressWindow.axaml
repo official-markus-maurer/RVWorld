@@ -8,7 +8,8 @@
         Width="511" Height="131"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
-    <Grid Margin="10">
+    <Border Margin="10" Padding="12" Classes="Card">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -41,4 +42,5 @@
         <!-- Cancel/Close Button -->
         <Button Name="btnCancel" Grid.Row="5" Content="Cancel" HorizontalAlignment="Right" Click="OnCancelClick" Width="80"/>
     </Grid>
+    </Border>
 </Window>

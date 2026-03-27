@@ -20,6 +20,10 @@ using Avalonia.Media.Imaging;
 using Compress;
 using Compress.ZipFile;
 using System.Text.RegularExpressions;
+using System.ComponentModel;
+using System.Globalization;
+using ROMVault.Avalonia.Utils;
+using System.Threading.Tasks;
 using Path = System.IO.Path;
 using File = System.IO.File;
 
@@ -35,6 +39,29 @@ public partial class MainWindow : Window
     private bool _updatingGameGrid;
     private bool _working = false;
     private GridLength _lastArtworkWidth = new GridLength(300);
+    private DispatcherTimer? _filterDebounceTimer;
+    private readonly Dictionary<global::Avalonia.Controls.Image, double> _imageZoom = new();
+    private readonly Dictionary<Control, RvFile> _mediaContainers = new();
+    private static readonly string[] StatusTokenSuggestions =
+    {
+        "missing",
+        "fixes",
+        "unknown",
+        "mia",
+        "merged",
+        "intosort",
+        "complete",
+        "partial",
+        "empty",
+        "corrupt"
+    };
+
+    private string? _gameSortHeader;
+    private bool _gameSortAsc = true;
+    private string? _romSortHeader;
+    private bool _romSortAsc = true;
+
+    private const string UiStatePrefix = "MainWindow";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MainWindow"/> class.
@@ -82,11 +109,721 @@ public partial class MainWindow : Window
         chkBoxShowMerged.Click += (s, e) => UpdateGameGrid();
         chkBoxShowEmpty.Click += (s, e) => UpdateGameGrid();
         
-        txtFilter.TextChanged += (s, e) => UpdateGameGrid();
+        txtFilter.TextChanged += (s, e) =>
+        {
+            UpdateFilterSuggestions();
+            ScheduleGameGridUpdate();
+        };
+        txtFilter.KeyDown += OnFilterKeyDown;
         btnClear.Click += (s, e) => { txtFilter.Text = ""; };
+        btnFilterHelp.Click += async (_, _) => await ShowFilterHelp();
 
         GameGrid.SelectionChanged += GameGrid_SelectionChanged;
         GameGrid.DoubleTapped += GameGrid_DoubleTapped;
+        GameGrid.Sorting += OnGameGridSorting;
+        RomGrid.Sorting += OnRomGridSorting;
+        GameGrid.KeyDown += OnGridCopyKeyDown;
+        RomGrid.KeyDown += OnGridCopyKeyDown;
+        GameGrid.PointerPressed += OnGridPointerPressedCopy;
+        RomGrid.PointerPressed += OnGridPointerPressedCopy;
+
+        FilterSuggestionsList.DoubleTapped += (_, _) => ApplySelectedFilterSuggestion();
+        FilterSuggestionsList.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Enter)
+            {
+                ApplySelectedFilterSuggestion();
+                e.Handled = true;
+            }
+        };
+
+        SetupColumnMenus();
+        SetupMediaContextMenus();
+        LoadUiState();
+        UpdateTreePresetTooltips();
+        Closing += (_, _) => SaveUiState();
+    }
+
+    private void SetupMediaContextMenus()
+    {
+        AttachImageMenu(picLogo);
+        AttachImageMenu(picArtwork);
+        AttachImageMenu(picMedium1);
+        AttachImageMenu(picMedium2);
+        AttachImageMenu(picScreenTitle);
+        AttachImageMenu(picScreenShot);
+
+        AttachTextMenu(txtInfo);
+        AttachTextMenu(txtInfo2);
+    }
+
+    private void AttachImageMenu(global::Avalonia.Controls.Image? image)
+    {
+        if (image == null) return;
+
+        var open = new MenuItem { Header = "Open Source" };
+        open.Click += (_, _) => OpenMediaContainer(image);
+
+        var copy = new MenuItem { Header = "Copy Source Path" };
+        copy.Click += async (_, _) => await CopyMediaContainerPath(image);
+
+        var show = new MenuItem { Header = "Show in Folder" };
+        show.Click += (_, _) => ShowMediaContainerInFolder(image);
+
+        var reset = new MenuItem { Header = "Reset Zoom" };
+        reset.Click += (_, _) => ResetArtworkZoom(image);
+
+        image.ContextMenu = new ContextMenu
+        {
+            Items =
+            {
+                open,
+                copy,
+                show,
+                new Separator(),
+                reset
+            }
+        };
+    }
+
+    private void AttachTextMenu(TextBox? textBox)
+    {
+        if (textBox == null) return;
+
+        var copyAll = new MenuItem { Header = "Copy All" };
+        copyAll.Click += async (_, _) =>
+        {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard == null) return;
+            await topLevel.Clipboard.SetTextAsync(textBox.Text ?? "");
+        };
+
+        var open = new MenuItem { Header = "Open Source" };
+        open.Click += (_, _) => OpenMediaContainer(textBox);
+
+        var copy = new MenuItem { Header = "Copy Source Path" };
+        copy.Click += async (_, _) => await CopyMediaContainerPath(textBox);
+
+        var show = new MenuItem { Header = "Show in Folder" };
+        show.Click += (_, _) => ShowMediaContainerInFolder(textBox);
+
+        textBox.ContextMenu = new ContextMenu
+        {
+            Items =
+            {
+                copyAll,
+                new Separator(),
+                open,
+                copy,
+                show
+            }
+        };
+    }
+
+    private void OpenMediaContainer(Control control)
+    {
+        if (!_mediaContainers.TryGetValue(control, out var container))
+            return;
+
+        string path = container.FullName;
+        if (!File.Exists(path) && !Directory.Exists(path))
+            return;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true,
+                Verb = "open"
+            });
+        }
+        catch { }
+    }
+
+    private async Task CopyMediaContainerPath(Control control)
+    {
+        if (!_mediaContainers.TryGetValue(control, out var container))
+            return;
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        await topLevel.Clipboard.SetTextAsync(container.FullName);
+    }
+
+    private void ShowMediaContainerInFolder(Control control)
+    {
+        if (!_mediaContainers.TryGetValue(control, out var container))
+            return;
+
+        string raw = container.FullName;
+        string path = ResolveOsPath(raw);
+
+        if (File.Exists(path))
+        {
+            OpenExplorerSelect(path);
+            return;
+        }
+
+        if (Directory.Exists(path))
+        {
+            OpenExplorer(path);
+        }
+    }
+
+    private void SetupColumnMenus()
+    {
+        if (GameGrid.ContextMenu != null)
+        {
+            GameGrid.ContextMenu.Opened += (_, _) =>
+            {
+                PopulateColumnsMenu(GameGrid, GameGridColumnsMenu, $"{UiStatePrefix}.GameGrid");
+            };
+        }
+
+        if (RomGrid.ContextMenu != null)
+        {
+            RomGrid.ContextMenu.Opened += (_, _) =>
+            {
+                PopulateColumnsMenu(RomGrid, RomGridColumnsMenu, $"{UiStatePrefix}.RomGrid");
+            };
+        }
+    }
+
+    private static void PopulateColumnsMenu(DataGrid grid, MenuItem hostMenu, string keyPrefix)
+    {
+        hostMenu.Items.Clear();
+
+        foreach (var col in grid.Columns)
+        {
+            string header = col.Header?.ToString() ?? "";
+            if (string.IsNullOrWhiteSpace(header))
+                continue;
+
+            var mi = new MenuItem
+            {
+                Header = header,
+                ToggleType = MenuItemToggleType.CheckBox,
+                IsChecked = col.IsVisible
+            };
+
+            mi.Click += (_, _) =>
+            {
+                col.IsVisible = mi.IsChecked;
+                AppSettings.AddUpdateAppSettings($"{keyPrefix}.col.{SanitizeKey(header)}.visible", col.IsVisible ? "1" : "0");
+            };
+
+            hostMenu.Items.Add(mi);
+        }
+    }
+
+    private static string SanitizeKey(string value)
+    {
+        Span<char> buffer = stackalloc char[value.Length];
+        int idx = 0;
+        foreach (char c in value)
+        {
+            if (char.IsLetterOrDigit(c))
+                buffer[idx++] = c;
+            else
+                buffer[idx++] = '_';
+        }
+        return new string(buffer[..idx]);
+    }
+
+    private void LoadUiState()
+    {
+        var mainSplitGrid = this.FindControl<Grid>("MainSplitGrid");
+        if (mainSplitGrid != null && mainSplitGrid.ColumnDefinitions.Count >= 3)
+        {
+            string? leftWidth = AppSettings.ReadSetting($"{UiStatePrefix}.MainSplit.LeftWidth");
+            if (double.TryParse(leftWidth, NumberStyles.Float, CultureInfo.InvariantCulture, out var w) && w >= 300)
+            {
+                mainSplitGrid.ColumnDefinitions[0].Width = new GridLength(w);
+            }
+        }
+
+        string? artworkWidth = AppSettings.ReadSetting($"{UiStatePrefix}.Artwork.Width");
+        if (double.TryParse(artworkWidth, NumberStyles.Float, CultureInfo.InvariantCulture, out var aw) && aw >= 120)
+        {
+            _lastArtworkWidth = new GridLength(aw);
+        }
+
+        LoadDataGridState(GameGrid, $"{UiStatePrefix}.GameGrid");
+        LoadDataGridState(RomGrid, $"{UiStatePrefix}.RomGrid");
+
+        _gameSortHeader = AppSettings.ReadSetting($"{UiStatePrefix}.GameGrid.SortHeader");
+        _gameSortAsc = AppSettings.ReadSetting($"{UiStatePrefix}.GameGrid.SortAsc") != "0";
+        _romSortHeader = AppSettings.ReadSetting($"{UiStatePrefix}.RomGrid.SortHeader");
+        _romSortAsc = AppSettings.ReadSetting($"{UiStatePrefix}.RomGrid.SortAsc") != "0";
+
+    }
+
+    private void SaveUiState()
+    {
+        var mainSplitGrid = this.FindControl<Grid>("MainSplitGrid");
+        if (mainSplitGrid != null && mainSplitGrid.ColumnDefinitions.Count >= 3)
+        {
+            AppSettings.AddUpdateAppSettings(
+                $"{UiStatePrefix}.MainSplit.LeftWidth",
+                mainSplitGrid.ColumnDefinitions[0].Width.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (GameListGrid != null && GameListGrid.ColumnDefinitions.Count >= 3 && GameListGrid.ColumnDefinitions[2].Width.Value > 0)
+        {
+            _lastArtworkWidth = GameListGrid.ColumnDefinitions[2].Width;
+        }
+
+        if (_lastArtworkWidth.Value > 0)
+        {
+            AppSettings.AddUpdateAppSettings(
+                $"{UiStatePrefix}.Artwork.Width",
+                _lastArtworkWidth.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        SaveDataGridState(GameGrid, $"{UiStatePrefix}.GameGrid");
+        SaveDataGridState(RomGrid, $"{UiStatePrefix}.RomGrid");
+
+        if (!string.IsNullOrWhiteSpace(_gameSortHeader))
+            AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.GameGrid.SortHeader", _gameSortHeader);
+        AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.GameGrid.SortAsc", _gameSortAsc ? "1" : "0");
+
+        if (!string.IsNullOrWhiteSpace(_romSortHeader))
+            AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.RomGrid.SortHeader", _romSortHeader);
+        AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.RomGrid.SortAsc", _romSortAsc ? "1" : "0");
+
+    }
+
+    private static void LoadDataGridState(DataGrid grid, string keyPrefix)
+    {
+        foreach (var col in grid.Columns)
+        {
+            string header = col.Header?.ToString() ?? "";
+            if (string.IsNullOrWhiteSpace(header))
+                continue;
+
+            string safe = SanitizeKey(header);
+            string? vis = AppSettings.ReadSetting($"{keyPrefix}.col.{safe}.visible");
+            if (vis == "0") col.IsVisible = false;
+            if (vis == "1") col.IsVisible = true;
+
+            string? width = AppSettings.ReadSetting($"{keyPrefix}.col.{safe}.width");
+            if (double.TryParse(width, NumberStyles.Float, CultureInfo.InvariantCulture, out var w) && w >= 20)
+            {
+                col.Width = new DataGridLength(w);
+            }
+        }
+    }
+
+    private static void SaveDataGridState(DataGrid grid, string keyPrefix)
+    {
+        foreach (var col in grid.Columns)
+        {
+            string header = col.Header?.ToString() ?? "";
+            if (string.IsNullOrWhiteSpace(header))
+                continue;
+
+            string safe = SanitizeKey(header);
+            AppSettings.AddUpdateAppSettings($"{keyPrefix}.col.{safe}.visible", col.IsVisible ? "1" : "0");
+            if (col.ActualWidth > 0)
+            {
+                AppSettings.AddUpdateAppSettings(
+                    $"{keyPrefix}.col.{safe}.width",
+                    col.ActualWidth.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+    }
+
+    private void ScheduleGameGridUpdate()
+    {
+        if (_filterDebounceTimer == null)
+        {
+            _filterDebounceTimer = new DispatcherTimer();
+            _filterDebounceTimer.Interval = TimeSpan.FromMilliseconds(250);
+            _filterDebounceTimer.Tick += (_, _) =>
+            {
+                _filterDebounceTimer?.Stop();
+                UpdateGameGrid();
+            };
+        }
+
+        _filterDebounceTimer.Stop();
+        _filterDebounceTimer.Start();
+    }
+
+    private void ResetArtworkZoom(global::Avalonia.Controls.Image? image)
+    {
+        if (image == null) return;
+        _imageZoom[image] = 1.0;
+        image.RenderTransformOrigin = new global::Avalonia.RelativePoint(0.5, 0.5, global::Avalonia.RelativeUnit.Relative);
+        image.RenderTransform = new global::Avalonia.Media.ScaleTransform(1.0, 1.0);
+    }
+
+    private void SetArtworkZoom(global::Avalonia.Controls.Image image, double zoom)
+    {
+        zoom = Math.Clamp(zoom, 0.25, 6.0);
+        _imageZoom[image] = zoom;
+        image.RenderTransformOrigin = new global::Avalonia.RelativePoint(0.5, 0.5, global::Avalonia.RelativeUnit.Relative);
+        image.RenderTransform = new global::Avalonia.Media.ScaleTransform(zoom, zoom);
+    }
+
+    private double GetArtworkZoom(global::Avalonia.Controls.Image image)
+    {
+        if (_imageZoom.TryGetValue(image, out var z))
+            return z;
+        return 1.0;
+    }
+
+    private void ResetAllArtworkZoom()
+    {
+        ResetArtworkZoom(picLogo);
+        ResetArtworkZoom(picArtwork);
+        ResetArtworkZoom(picMedium1);
+        ResetArtworkZoom(picMedium2);
+        ResetArtworkZoom(picScreenTitle);
+        ResetArtworkZoom(picScreenShot);
+    }
+
+    private void ResetInfoTextBoxes()
+    {
+        ConfigureWrappedText(txtInfo);
+        ConfigureWrappedText(txtInfo2);
+        if (txtInfo != null) txtInfo.Text = "";
+        if (txtInfo2 != null) txtInfo2.Text = "";
+    }
+
+    private static void ConfigureWrappedText(TextBox? textBox)
+    {
+        if (textBox == null) return;
+        textBox.TextWrapping = global::Avalonia.Media.TextWrapping.Wrap;
+        textBox.FontFamily = global::Avalonia.Media.FontFamily.Default;
+    }
+
+    private static void ConfigureMonospaceText(TextBox? textBox)
+    {
+        if (textBox == null) return;
+        textBox.TextWrapping = global::Avalonia.Media.TextWrapping.NoWrap;
+        textBox.FontFamily = new global::Avalonia.Media.FontFamily("Consolas, Courier New, monospace");
+    }
+
+    private void UpdateGameCountLabel(int visible, int total)
+    {
+        if (lblGameCount != null)
+            lblGameCount.Text = $"{visible}/{total}";
+
+        if (lblSortInfo != null)
+        {
+            if (string.IsNullOrWhiteSpace(_gameSortHeader))
+                lblSortInfo.Text = "";
+            else
+                lblSortInfo.Text = $"Sort: {_gameSortHeader} {(_gameSortAsc ? "↑" : "↓")}";
+        }
+    }
+
+    private async Task ShowFilterHelp()
+    {
+        string msg =
+            "Filter syntax:\r\n\r\n" +
+            "- plain text: matches name + description\r\n" +
+            "- desc:term: matches description only\r\n" +
+            "- status:value: matches status tokens\r\n\r\n" +
+            "Examples:\r\n" +
+            "- mario\r\n" +
+            "- desc:capcom\r\n" +
+            "- status:missing\r\n" +
+            "- status:fixes,unknown\r\n";
+        await Views.MessageBoxWindow.ShowInfo(this, msg, "Filter Help");
+    }
+
+    private async void OnGridCopyKeyDown(object? sender, KeyEventArgs e)
+    {
+        if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control || e.Key != Key.C)
+            return;
+
+        if (sender is not DataGrid grid)
+            return;
+
+        if (grid == RomGrid)
+        {
+            if (RomGrid.SelectedItem is not RvFile file)
+                return;
+
+            string text = $"{file.UiDisplayName}\t{file.Size}\t{file.CRC32}\t{file.SHA1Hex}\t{file.MD5Hex}";
+            await CopyTextToClipboard(text);
+            if (lblStatusRight != null) lblStatusRight.Text = "Copied";
+            e.Handled = true;
+            return;
+        }
+
+        if (grid == GameGrid)
+        {
+            if (GameGrid.SelectedItem is not RvFile game)
+                return;
+
+            string desc = game.Game?.GetData(RvGame.GameData.Description) ?? "";
+            if (desc == "¤") desc = "";
+            string text = string.IsNullOrWhiteSpace(desc) ? (game.Name ?? "") : $"{game.Name}\t{desc}";
+            await CopyTextToClipboard(text);
+            if (lblStatusRight != null) lblStatusRight.Text = "Copied";
+            e.Handled = true;
+        }
+    }
+
+    private async void OnGridPointerPressedCopy(object? sender, PointerPressedEventArgs e)
+    {
+        if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control)
+            return;
+
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        if (e.Source is TextBlock tb && !string.IsNullOrWhiteSpace(tb.Text))
+        {
+            await CopyTextToClipboard(tb.Text);
+            if (lblStatusRight != null) lblStatusRight.Text = "Copied";
+            e.Handled = true;
+        }
+    }
+
+    private void UpdateFilterSuggestions()
+    {
+        if (FilterSuggestionsPopup == null || FilterSuggestionsList == null || txtFilter == null)
+            return;
+
+        if (!txtFilter.IsFocused)
+        {
+            FilterSuggestionsPopup.IsOpen = false;
+            return;
+        }
+
+        string text = txtFilter.Text ?? "";
+        int lastSpace = text.LastIndexOf(' ');
+        string token = lastSpace >= 0 ? text[(lastSpace + 1)..] : text;
+
+        if (!token.StartsWith("status:", StringComparison.OrdinalIgnoreCase))
+        {
+            FilterSuggestionsPopup.IsOpen = false;
+            return;
+        }
+
+        string typed = token.Substring("status:".Length);
+        string typedLower = typed.ToLowerInvariant();
+
+        var items = StatusTokenSuggestions
+            .Where(s => s.StartsWith(typedLower, StringComparison.OrdinalIgnoreCase))
+            .Select(s => $"status:{s}")
+            .ToArray();
+
+        if (items.Length == 0)
+        {
+            FilterSuggestionsPopup.IsOpen = false;
+            return;
+        }
+
+        FilterSuggestionsList.ItemsSource = items;
+        if (FilterSuggestionsList.SelectedIndex < 0)
+            FilterSuggestionsList.SelectedIndex = 0;
+        FilterSuggestionsPopup.IsOpen = true;
+    }
+
+    private void ApplySelectedFilterSuggestion()
+    {
+        if (FilterSuggestionsPopup == null || FilterSuggestionsList == null || txtFilter == null)
+            return;
+
+        if (!FilterSuggestionsPopup.IsOpen)
+            return;
+
+        if (FilterSuggestionsList.SelectedItem is not string selected || string.IsNullOrWhiteSpace(selected))
+            return;
+
+        string text = txtFilter.Text ?? "";
+        int lastSpace = text.LastIndexOf(' ');
+        string prefix = lastSpace >= 0 ? text[..(lastSpace + 1)] : "";
+        txtFilter.Text = prefix + selected;
+        txtFilter.CaretIndex = txtFilter.Text.Length;
+        FilterSuggestionsPopup.IsOpen = false;
+        txtFilter.Focus();
+    }
+
+    private void OnFilterKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (FilterSuggestionsPopup?.IsOpen == true)
+        {
+            if (e.Key == Key.Down)
+            {
+                FilterSuggestionsList.SelectedIndex = Math.Min(FilterSuggestionsList.Items.Count - 1, FilterSuggestionsList.SelectedIndex + 1);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Up)
+            {
+                FilterSuggestionsList.SelectedIndex = Math.Max(0, FilterSuggestionsList.SelectedIndex - 1);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Enter || e.Key == Key.Tab)
+            {
+                ApplySelectedFilterSuggestion();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Escape)
+            {
+                FilterSuggestionsPopup.IsOpen = false;
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            FilterSuggestionsPopup!.IsOpen = false;
+            UpdateGameGrid();
+            e.Handled = true;
+        }
+    }
+
+    private void OnGameGridSorting(object? sender, DataGridColumnEventArgs e)
+    {
+        e.Handled = true;
+        string header = e.Column.Header?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(header))
+            return;
+
+        if (string.Equals(_gameSortHeader, header, StringComparison.Ordinal))
+            _gameSortAsc = !_gameSortAsc;
+        else
+        {
+            _gameSortHeader = header;
+            _gameSortAsc = true;
+        }
+
+        UpdateGameGrid();
+    }
+
+    private void OnRomGridSorting(object? sender, DataGridColumnEventArgs e)
+    {
+        e.Handled = true;
+        string header = e.Column.Header?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(header))
+            return;
+
+        if (string.Equals(_romSortHeader, header, StringComparison.Ordinal))
+            _romSortAsc = !_romSortAsc;
+        else
+        {
+            _romSortHeader = header;
+            _romSortAsc = true;
+        }
+
+        if (GameGrid.SelectedItem is RvFile game)
+            UpdateRomGrid(game);
+    }
+
+    private void ApplyGameSort(List<RvFile> list)
+    {
+        if (string.IsNullOrWhiteSpace(_gameSortHeader) || list.Count <= 1)
+            return;
+
+        bool asc = _gameSortAsc;
+        string header = _gameSortHeader;
+
+        Comparison<RvFile> cmp = header switch
+        {
+            "Game (Directory / Zip)" => (a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase),
+            "Description" => (a, b) =>
+            {
+                string da = a.Game?.GetData(RvGame.GameData.Description) ?? "";
+                string db = b.Game?.GetData(RvGame.GameData.Description) ?? "";
+                if (da == "¤") da = "";
+                if (db == "¤") db = "";
+                return string.Compare(da, db, StringComparison.CurrentCultureIgnoreCase);
+            },
+            "Modified" => (a, b) => (a.FileModTimeStamp).CompareTo(b.FileModTimeStamp),
+            "ROM Status" => (a, b) =>
+            {
+                int wa = a.DirStatus.CountMissing() * 100000 + a.DirStatus.CountCanBeFixed() * 1000 + a.DirStatus.CountUnknown();
+                int wb = b.DirStatus.CountMissing() * 100000 + b.DirStatus.CountCanBeFixed() * 1000 + b.DirStatus.CountUnknown();
+                return wa.CompareTo(wb);
+            },
+            "Extras" => (a, b) => string.Compare(GetExtrasBadge(a), GetExtrasBadge(b), StringComparison.OrdinalIgnoreCase),
+            _ => (a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase)
+        };
+
+        list.Sort((a, b) => asc ? cmp(a, b) : cmp(b, a));
+    }
+
+    private static string GetExtrasBadge(RvFile dir)
+    {
+        bool hasText = false;
+        bool hasArt = false;
+        int limit = Math.Min(dir.ChildCount, 400);
+        for (int i = 0; i < limit; i++)
+        {
+            var child = dir.Child(i);
+            if (child.GotStatus != GotStatus.Got)
+                continue;
+
+            string name = child.Name ?? "";
+            if (!hasText)
+            {
+                if (name.EndsWith(".nfo", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".diz", StringComparison.OrdinalIgnoreCase))
+                    hasText = true;
+            }
+
+            if (!hasArt)
+            {
+                if (name.StartsWith("Artwork/", StringComparison.OrdinalIgnoreCase) || name.StartsWith("Artwork\\", StringComparison.OrdinalIgnoreCase))
+                    hasArt = true;
+            }
+
+            if (hasText && hasArt)
+                break;
+        }
+
+        if (hasArt) return "ART";
+        if (hasText) return "TXT";
+        return "";
+    }
+
+    private void ApplyRomSort(List<RvFile> list)
+    {
+        if (string.IsNullOrWhiteSpace(_romSortHeader) || list.Count <= 1)
+            return;
+
+        bool asc = _romSortAsc;
+        string header = _romSortHeader;
+
+        Comparison<RvFile> cmp = header switch
+        {
+            "ROM (File)" => (a, b) => string.Compare(a.UiDisplayName, b.UiDisplayName, StringComparison.CurrentCultureIgnoreCase),
+            "Size" => (a, b) => Nullable.Compare(a.Size, b.Size),
+            "CRC32" => (a, b) => string.Compare(a.CRC32, b.CRC32, StringComparison.OrdinalIgnoreCase),
+            "SHA1" => (a, b) => string.Compare(a.SHA1Hex, b.SHA1Hex, StringComparison.OrdinalIgnoreCase),
+            "MD5" => (a, b) => string.Compare(a.MD5Hex, b.MD5Hex, StringComparison.OrdinalIgnoreCase),
+            "Zip Index" => (a, b) => a.ZipIndex.CompareTo(b.ZipIndex),
+            "Instance Count" => (a, b) => a.InstanceCount.CompareTo(b.InstanceCount),
+            _ => (a, b) => string.Compare(a.UiDisplayName, b.UiDisplayName, StringComparison.CurrentCultureIgnoreCase)
+        };
+
+        list.Sort((a, b) => asc ? cmp(a, b) : cmp(b, a));
+    }
+
+    private void EnsureTreeNodeVisible(ROMVault.Avalonia.Views.RvTree rvTree, RvFile node)
+    {
+        var sv = this.FindControl<ScrollViewer>("TreeScrollViewer");
+        if (sv == null)
+            return;
+
+        double? y = rvTree.GetRowTop(node);
+        if (y == null)
+            return;
+
+        double target = Math.Max(0, y.Value - 40);
+        sv.Offset = new global::Avalonia.Vector(sv.Offset.X, target);
     }
 
     private void GameGrid_DoubleTapped(object? sender, global::Avalonia.Input.TappedEventArgs e)
@@ -140,6 +877,10 @@ public partial class MainWindow : Window
     /// <param name="e">The selected RvFile.</param>
     private void OnRvTreeSelected(object? sender, RvFile e)
     {
+        if (sender is ROMVault.Avalonia.Views.RvTree tree)
+        {
+            EnsureTreeNodeVisible(tree, e);
+        }
         DatSetSelected(e);
     }
 
@@ -202,21 +943,26 @@ public partial class MainWindow : Window
         _updatingGameGrid = true;
         
         var gameList = new List<RvFile>();
-        string searchLowerCase = txtFilter.Text?.ToLower() ?? "";
+        var filter = ParseGameFilter(txtFilter.Text);
         bool showDescriptionColumn = false;
+        int totalDirCount = 0;
 
         for (int j = 0; j < _gameGridSource.ChildCount; j++)
         {
             RvFile tChildDir = _gameGridSource.Child(j);
             if (!tChildDir.IsDirectory) continue;
+            totalDirCount++;
 
-            if (searchLowerCase.Length > 0 && !tChildDir.Name.ToLower().Contains(searchLowerCase))
-                continue;
+            string descValue = "";
+            if (tChildDir.Game != null)
+            {
+                descValue = tChildDir.Game.GetData(RvGame.GameData.Description) ?? "";
+                if (descValue == "¤") descValue = "";
+            }
 
             if (!showDescriptionColumn && tChildDir.Game != null)
             {
-                string desc = tChildDir.Game.GetData(RvGame.GameData.Description);
-                if (!string.IsNullOrWhiteSpace(desc) && desc != "¤")
+                if (!string.IsNullOrWhiteSpace(descValue))
                 {
                     showDescriptionColumn = true;
                 }
@@ -243,16 +989,30 @@ public partial class MainWindow : Window
             show = show || tChildDir.GotStatus == GotStatus.Corrupt;
             show = show || !(gCorrect || gMissing || gUnknown || gInToSort || gFixes || gMIA || gAllMerged);
 
+            if (!show)
+                continue;
+
+            if (!MatchesGameFilter(filter, tChildDir.Name ?? "", descValue, gCorrect, gMissing, gFixes, gMIA, gAllMerged, gUnknown, gInToSort, tChildDir.GotStatus))
+                continue;
+
             if (show)
             {
                 gameList.Add(tChildDir);
             }
         }
 
+        ApplyGameSort(gameList);
+
         var gameDescColumn = GameGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Description", StringComparison.Ordinal));
-        if (gameDescColumn != null) gameDescColumn.IsVisible = showDescriptionColumn;
+        if (gameDescColumn != null)
+        {
+            string? persisted = AppSettings.ReadSetting($"{UiStatePrefix}.GameGrid.col.Description.visible");
+            if (persisted == null)
+                gameDescColumn.IsVisible = showDescriptionColumn;
+        }
 
         GameGrid.ItemsSource = gameList;
+        UpdateGameCountLabel(gameList.Count, totalDirCount);
         _updatingGameGrid = false;
         
         if (gameList.Count > 0)
@@ -263,6 +1023,124 @@ public partial class MainWindow : Window
         {
             RomGrid.ItemsSource = null;
         }
+    }
+
+    private sealed class GameFilter
+    {
+        public string? FreeText { get; set; }
+        public string? DescText { get; set; }
+        public HashSet<string> Statuses { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static GameFilter ParseGameFilter(string? text)
+    {
+        var f = new GameFilter();
+        if (string.IsNullOrWhiteSpace(text))
+            return f;
+
+        var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var free = new List<string>();
+
+        foreach (var p in parts)
+        {
+            if (p.StartsWith("desc:", StringComparison.OrdinalIgnoreCase))
+            {
+                var v = p.Substring(5);
+                if (!string.IsNullOrWhiteSpace(v))
+                    f.DescText = v;
+                continue;
+            }
+
+            if (p.StartsWith("status:", StringComparison.OrdinalIgnoreCase))
+            {
+                var v = p.Substring(7);
+                if (!string.IsNullOrWhiteSpace(v))
+                {
+                    foreach (var s in v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        f.Statuses.Add(s);
+                }
+                continue;
+            }
+
+            free.Add(p);
+        }
+
+        if (free.Count > 0)
+            f.FreeText = string.Join(' ', free);
+
+        return f;
+    }
+
+    private static bool MatchesGameFilter(
+        GameFilter filter,
+        string name,
+        string description,
+        bool gCorrect,
+        bool gMissing,
+        bool gFixes,
+        bool gMIA,
+        bool gAllMerged,
+        bool gUnknown,
+        bool gInToSort,
+        GotStatus gotStatus)
+    {
+        if (!string.IsNullOrWhiteSpace(filter.FreeText))
+        {
+            string t = filter.FreeText.ToLowerInvariant();
+            if (!(name?.ToLowerInvariant().Contains(t) == true || description?.ToLowerInvariant().Contains(t) == true))
+                return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.DescText))
+        {
+            string t = filter.DescText.ToLowerInvariant();
+            if (!(description?.ToLowerInvariant().Contains(t) == true))
+                return false;
+        }
+
+        if (filter.Statuses.Count > 0)
+        {
+            bool any = false;
+            foreach (var s in filter.Statuses)
+            {
+                if (IsStatusMatch(s, gCorrect, gMissing, gFixes, gMIA, gAllMerged, gUnknown, gInToSort, gotStatus))
+                {
+                    any = true;
+                    break;
+                }
+            }
+            if (!any)
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsStatusMatch(
+        string status,
+        bool gCorrect,
+        bool gMissing,
+        bool gFixes,
+        bool gMIA,
+        bool gAllMerged,
+        bool gUnknown,
+        bool gInToSort,
+        GotStatus gotStatus)
+    {
+        status = status.Trim();
+        if (status.Length == 0)
+            return false;
+
+        return status.Equals("complete", StringComparison.OrdinalIgnoreCase) && gCorrect && !gMissing && !gFixes
+            || status.Equals("partial", StringComparison.OrdinalIgnoreCase) && gMissing && gCorrect
+            || status.Equals("empty", StringComparison.OrdinalIgnoreCase) && gMissing && !gCorrect
+            || status.Equals("missing", StringComparison.OrdinalIgnoreCase) && gMissing
+            || status.Equals("fixes", StringComparison.OrdinalIgnoreCase) && gFixes
+            || status.Equals("mia", StringComparison.OrdinalIgnoreCase) && gMIA
+            || status.Equals("merged", StringComparison.OrdinalIgnoreCase) && gAllMerged
+            || status.Equals("unknown", StringComparison.OrdinalIgnoreCase) && gUnknown
+            || status.Equals("intosort", StringComparison.OrdinalIgnoreCase) && gInToSort
+            || status.Equals("corrupt", StringComparison.OrdinalIgnoreCase) && gotStatus == GotStatus.Corrupt;
     }
 
     /// <summary>
@@ -397,6 +1275,21 @@ public partial class MainWindow : Window
              _lastArtworkWidth = GameListGrid.ColumnDefinitions[2].Width;
         }
 
+        ResetAllArtworkZoom();
+        ResetInfoTextBoxes();
+        _mediaContainers.Remove(picLogo);
+        _mediaContainers.Remove(picArtwork);
+        _mediaContainers.Remove(picMedium1);
+        _mediaContainers.Remove(picMedium2);
+        _mediaContainers.Remove(picScreenTitle);
+        _mediaContainers.Remove(picScreenShot);
+        _mediaContainers.Remove(txtInfo);
+        _mediaContainers.Remove(txtInfo2);
+        TabArtwork.Header = "Artwork";
+        TabMedium.Header = "Medium";
+        TabScreens.Header = "Screens";
+        TabInfo.Header = "Info";
+        TabInfo2.Header = "Info2";
         TabArtwork.IsVisible = false;
         TabMedium.IsVisible = false;
         TabScreens.IsVisible = false;
@@ -416,6 +1309,54 @@ public partial class MainWindow : Window
         if (ArtworkSplitter != null) ArtworkSplitter.IsVisible = true;
         if (ArtworkTabs != null) ArtworkTabs.IsVisible = true;
         if (GameListGrid != null) GameListGrid.ColumnDefinitions[2].Width = _lastArtworkWidth.Value > 0 ? _lastArtworkWidth : new GridLength(300);
+    }
+
+    private void OnArtworkPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (sender is not global::Avalonia.Controls.Image image)
+            return;
+
+        if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control)
+            return;
+
+        double zoom = GetArtworkZoom(image);
+        if (e.Delta.Y > 0)
+            zoom *= 1.12;
+        else if (e.Delta.Y < 0)
+            zoom /= 1.12;
+
+        SetArtworkZoom(image, zoom);
+        e.Handled = true;
+    }
+
+    private void OnArtworkDoubleTapped(object? sender, global::Avalonia.Input.TappedEventArgs e)
+    {
+        if (sender is global::Avalonia.Controls.Image image)
+        {
+            ResetArtworkZoom(image);
+            e.Handled = true;
+        }
+    }
+
+    private void OnMainWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if ((e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control && e.Key == Key.F)
+        {
+            txtFilter.Focus();
+            txtFilter.SelectionStart = 0;
+            txtFilter.SelectionEnd = txtFilter.Text?.Length ?? 0;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            if (!string.IsNullOrEmpty(txtFilter.Text))
+            {
+                txtFilter.Text = "";
+                e.Handled = true;
+            }
+        }
     }
 
     /// <summary>
@@ -512,8 +1453,16 @@ public partial class MainWindow : Window
         else if (fExtra.ChildNameSearch(FileType.Dir, "cabinets", out index) == 0)
             titleLoaded = TryLoadImage(picScreenTitle, fExtra.Child(index), Path.GetFileNameWithoutExtension(tGame.Name));
 
-        if (artLoaded || logoLoaded) TabArtwork.IsVisible = true;
-        if (titleLoaded || screenLoaded) TabScreens.IsVisible = true;
+        if (artLoaded || logoLoaded)
+        {
+            TabArtwork.Header = $"Artwork ({(artLoaded ? 1 : 0) + (logoLoaded ? 1 : 0)})";
+            TabArtwork.IsVisible = true;
+        }
+        if (titleLoaded || screenLoaded)
+        {
+            TabScreens.Header = $"Screens ({(titleLoaded ? 1 : 0) + (screenLoaded ? 1 : 0)})";
+            TabScreens.IsVisible = true;
+        }
 
         if (artLoaded || logoLoaded || titleLoaded || screenLoaded)
         {
@@ -559,8 +1508,16 @@ public partial class MainWindow : Window
         if (fExtra.ChildNameSearch(FileType.Zip, "titles_SL.zip", out index) == 0)
             screenLoaded = TryLoadImage(picScreenShot, fExtra.Child(index), fname);
 
-        if (artLoaded || logoLoaded) TabArtwork.IsVisible = true;
-        if (screenLoaded) TabScreens.IsVisible = true;
+        if (artLoaded || logoLoaded)
+        {
+            TabArtwork.Header = $"Artwork ({(artLoaded ? 1 : 0) + (logoLoaded ? 1 : 0)})";
+            TabArtwork.IsVisible = true;
+        }
+        if (screenLoaded)
+        {
+            TabScreens.Header = "Screens (1)";
+            TabScreens.IsVisible = true;
+        }
 
         if (artLoaded || logoLoaded || screenLoaded)
         {
@@ -574,6 +1531,7 @@ public partial class MainWindow : Window
     /// <param name="tGame">The game file.</param>
     private void LoadTruRipPannel(RvFile tGame)
     {
+        ConfigureWrappedText(txtInfo);
         bool artLoaded = TryLoadImage(picArtwork, tGame, "Artwork/artwork_front");
         bool logoLoaded = TryLoadImage(picLogo, tGame, "Artwork/logo");
         if (!logoLoaded)
@@ -585,9 +1543,21 @@ public partial class MainWindow : Window
         bool screenLoaded = TryLoadImage(picScreenShot, tGame, "Artwork/screenshot");
         bool storyLoaded = LoadText(txtInfo, tGame, "Artwork/story.txt");
 
-        if (artLoaded || logoLoaded) TabArtwork.IsVisible = true;
-        if (medium1Loaded || medium2Loaded) TabMedium.IsVisible = true;
-        if (titleLoaded || screenLoaded) TabScreens.IsVisible = true;
+        if (artLoaded || logoLoaded)
+        {
+            TabArtwork.Header = $"Artwork ({(artLoaded ? 1 : 0) + (logoLoaded ? 1 : 0)})";
+            TabArtwork.IsVisible = true;
+        }
+        if (medium1Loaded || medium2Loaded)
+        {
+            TabMedium.Header = $"Medium ({(medium1Loaded ? 1 : 0) + (medium2Loaded ? 1 : 0)})";
+            TabMedium.IsVisible = true;
+        }
+        if (titleLoaded || screenLoaded)
+        {
+            TabScreens.Header = $"Screens ({(titleLoaded ? 1 : 0) + (screenLoaded ? 1 : 0)})";
+            TabScreens.IsVisible = true;
+        }
         if (storyLoaded) { TabInfo.Header = "Info"; TabInfo.IsVisible = true; }
 
         if (artLoaded || logoLoaded || medium1Loaded || medium2Loaded || titleLoaded || screenLoaded || storyLoaded)
@@ -608,8 +1578,16 @@ public partial class MainWindow : Window
         bool titleLoaded = TryLoadImage(picScreenTitle, tGame, "Extras/Inlay");
         bool screenLoaded = TryLoadImage(picScreenShot, tGame, "Extras/Inlay_back");
 
-        if (artLoaded || logoLoaded) TabArtwork.IsVisible = true;
-        if (titleLoaded || screenLoaded) TabScreens.IsVisible = true;
+        if (artLoaded || logoLoaded)
+        {
+            TabArtwork.Header = $"Artwork ({(artLoaded ? 1 : 0) + (logoLoaded ? 1 : 0)})";
+            TabArtwork.IsVisible = true;
+        }
+        if (titleLoaded || screenLoaded)
+        {
+            TabScreens.Header = $"Screens ({(titleLoaded ? 1 : 0) + (screenLoaded ? 1 : 0)})";
+            TabScreens.IsVisible = true;
+        }
 
         if (artLoaded || logoLoaded || titleLoaded || screenLoaded)
         {
@@ -626,6 +1604,7 @@ public partial class MainWindow : Window
     /// <returns>True if any text file was loaded.</returns>
     private bool LoadNFOPannel(RvFile tGame)
     {
+        ConfigureMonospaceText(txtInfo);
         bool storyLoaded = LoadNFO(txtInfo, tGame, "*.nfo");
         if (storyLoaded)
         {
@@ -633,6 +1612,7 @@ public partial class MainWindow : Window
             TabInfo.IsVisible = true;
         }
 
+        ConfigureMonospaceText(txtInfo2);
         bool storyLoaded2 = LoadNFO(txtInfo2, tGame, "*.diz");
         if (storyLoaded2)
         {
@@ -663,9 +1643,13 @@ public partial class MainWindow : Window
     /// </summary>
     private bool LoadImage(global::Avalonia.Controls.Image picBox, RvFile tGame, string filename)
     {
+        ResetArtworkZoom(picBox);
         picBox.Source = null;
         if (!LoadBytes(tGame, filename, out byte[] memBuffer))
+        {
+            _mediaContainers.Remove(picBox);
             return false;
+        }
         
         try
         {
@@ -673,10 +1657,12 @@ public partial class MainWindow : Window
             {
                 picBox.Source = new Bitmap(ms);
             }
+            _mediaContainers[picBox] = tGame;
             return true;
         }
         catch
         {
+            _mediaContainers.Remove(picBox);
             return false;
         }
     }
@@ -688,16 +1674,24 @@ public partial class MainWindow : Window
     {
         txtBox.Text = "";
         if (!LoadBytes(tGame, filename, out byte[] memBuffer))
+        {
+            _mediaContainers.Remove(txtBox);
             return false;
+        }
 
         try
         {
             string txt = System.Text.Encoding.ASCII.GetString(memBuffer);
             txt = txt.Replace("\r\n", "\r\n\r\n");
             txtBox.Text = txt;
+            _mediaContainers[txtBox] = tGame;
             return true;
         }
-        catch { return false; }
+        catch
+        {
+            _mediaContainers.Remove(txtBox);
+            return false;
+        }
     }
 
     /// <summary>
@@ -706,7 +1700,10 @@ public partial class MainWindow : Window
     private bool LoadNFO(TextBox txtBox, RvFile tGame, string search)
     {
         if (!LoadBytes(tGame, search, out byte[] memBuffer))
+        {
+            _mediaContainers.Remove(txtBox);
             return false;
+        }
 
         try
         {
@@ -726,9 +1723,14 @@ public partial class MainWindow : Window
             txt = txt.Replace("\r", "\n");
             txt = txt.Replace("\n", "\r\n");
             txtBox.Text = txt;
+            _mediaContainers[txtBox] = tGame;
             return true;
         }
-        catch { return false; }
+        catch
+        {
+            _mediaContainers.Remove(txtBox);
+            return false;
+        }
     }
 
     /// <summary>
@@ -900,6 +1902,7 @@ public partial class MainWindow : Window
         var romFileModDateColumn = RomGrid.Columns.FirstOrDefault(c => string.Equals(c.Header?.ToString(), "Modified Date/Time", StringComparison.Ordinal));
         if (romFileModDateColumn != null) romFileModDateColumn.IsVisible = showFileModDate;
 
+        ApplyRomSort(fileList);
         RomGrid.ItemsSource = fileList;
     }
 
@@ -1116,6 +2119,107 @@ public partial class MainWindow : Window
             win.SetRom(rvFile);
             win.ShowDialog(this);
         }
+    }
+
+    private async void OnRomGridCopyCrcClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+        await CopyTextToClipboard(file.CRC32 ?? "");
+    }
+
+    private async void OnRomGridCopySha1Click(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+        await CopyTextToClipboard(file.SHA1Hex ?? "");
+    }
+
+    private async void OnRomGridCopyMd5Click(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+        await CopyTextToClipboard(file.MD5Hex ?? "");
+    }
+
+    private void OnRomGridOpenFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+
+        string candidate = ResolveOsPath(file.FullNameCase);
+        if (File.Exists(candidate))
+        {
+            OpenExplorerSelect(candidate);
+            return;
+        }
+
+        if (file.Parent != null)
+        {
+            string parentPath = ResolveOsPath(file.Parent.FullNameCase);
+            if (Directory.Exists(parentPath))
+            {
+                OpenExplorer(parentPath);
+            }
+        }
+    }
+
+    private void OnRomGridShowOccurrencesClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+
+        var win = new Views.RomInfoWindow();
+        win.SetRom(file);
+        win.ShowDialog(this);
+    }
+
+    private async Task CopyTextToClipboard(string text)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.Clipboard == null)
+            return;
+
+        await topLevel.Clipboard.SetTextAsync(text);
+    }
+
+    private static string ResolveOsPath(string path)
+    {
+        if (path.StartsWith("RomRoot\\", StringComparison.OrdinalIgnoreCase))
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+        if (path.StartsWith("ToSort\\", StringComparison.OrdinalIgnoreCase))
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+        if (path.StartsWith("DatRoot\\", StringComparison.OrdinalIgnoreCase))
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+        return path;
+    }
+
+    private static void OpenExplorer(string folderPath)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{folderPath}\"",
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    private static void OpenExplorerSelect(string filePath)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{filePath}\"",
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 
 
@@ -1415,6 +2519,24 @@ public partial class MainWindow : Window
         win.Show(this);
     }
 
+    private async void OnHelpShortcutsClick(object? sender, RoutedEventArgs e)
+    {
+        string msg =
+            "Shortcuts:\r\n\r\n" +
+            "- Ctrl+F: focus game filter\r\n" +
+            "- Esc: clear game filter\r\n" +
+            "- Ctrl+C: copy selected row (games/roms)\r\n\r\n" +
+            "Tree:\r\n" +
+            "- Up/Down: move selection\r\n" +
+            "- Left/Right: collapse/expand\r\n" +
+            "- Space: toggle check\r\n" +
+            "- Tree search box: Enter jumps to next match\r\n\r\n" +
+            "Artwork:\r\n" +
+            "- Ctrl+MouseWheel: zoom\r\n" +
+            "- Double-click: reset zoom\r\n";
+        await Views.MessageBoxWindow.ShowInfo(this, msg, "Shortcuts");
+    }
+
     /// <summary>
     /// Opens the What's New online page.
     /// </summary>
@@ -1450,13 +2572,64 @@ public partial class MainWindow : Window
         FindFixes();
     }
 
-    private void OnTreePresetPointerPressed(object? sender, PointerPressedEventArgs e)
+    private async void OnTreePresetPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control control) return;
         if (control.Tag is not string tag) return;
         if (!int.TryParse(tag, out int index)) return;
-        bool set = e.GetCurrentPoint(control).Properties.IsRightButtonPressed;
-        TreeDefault(set, index);
+        bool right = e.GetCurrentPoint(control).Properties.IsRightButtonPressed;
+        if (!right)
+        {
+            TreeDefault(set: false, index);
+            return;
+        }
+
+        var menu = new ContextMenu();
+
+        var miSave = new MenuItem { Header = "Save Current" };
+        miSave.Click += (_, _) =>
+        {
+            TreeDefault(set: true, index);
+            if (lblStatusRight != null) lblStatusRight.Text = $"Saved preset {index}";
+        };
+
+        var miLoad = new MenuItem { Header = "Load" };
+        miLoad.Click += (_, _) => TreeDefault(set: false, index);
+
+        var miRename = new MenuItem { Header = "Rename…" };
+        miRename.Click += async (_, _) =>
+        {
+            string current = AppSettings.ReadSetting($"{UiStatePrefix}.TreePreset.{index}.Name") ?? "";
+            string? name = await PromptAsync($"Preset {index}", "Name", current);
+            if (name == null) return;
+            AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.TreePreset.{index}.Name", name.Trim());
+            UpdateTreePresetTooltips();
+        };
+
+        var miClear = new MenuItem { Header = "Clear" };
+        miClear.Click += (_, _) =>
+        {
+            try
+            {
+                string fn = $"treeDefault{index}.xml";
+                if (System.IO.File.Exists(fn))
+                    System.IO.File.Delete(fn);
+            }
+            catch { }
+
+            AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.TreePreset.{index}.Name", "");
+            UpdateTreePresetTooltips();
+            if (lblStatusRight != null) lblStatusRight.Text = $"Cleared preset {index}";
+        };
+
+        menu.Items.Add(miSave);
+        menu.Items.Add(miLoad);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(miRename);
+        menu.Items.Add(miClear);
+
+        await Task.Yield();
+        menu.Open(control);
     }
 
     private void TreeDefault(bool set, int index)
@@ -1470,6 +2643,133 @@ public partial class MainWindow : Window
         dtss.read(index);
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         rvTree?.Setup(DB.DirRoot);
+    }
+
+    private void UpdateTreePresetTooltips()
+    {
+        for (int i = 1; i <= 4; i++)
+        {
+            var btn = i switch
+            {
+                1 => btnTreePreset1,
+                2 => btnTreePreset2,
+                3 => btnTreePreset3,
+                4 => btnTreePreset4,
+                _ => null
+            };
+
+            if (btn == null) continue;
+
+            string name = AppSettings.ReadSetting($"{UiStatePrefix}.TreePreset.{i}.Name") ?? "";
+            string tip = string.IsNullOrWhiteSpace(name)
+                ? $"Preset {i} (right-click for options)"
+                : $"Preset {i}: {name} (right-click for options)";
+            ToolTip.SetTip(btn, tip);
+        }
+    }
+
+    private async Task<string?> PromptAsync(string title, string label, string initialValue)
+    {
+        var tcs = new TaskCompletionSource<string?>();
+
+        var win = new Window
+        {
+            Title = title,
+            Width = 420,
+            Height = 180,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+
+        var tbLabel = new TextBlock
+        {
+            Text = label,
+            Margin = new global::Avalonia.Thickness(0, 0, 0, 6),
+            FontSize = 12
+        };
+
+        var input = new TextBox
+        {
+            Text = initialValue,
+            FontSize = 12
+        };
+
+        var btnCancel = new Button
+        {
+            Content = "Cancel",
+            MinWidth = 92,
+            IsCancel = true
+        };
+
+        var btnOk = new Button
+        {
+            Content = "OK",
+            MinWidth = 92,
+            IsDefault = true
+        };
+
+        btnOk.Click += (_, _) =>
+        {
+            tcs.TrySetResult(input.Text);
+            win.Close();
+        };
+
+        btnCancel.Click += (_, _) =>
+        {
+            tcs.TrySetResult(null);
+            win.Close();
+        };
+
+        win.Closed += (_, _) =>
+        {
+            if (!tcs.Task.IsCompleted)
+                tcs.TrySetResult(null);
+        };
+
+        var cardBorder = new Border
+        {
+            Padding = new global::Avalonia.Thickness(12),
+            Child = new StackPanel
+            {
+                Spacing = 6,
+                Children =
+                {
+                    tbLabel,
+                    input
+                }
+            }
+        };
+        cardBorder.Classes.Add("Card");
+
+        win.Content = new DockPanel
+        {
+            Margin = new global::Avalonia.Thickness(16),
+            Children =
+            {
+                new Border
+                {
+                    [DockPanel.DockProperty] = Dock.Bottom,
+                    Padding = new global::Avalonia.Thickness(0, 12, 0, 0),
+                    Child = new Grid
+                    {
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"),
+                        ColumnSpacing = 10,
+                        Children =
+                        {
+                            btnCancel,
+                            btnOk
+                        }
+                    }
+                },
+                cardBorder
+            }
+        };
+
+        Grid.SetColumn(btnCancel, 1);
+        Grid.SetColumn(btnOk, 2);
+
+        await win.ShowDialog(this);
+        return await tcs.Task;
     }
     
     /// <summary>
@@ -1561,13 +2861,18 @@ public partial class MainWindow : Window
     /// <summary>
     /// Sets the UI to a "Working" state (busy cursor, disabled controls).
     /// </summary>
-    private void Start()
+    private void Start(string activity)
     {
         _working = true;
         this.Cursor = new global::Avalonia.Input.Cursor(global::Avalonia.Input.StandardCursorType.Wait);
-        if (lblStatusRight != null) lblStatusRight.Text = "Working...";
+        if (lblStatusRight != null) lblStatusRight.Text = activity;
+        if (StatusProgress != null) StatusProgress.IsVisible = true;
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         if (rvTree != null) rvTree.Working = true;
+        var menu = this.FindControl<Menu>("MainMenu");
+        if (menu != null) menu.IsEnabled = false;
+        var toolbarActions = this.FindControl<StackPanel>("ToolbarActions");
+        if (toolbarActions != null) toolbarActions.IsEnabled = false;
     }
 
     /// <summary>
@@ -1578,12 +2883,17 @@ public partial class MainWindow : Window
         _working = false;
         this.Cursor = global::Avalonia.Input.Cursor.Default;
         if (lblStatusRight != null) lblStatusRight.Text = "";
+        if (StatusProgress != null) StatusProgress.IsVisible = false;
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         if (rvTree != null)
         {
             rvTree.Working = false;
             DatSetSelected(rvTree.Selected);
         }
+        var menu = this.FindControl<Menu>("MainMenu");
+        if (menu != null) menu.IsEnabled = true;
+        var toolbarActions = this.FindControl<StackPanel>("ToolbarActions");
+        if (toolbarActions != null) toolbarActions.IsEnabled = true;
     }
 
     /// <summary>
@@ -1596,7 +2906,7 @@ public partial class MainWindow : Window
         FileScanning.StartAt = StartAt;
         FileScanning.EScanLevel = sd;
         
-        Start();
+        Start("Scanning ROMs...");
         
         var thWrk = new ThreadWorker(FileScanning.ScanFiles);
         
@@ -1636,7 +2946,7 @@ public partial class MainWindow : Window
             selected = selected.Parent;
         }
 
-        Start();
+        Start("Updating DATs...");
 
         var thWrk = new ThreadWorker(DatUpdate.UpdateDat);
         
@@ -1677,7 +2987,7 @@ public partial class MainWindow : Window
     /// </summary>
     public void FindFixes()
     {
-        Start();
+        Start("Finding fixes...");
         var thWrk = new ThreadWorker(RomVaultCore.FindFix.FindFixes.ScanFiles);
         
         var progressWindow = new Views.ProgressWindow(thWrk);
@@ -1693,7 +3003,7 @@ public partial class MainWindow : Window
     /// </summary>
     public void FixFiles()
     {
-        Start();
+        Start("Fixing files...");
         var thWrk = new ThreadWorker(RomVaultCore.FixFile.Fix.PerformFixes);
         
         var progressWindow = new Views.ProgressWindow(thWrk);

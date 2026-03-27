@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.Input;
+using Avalonia.Platform.Storage;
 using Compress;
 using RVIO;
 using TrrntZip;
@@ -62,6 +63,9 @@ namespace ROMVault.Avalonia.Views;
 
         private bool _working;
         private int _threadCount;
+        private global::Avalonia.Media.IBrush? _dropBorderBrush;
+        private global::Avalonia.Media.IBrush? _dropBackgroundBrush;
+        private readonly Dictionary<int, string> _filePathById = new();
 
         private bool UiUpdate = false;
         private bool scanningForFiles = false;
@@ -77,7 +81,11 @@ namespace ROMVault.Avalonia.Views;
             InitializeComponent();
             
             DropBox.AddHandler(DragDrop.DragEnterEvent, PDragEnter);
+            DropBox.AddHandler(DragDrop.DragLeaveEvent, PDragLeave);
+            DropBox.AddHandler(DragDrop.DragOverEvent, PDragOver);
             DropBox.AddHandler(DragDrop.DropEvent, PDragDrop);
+            _dropBorderBrush = DropBox.BorderBrush;
+            _dropBackgroundBrush = DropBox.Background;
 
             // Init ComboBoxes
             cboInType.Items.Add("Zip");
@@ -160,6 +168,8 @@ namespace ROMVault.Avalonia.Views;
                 }
             };
 
+            btnAddFiles.Click += BtnAddFiles_Click;
+
             SetUpWorkerThreads();
 
             UiUpdate = false;
@@ -177,6 +187,95 @@ namespace ROMVault.Avalonia.Views;
         private void OnRomVaultClick(object? sender, global::Avalonia.Input.PointerPressedEventArgs e)
         {
              try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = "http://www.romvault.com", UseShellExecute = true }); } catch { }
+        }
+
+        private void SetDropHighlight(bool highlight)
+        {
+            if (highlight)
+            {
+                if (TryGetResource("AccentBrush", null, out var accent) && accent is global::Avalonia.Media.IBrush ab)
+                    DropBox.BorderBrush = ab;
+                if (TryGetResource("AccentWeakBrush", null, out var weak) && weak is global::Avalonia.Media.IBrush wb)
+                    DropBox.Background = wb;
+                return;
+            }
+
+            DropBox.BorderBrush = _dropBorderBrush;
+            DropBox.Background = _dropBackgroundBrush;
+        }
+
+        private async void BtnAddFiles_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_working) return;
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider == null)
+                return;
+
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                AllowMultiple = true,
+                Title = "Select folder(s)"
+            });
+
+            if (folders.Count > 0)
+            {
+                var paths = folders.Select(f => f.Path.LocalPath).OrderBy(p => p).ToArray();
+                StartProcessing(paths);
+                return;
+            }
+
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                AllowMultiple = true,
+                Title = "Select file(s)"
+            });
+
+            if (files.Count == 0)
+                return;
+
+            var filePaths = files.Select(f => f.Path.LocalPath).OrderBy(p => p).ToArray();
+            StartProcessing(filePaths);
+        }
+
+        private async void OnCopyFilenameClick(object? sender, RoutedEventArgs e)
+        {
+            if (dataGrid.SelectedItem is not GridItem item)
+                return;
+
+            string path = item.Filename ?? (_filePathById.TryGetValue(item.fileId, out var p) ? p : "");
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.Clipboard == null)
+                return;
+
+            await topLevel.Clipboard.SetTextAsync(path);
+        }
+
+        private void OnOpenSourceClick(object? sender, RoutedEventArgs e)
+        {
+            if (dataGrid.SelectedItem is not GridItem item)
+                return;
+
+            string path = item.Filename ?? (_filePathById.TryGetValue(item.fileId, out var p) ? p : "");
+            if (string.IsNullOrWhiteSpace(path))
+                return;
+
+            if (!System.IO.File.Exists(path) && !System.IO.Directory.Exists(path))
+                return;
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    UseShellExecute = true,
+                    Verb = "open"
+                });
+            }
+            catch { }
         }
 
         /// <summary>
@@ -255,6 +354,25 @@ namespace ROMVault.Avalonia.Views;
         /// </summary>
         private void PDragEnter(object? sender, DragEventArgs e)
         {
+            if (_working) return;
+            #pragma warning disable CS0618 // Type or member is obsolete
+            if (e.Data.Contains(DataFormats.Files))
+            {
+                e.DragEffects = DragDropEffects.Copy;
+                e.Handled = true;
+                SetDropHighlight(true);
+            }
+            #pragma warning restore CS0618 // Type or member is obsolete
+        }
+
+        private void PDragLeave(object? sender, DragEventArgs e)
+        {
+            SetDropHighlight(false);
+        }
+
+        private void PDragOver(object? sender, DragEventArgs e)
+        {
+            if (_working) return;
             #pragma warning disable CS0618 // Type or member is obsolete
             if (e.Data.Contains(DataFormats.Files))
             {
@@ -278,6 +396,15 @@ namespace ROMVault.Avalonia.Views;
             if (files == null) return;
             
             var fileList = files.Select(f => f.Path.LocalPath).OrderBy(f => f).ToArray();
+            StartProcessing(fileList);
+        }
+
+        private void StartProcessing(string[] fileList)
+        {
+            if (_working) return;
+
+            SetDropHighlight(false);
+            _filePathById.Clear();
 
             TrrntZip.Program.ForceReZip = chkForce.IsChecked == true;
             TrrntZip.Program.CheckOnly = chkFix.IsChecked != true;
@@ -292,7 +419,6 @@ namespace ROMVault.Avalonia.Views;
             FileCountProcessed = 0;
             scanningForFiles = true;
             
-            // Use local FileAdder logic
             FileAdder pm = new FileAdder(bccFile, fileList, UpdateFileCount, ProcessFileEndCallback);
             Thread procT = new Thread(pm.ProcFiles);
             procT.Start();
@@ -307,6 +433,7 @@ namespace ROMVault.Avalonia.Views;
         {
             _working = true;
             DropBox.IsEnabled = false; // TODO: Show working image
+            btnAddFiles.IsEnabled = false;
             cboInType.IsEnabled = false;
             cboOutType.IsEnabled = false;
             chkForce.IsEnabled = false;
@@ -323,6 +450,7 @@ namespace ROMVault.Avalonia.Views;
         {
             _working = false;
             DropBox.IsEnabled = true;
+            btnAddFiles.IsEnabled = true;
             cboInType.IsEnabled = true;
             cboOutType.IsEnabled = true;
             chkForce.IsEnabled = true;
@@ -330,6 +458,7 @@ namespace ROMVault.Avalonia.Views;
         tbProccessors.IsEnabled = true;
         btnCancel.IsEnabled = false;
         btnPause.IsEnabled = false;
+        SetDropHighlight(false);
         _timer?.Stop();
     }
 
@@ -409,6 +538,7 @@ namespace ROMVault.Avalonia.Views;
             _fileIndex = fileId + 1;
             _threads[processId].tLabel = Path.GetFileName(filename);
             _threads[processId].tProgress = 0;
+            _filePathById[fileId] = filename;
 
             lock (_pendingGridUpdates)
             {

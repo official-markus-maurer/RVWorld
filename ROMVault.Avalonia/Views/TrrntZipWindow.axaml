@@ -9,11 +9,12 @@
   
   <Grid ColumnDefinitions="250, *">
     <!-- Left Panel (StatusPanel) -->
-    <DockPanel Grid.Column="0" Background="#F0F0F0">
+    <Border Grid.Column="0" Classes="Card" Margin="8" Padding="0">
+    <DockPanel Background="{DynamicResource SurfaceBackgroundBrush}">
         <!-- Bottom Logos -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10">
-            <Image Source="/Assets/picPatreon.png" Height="30" Margin="5" Cursor="Hand" ToolTip.Tip="Support on Patreon"/>
-            <Image Source="/Assets/logo.png" Height="30" Margin="5" Cursor="Hand" ToolTip.Tip="Visit RomVault"/>
+            <Image Source="/Assets/picPatreon.png" Height="30" Margin="5" Cursor="Hand" ToolTip.Tip="Support on Patreon" PointerPressed="OnDonateClick"/>
+            <Image Source="/Assets/logo.png" Height="30" Margin="5" Cursor="Hand" ToolTip.Tip="Visit RomVault" PointerPressed="OnRomVaultClick"/>
         </StackPanel>
 
         <!-- Top Content -->
@@ -23,7 +24,12 @@
 
              <!-- DropBox Area -->
              <Grid ColumnDefinitions="Auto, *" Margin="10,0">
-                  <Border Grid.Column="0" Name="DropBox" Width="63" Height="61" BorderBrush="Gray" BorderThickness="1" Background="White" DragDrop.AllowDrop="True">
+                  <Border Grid.Column="0" Name="DropBox" Width="63" Height="61"
+                          BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                          BorderThickness="1"
+                          Background="{DynamicResource SurfaceBackgroundAltBrush}"
+                          CornerRadius="8"
+                          DragDrop.AllowDrop="True">
                        <Image Source="/Assets/Zip.png" Stretch="Uniform" Margin="5"/>
                   </Border>
                   <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
@@ -34,6 +40,9 @@
                             </Button>
                             <Button Name="btnCancel" Width="25" Height="25" Padding="2" IsEnabled="False">
                                 <Image Source="/Assets/G_Delete.png"/>
+                            </Button>
+                            <Button Name="btnAddFiles" Width="25" Height="25" Padding="2" ToolTip.Tip="Add files/folders">
+                                <TextBlock Text="+" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14"/>
                             </Button>
                        </StackPanel>
                   </StackPanel>
@@ -60,13 +69,22 @@
              <StackPanel Name="StatusPanel" Margin="10,0"/>
         </StackPanel>
     </DockPanel>
+    </Border>
 
     <!-- Right Panel (DataGrid) -->
-    <DataGrid Grid.Column="1" Name="dataGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="0" GridLinesVisibility="All" BorderThickness="0">
-        <DataGrid.Columns>
-            <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="*"/>
-            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="150"/>
-        </DataGrid.Columns>
-    </DataGrid>
+    <Border Grid.Column="1" Classes="Card" Margin="8" Padding="0">
+        <DataGrid Name="dataGrid" AutoGenerateColumns="False" IsReadOnly="True" Margin="0" GridLinesVisibility="None" BorderThickness="0">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Copy Filename" Click="OnCopyFilenameClick"/>
+                    <MenuItem Header="Open Source" Click="OnOpenSourceClick"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Filename" Binding="{Binding Filename}" Width="*"/>
+                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="150"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Border>
   </Grid>
 </Window>

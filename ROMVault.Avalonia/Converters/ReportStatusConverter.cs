@@ -14,6 +14,23 @@ namespace ROMVault.Avalonia.Converters
     /// </summary>
     public class ReportStatusToBrushConverter : IValueConverter
     {
+        private static bool _cachedDarkness;
+        private static SolidColorBrush[]? _cachedBrushes;
+
+        private static void EnsureBrushCache()
+        {
+            bool darkness = Settings.rvSettings.Darkness;
+            if (_cachedBrushes != null && _cachedDarkness == darkness)
+                return;
+
+            _cachedDarkness = darkness;
+            _cachedBrushes = new SolidColorBrush[RvColors.DisplayColor.Length];
+            for (int i = 0; i < RvColors.DisplayColor.Length; i++)
+            {
+                _cachedBrushes[i] = new SolidColorBrush(Down(RvColors.DisplayColor[i]));
+            }
+        }
+
         /// <summary>
         /// Dims the color if dark mode is enabled.
         /// </summary>
@@ -46,7 +63,8 @@ namespace ROMVault.Avalonia.Converters
                 int index = (int)status;
                 if (index >= 0 && index < RvColors.DisplayColor.Length)
                 {
-                    return new SolidColorBrush(Down(RvColors.DisplayColor[index]));
+                    EnsureBrushCache();
+                    return _cachedBrushes![index];
                 }
             }
             return Brushes.Transparent;
@@ -63,6 +81,20 @@ namespace ROMVault.Avalonia.Converters
     /// </summary>
     public class ReportStatusToForegroundConverter : IValueConverter
     {
+        private static SolidColorBrush[]? _cachedBrushes;
+
+        private static void EnsureBrushCache()
+        {
+            if (_cachedBrushes != null)
+                return;
+
+            _cachedBrushes = new SolidColorBrush[RvColors.FontColor.Length];
+            for (int i = 0; i < RvColors.FontColor.Length; i++)
+            {
+                _cachedBrushes[i] = new SolidColorBrush(RvColors.FontColor[i]);
+            }
+        }
+
         /// <summary>
         /// Converts a RepStatus to a SolidColorBrush for text.
         /// </summary>
@@ -78,8 +110,8 @@ namespace ROMVault.Avalonia.Converters
                 int index = (int)status;
                 if (index >= 0 && index < RvColors.FontColor.Length)
                 {
-                     // Return the pre-calculated contrast color (Black or White)
-                     return new SolidColorBrush(RvColors.FontColor[index]);
+                     EnsureBrushCache();
+                     return _cachedBrushes![index];
                 }
             }
             // Default to null to allow inheritance if no status matched, or Black if explicit

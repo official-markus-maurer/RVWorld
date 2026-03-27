@@ -8,9 +8,9 @@
         x:Class="ROMVault.Avalonia.Views.KeyWindow"
         Title="Key"
         WindowStartupLocation="CenterOwner">
-    <ScrollViewer>
-        <StackPanel Margin="10" Name="MainStackPanel">
-            <!-- Items will be added dynamically -->
-        </StackPanel>
+    <ScrollViewer Margin="16">
+        <Border Classes="Card" Padding="12">
+            <StackPanel Name="MainStackPanel"/>
+        </Border>
     </ScrollViewer>
 </Window>

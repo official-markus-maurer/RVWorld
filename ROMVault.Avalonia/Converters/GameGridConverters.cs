@@ -5,6 +5,7 @@ using Avalonia.Platform;
 using RomVaultCore;
 using RomVaultCore.RvDB;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace ROMVault.Avalonia.Converters;
@@ -120,6 +121,23 @@ public static class RvColors
 /// </summary>
 public class GameGridBackgroundConverter : IValueConverter
 {
+    private static bool _cachedDarkness;
+    private static SolidColorBrush[]? _cachedBrushes;
+
+    private static void EnsureBrushCache()
+    {
+        bool darkness = Settings.rvSettings.Darkness;
+        if (_cachedBrushes != null && _cachedDarkness == darkness)
+            return;
+
+        _cachedDarkness = darkness;
+        _cachedBrushes = new SolidColorBrush[RvColors.DisplayColor.Length];
+        for (int i = 0; i < RvColors.DisplayColor.Length; i++)
+        {
+            _cachedBrushes[i] = new SolidColorBrush(RvColors.Down(RvColors.DisplayColor[i]));
+        }
+    }
+
     /// <summary>
     /// Converts the value.
     /// </summary>
@@ -130,11 +148,12 @@ public class GameGridBackgroundConverter : IValueConverter
     /// <returns>A SolidColorBrush based on the status.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        EnsureBrushCache();
         if (value is RvFile tRvDir)
         {
             if (tRvDir.GotStatus == GotStatus.FileLocked)
             {
-                return new SolidColorBrush(RvColors.Down(RvColors.DisplayColor[(int)RepStatus.UnScanned]));
+                return _cachedBrushes![(int)RepStatus.UnScanned];
             }
 
             foreach (RepStatus t1 in RepairStatus.DisplayOrder)
@@ -142,7 +161,7 @@ public class GameGridBackgroundConverter : IValueConverter
                 if (tRvDir.DirStatus.Get(t1) <= 0)
                     continue;
 
-                return new SolidColorBrush(RvColors.Down(RvColors.DisplayColor[(int)t1]));
+                return _cachedBrushes![(int)t1];
             }
         }
         return Brushes.Transparent;
@@ -162,6 +181,20 @@ public class GameGridBackgroundConverter : IValueConverter
 /// </summary>
 public class GameGridForegroundConverter : IValueConverter
 {
+    private static SolidColorBrush[]? _cachedBrushes;
+
+    private static void EnsureBrushCache()
+    {
+        if (_cachedBrushes != null)
+            return;
+
+        _cachedBrushes = new SolidColorBrush[RvColors.FontColor.Length];
+        for (int i = 0; i < RvColors.FontColor.Length; i++)
+        {
+            _cachedBrushes[i] = new SolidColorBrush(RvColors.FontColor[i]);
+        }
+    }
+
     /// <summary>
     /// Converts the value.
     /// </summary>
@@ -172,11 +205,12 @@ public class GameGridForegroundConverter : IValueConverter
     /// <returns>A SolidColorBrush for the text.</returns>
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
+        EnsureBrushCache();
         if (value is RvFile tRvDir)
         {
             if (tRvDir.GotStatus == GotStatus.FileLocked)
             {
-                return new SolidColorBrush(RvColors.FontColor[(int)RepStatus.UnScanned]);
+                return _cachedBrushes![(int)RepStatus.UnScanned];
             }
 
             foreach (RepStatus t1 in RepairStatus.DisplayOrder)
@@ -184,7 +218,7 @@ public class GameGridForegroundConverter : IValueConverter
                 if (tRvDir.DirStatus.Get(t1) <= 0)
                     continue;
 
-                return new SolidColorBrush(RvColors.FontColor[(int)t1]);
+                return _cachedBrushes![(int)t1];
             }
         }
         // If no status matched, assume default text color (likely white in dark theme)
@@ -195,6 +229,59 @@ public class GameGridForegroundConverter : IValueConverter
     /// <summary>
     /// Converts back. Not implemented.
     /// </summary>
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class GameExtrasBadgeConverter : IValueConverter
+{
+    private static readonly Dictionary<RvFile, string?> Cache = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not RvFile dir)
+            return null;
+
+        if (Cache.TryGetValue(dir, out var cached))
+            return cached;
+
+        bool hasText = false;
+        bool hasArt = false;
+
+        int limit = Math.Min(dir.ChildCount, 400);
+        for (int i = 0; i < limit; i++)
+        {
+            var child = dir.Child(i);
+            if (child.GotStatus != GotStatus.Got)
+                continue;
+
+            string name = child.Name ?? "";
+            if (!hasText)
+            {
+                if (name.EndsWith(".nfo", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".diz", StringComparison.OrdinalIgnoreCase))
+                    hasText = true;
+            }
+
+            if (!hasArt)
+            {
+                if (name.StartsWith("Artwork/", StringComparison.OrdinalIgnoreCase) || name.StartsWith("Artwork\\", StringComparison.OrdinalIgnoreCase))
+                    hasArt = true;
+            }
+
+            if (hasText && hasArt)
+                break;
+        }
+
+        string? result = null;
+        if (hasArt) result = "ART";
+        else if (hasText) result = "TXT";
+
+        Cache[dir] = result;
+        return result;
+    }
+
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();

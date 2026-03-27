@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Compress;
 using Compress.ZipFile;
 using DATReader.DatClean;
@@ -23,6 +24,10 @@ namespace ROMVault.Avalonia.Views;
     /// </summary>
     public partial class DirectorySettingsWindow : Window
     {
+        private Color _cMagenta = Color.FromRgb(255, 214, 255);
+        private Color _cGreen = Color.FromRgb(214, 255, 214);
+        private Color _cYellow = Color.FromRgb(255, 255, 214);
+
         private DatRule _rule = null!;
         public bool ChangesMade;
         private bool _displayType;
@@ -252,21 +257,33 @@ namespace ROMVault.Avalonia.Views;
                 
                 if (t.DirPath == "ToSort")
                 {
-                     vm.Background = Brushes.Plum; // Magenta-ish
+                     vm.Background = new SolidColorBrush(Down(_cMagenta));
                 }
                 else if (t == _rule)
                 {
-                     vm.Background = Brushes.LightGreen;
+                     vm.Background = new SolidColorBrush(Down(_cGreen));
                 }
                 else if (t.DirKey.Length > _rule.DirKey.Length)
                 {
                     if (t.DirKey.Substring(0, _rule.DirKey.Length + 1) == _rule.DirKey + "\\")
                     {
-                         vm.Background = Brushes.LightYellow;
+                         vm.Background = new SolidColorBrush(Down(_cYellow));
                     }
                 }
                 _datRules.Add(vm);
             }
+        }
+
+        private static Color Down(Color c)
+        {
+            if (Settings.rvSettings.Darkness)
+            {
+                return Color.FromRgb(
+                    (byte)(c.R * 0.8),
+                    (byte)(c.G * 0.8),
+                    (byte)(c.B * 0.8));
+            }
+            return c;
         }
 
         /// <summary>
@@ -390,18 +407,25 @@ namespace ROMVault.Avalonia.Views;
         /// <summary>
         /// Deletes the current rule.
         /// </summary>
-        private void BtnDeleteClick(object? sender, RoutedEventArgs e)
+        private async void BtnDeleteClick(object? sender, RoutedEventArgs e)
         {
             string datLocation = _rule.DirKey;
 
             if (datLocation == "RomVault")
             {
-                // ReportError.Show("You cannot delete the " + datLocation + " Directory Settings", "RomVault Rom Location");
-                // Use MessageBox
+                await MessageBoxWindow.ShowInfo(this, "The 'RomVault' directory settings cannot be deleted.", "Not Allowed");
                 return;
             }
             else
             {
+                bool ok = await MessageBoxWindow.ShowConfirm(
+                    this,
+                    $"Delete directory settings for:\r\n\r\n{datLocation}\r\n\r\nThis will remove the rule from settings.",
+                    "Confirm Delete",
+                    okText: "Delete",
+                    cancelText: "Cancel");
+                if (!ok) return;
+
                 ChangesMade = true;
 
                 DatUpdate.CheckAllDats(DB.DirRoot.Child(0), datLocation);
@@ -423,12 +447,28 @@ namespace ROMVault.Avalonia.Views;
         /// <summary>
         /// Deletes the selected rules from the grid.
         /// </summary>
-        private void BtnDeleteSelectedClick(object? sender, RoutedEventArgs e)
+        private async void BtnDeleteSelectedClick(object? sender, RoutedEventArgs e)
         {
-            ChangesMade = true;
             var selectedItems = DataGridGames.SelectedItems;
             if (selectedItems == null) return;
 
+            int deleteCount = 0;
+            foreach (var item in selectedItems)
+            {
+                if (item is DatRuleViewModel vm && vm.DirKey != "RomVault")
+                    deleteCount++;
+            }
+            if (deleteCount == 0) return;
+
+            bool ok = await MessageBoxWindow.ShowConfirm(
+                this,
+                $"Delete {deleteCount} selected rule(s)?",
+                "Confirm Delete",
+                okText: "Delete",
+                cancelText: "Cancel");
+            if (!ok) return;
+
+            ChangesMade = true;
             foreach (var item in selectedItems)
             {
                 if (item is DatRuleViewModel vm)
@@ -455,8 +495,16 @@ namespace ROMVault.Avalonia.Views;
         /// <summary>
         /// Resets all rules to defaults.
         /// </summary>
-        private void BtnResetAllClick(object? sender, RoutedEventArgs e)
+        private async void BtnResetAllClick(object? sender, RoutedEventArgs e)
         {
+            bool ok = await MessageBoxWindow.ShowConfirm(
+                this,
+                "Reset all directory settings rules to defaults?",
+                "Confirm Reset",
+                okText: "Reset",
+                cancelText: "Cancel");
+            if (!ok) return;
+
             ChangesMade = true;
             // Logic from WinForms
             Settings.rvSettings.ResetDatRules();
@@ -556,7 +604,7 @@ namespace ROMVault.Avalonia.Views;
         public ZipStructure CompressionSub => Rule.CompressionSub;
         public MergeType Merge => Rule.Merge;
         public bool SingleArchive => Rule.SingleArchive;
-        public IBrush Background { get; set; } = Brushes.White;
+        public IBrush Background { get; set; } = Brushes.Transparent;
 
         public DatRuleViewModel(DatRule rule)
         {

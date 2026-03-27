@@ -93,7 +93,7 @@
                         <TextBox Name="textBox1"
                                  AcceptsReturn="True"
                                  TextWrapping="NoWrap"
-                                 MinHeight="160"
+                                 Height="120"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
                     </StackPanel>
