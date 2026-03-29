@@ -10,6 +10,8 @@ using System.Globalization;
 
 namespace ROMVault.Avalonia.Converters;
 
+
+
 /// <summary>
 /// Defines color constants and helper methods for the ROMVault UI.
 /// </summary>

@@ -20,6 +20,16 @@ namespace ROMVault.Avalonia.Views
     /// </summary>
     public class RvTree : Control
     {
+        [Flags]
+        public enum TreeStatColumns
+        {
+            None = 0,
+            Have = 1 << 0,
+            Missing = 1 << 1,
+            MIA = 1 << 2,
+            Fix = 1 << 3,
+            Unknown = 1 << 4
+        }
         private class UiTree
         {
             public string TreeBranches = "";
@@ -38,6 +48,11 @@ namespace ROMVault.Avalonia.Views
         private string _typeSearch = "";
         private DispatcherTimer? _typeSearchTimer;
         private readonly List<RvFile> _visibleNodes = new List<RvFile>();
+        private readonly Dictionary<string, bool> _dvDatCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<RvFile, byte> _descendantCheckFlagsCache = new Dictionary<RvFile, byte>();
+        private double _viewportWidth;
+        private double _viewportOffsetX;
+        private bool _showStats;
 
         /// <summary>
         /// Gets the currently selected file/directory in the tree.
@@ -48,6 +63,50 @@ namespace ROMVault.Avalonia.Views
         /// Indicates if the tree is currently performing a background operation (e.g., scanning).
         /// </summary>
         public bool Working { get; set; }
+
+        public bool ShowStats
+        {
+            get => _showStats;
+            set
+            {
+                _showStats = value;
+                UpdateStatsMinWidth();
+            }
+        }
+
+        public TreeStatColumns StatColumns { get; set; } = TreeStatColumns.Have | TreeStatColumns.Missing | TreeStatColumns.MIA;
+
+        public double ViewportWidth
+        {
+            get => _viewportWidth;
+            set
+            {
+                _viewportWidth = value;
+                UpdateStatsMinWidth();
+            }
+        }
+
+        public double ViewportOffsetX
+        {
+            get => _viewportOffsetX;
+            set
+            {
+                _viewportOffsetX = value;
+                UpdateStatsMinWidth();
+            }
+        }
+
+        private void UpdateStatsMinWidth()
+        {
+            if (!_showStats)
+            {
+                this.MinWidth = _maxWidth;
+                return;
+            }
+
+            double need = _viewportWidth > 0 ? _viewportOffsetX + _viewportWidth : 0;
+            this.MinWidth = Math.Max(_maxWidth, need);
+        }
 
         /// <summary>
         /// Event raised when a node is selected.
@@ -259,6 +318,8 @@ namespace ROMVault.Avalonia.Views
             }
 
             // Row (Selection)
+            // Use a generous width so selection works even when the row is wider than the visible bounds
+            // (e.g. when the tree is inside a horizontally scrollable container).
             double rowWidth = Bounds.Width > 0 ? Bounds.Width : 2000;
             var rowRect = new Rect(0, uTree.RTree.Top, rowWidth, uTree.RTree.Height);
             if (rowRect.Contains(new Point(x, y)))
@@ -543,6 +604,7 @@ namespace ROMVault.Avalonia.Views
         public void Setup(RvFile dirTree)
         {
             _lTree = dirTree;
+            _dvDatCache.Clear();
             SetupInt();
         }
 
@@ -579,9 +641,105 @@ namespace ROMVault.Avalonia.Views
             // In Avalonia custom control, we usually request resize or invalidate measure.
             // For scrolling, we might need to be inside a ScrollViewer and set our Height.
             this.Height = _yPos;
-            this.MinWidth = _maxWidth;
+            UpdateStatsMinWidth();
             this.Width = double.NaN;
             this.InvalidateVisual();
+        }
+
+        private bool IsDvManaged(RvFile node)
+        {
+            if (node.Dat != null)
+                return IsDvManaged(node.Dat);
+
+            int count = node.DirDatCount;
+            if (count <= 0)
+                return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                var dat = node.DirDat(i);
+                if (dat != null && IsDvManaged(dat))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsDvManaged(RvDat dat)
+        {
+            string datRootFullName = dat.GetData(RvDat.DatData.DatRootFullName) ?? "";
+            if (string.IsNullOrWhiteSpace(datRootFullName))
+                return false;
+
+            string fullPath = ResolveDatPath(datRootFullName);
+            if (string.IsNullOrWhiteSpace(fullPath))
+                return false;
+
+            if (_dvDatCache.TryGetValue(fullPath, out bool cached))
+                return cached;
+
+            bool hasDv = HasDvJson(fullPath);
+            _dvDatCache[fullPath] = hasDv;
+            return hasDv;
+        }
+
+        private static string ResolveDatPath(string path)
+        {
+            path = path.Replace('/', '\\');
+            if (path.StartsWith("DatRoot\\", StringComparison.OrdinalIgnoreCase))
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+            if (!Path.IsPathRooted(path))
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+            return path;
+        }
+
+        private static bool HasDvJson(string datFullPath)
+        {
+            try
+            {
+                string? dir = Path.GetDirectoryName(datFullPath);
+                if (string.IsNullOrWhiteSpace(dir))
+                    return false;
+
+                string baseName = Path.GetFileNameWithoutExtension(datFullPath);
+                if (string.IsNullOrWhiteSpace(baseName))
+                    return false;
+
+                string json1 = Path.Combine(dir, baseName + ".json");
+                if (File.Exists(json1))
+                    return true;
+
+                string stripped = StripDateSuffix(baseName);
+                if (!string.Equals(stripped, baseName, StringComparison.Ordinal))
+                {
+                    string json2 = Path.Combine(dir, stripped + ".json");
+                    if (File.Exists(json2))
+                        return true;
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        private static string StripDateSuffix(string name)
+        {
+            int idx = name.LastIndexOf(" (", StringComparison.Ordinal);
+            if (idx < 0)
+                return name;
+
+            string tail = name.Substring(idx + 1);
+            if (tail.Length < 12 || tail[0] != '(')
+                return name;
+
+            if (!char.IsDigit(tail[1]) || !char.IsDigit(tail[2]) || !char.IsDigit(tail[3]) || !char.IsDigit(tail[4]) ||
+                !char.IsDigit(tail[5]) || !char.IsDigit(tail[6]) || !char.IsDigit(tail[7]) || !char.IsDigit(tail[8]))
+                return name;
+
+            if (tail.Length <= 9 || tail[9] != '-')
+                return name;
+
+            return name.Substring(0, idx);
         }
 
         /// <summary>
@@ -680,6 +838,8 @@ namespace ROMVault.Avalonia.Views
             if (_lTree == null)
                 return;
 
+            _descendantCheckFlagsCache.Clear();
+
             for (int i = 0; i < _lTree.ChildCount; i++)
             {
                 RvFile tDir = _lTree.Child(i);
@@ -691,6 +851,38 @@ namespace ROMVault.Avalonia.Views
                     PaintTree(tDir, context);
                 }
             }
+        }
+
+        private byte GetDescendantCheckFlags(RvFile node)
+        {
+            if (_descendantCheckFlagsCache.TryGetValue(node, out byte cached))
+                return cached;
+
+            byte flags = 0;
+            for (int i = 0; i < node.ChildCount; i++)
+            {
+                var child = node.Child(i);
+                if (!child.IsDirectory || child.Tree == null)
+                    continue;
+
+                var state = child.Tree.Checked;
+                if (state == RvTreeRow.TreeSelect.Selected || state == RvTreeRow.TreeSelect.Locked)
+                {
+                    flags |= 0b01;
+                }
+                else if (state == RvTreeRow.TreeSelect.UnSelected)
+                {
+                    flags |= 0b10;
+                }
+
+                flags |= GetDescendantCheckFlags(child);
+
+                if (flags == 0b11)
+                    break;
+            }
+
+            _descendantCheckFlagsCache[node] = flags;
+            return flags;
         }
 
         /// <summary>
@@ -707,12 +899,15 @@ namespace ROMVault.Avalonia.Views
             if (rowRect.Top > viewport.Bottom)
                 return;
 
+            // Viewport culling: only draw visible rows to keep large trees responsive.
             bool drawRow = rowRect.Bottom >= viewport.Top;
 
             if (drawRow)
             {
                 if (ReferenceEquals(pTree, Selected))
                 {
+                    // Selection must remain visible in both light/dark themes. Prefer theme resources,
+                    // but fall back to explicit brushes so selection never becomes "invisible".
                     IBrush selBrush;
                     if (TryGetResource("TreeSelectedBrush", null, out var selRes) && selRes is IBrush sb)
                         selBrush = sb;
@@ -794,10 +989,10 @@ namespace ROMVault.Avalonia.Views
                         checkName = "TickBoxLocked";
                         break;
                     case RvTreeRow.TreeSelect.UnSelected:
-                        checkName = "TickBoxUnTicked";
+                        checkName = (GetDescendantCheckFlags(pTree) & 0b01) != 0 ? "TickBoxTristate" : "TickBoxUnTicked";
                         break;
                     case RvTreeRow.TreeSelect.Selected:
-                        checkName = "TickBoxTicked";
+                        checkName = (GetDescendantCheckFlags(pTree) & 0b10) != 0 ? "TickBoxTristate" : "TickBoxTicked";
                         break;
                 }
 
@@ -856,7 +1051,61 @@ namespace ROMVault.Avalonia.Views
                     12,
                     textColor
                 );
-                context.DrawText(text, uTree.RText.Position);
+                double statsStart = double.PositiveInfinity;
+                if (ShowStats)
+                {
+                    double vw = ViewportWidth > 0 ? ViewportWidth : Bounds.Width;
+                    double ox = ViewportOffsetX;
+                    double right = ox + vw - 8;
+                    double colW = 56;
+                    int colCount = GetStatColumns().Count;
+                    statsStart = right - colW * colCount;
+                }
+
+                if (double.IsPositiveInfinity(statsStart))
+                {
+                    context.DrawText(text, uTree.RText.Position);
+                }
+                else
+                {
+                    double clipX = uTree.RText.Position.X;
+                    double clipW = Math.Max(0, statsStart - 8 - clipX);
+                    using (context.PushClip(new Rect(clipX, uTree.RTree.Top, clipW, uTree.RTree.Height)))
+                    {
+                        context.DrawText(text, uTree.RText.Position);
+                    }
+                }
+                if (ShowStats)
+                {
+                    double vw = ViewportWidth > 0 ? ViewportWidth : Bounds.Width;
+                    double ox = ViewportOffsetX;
+                    double right = ox + vw - 8;
+                    double colW = 56;
+
+                    var columns = GetStatColumns();
+                    int count = columns.Count;
+                    double start = right - colW * count;
+
+                    for (int ci = 0; ci < columns.Count; ci++)
+                    {
+                        var col = columns[ci];
+                        double x = start + colW * ci;
+                        DrawStat(context, pTree, col, x, uTree.RTree.Top, uTree.RTree.Height);
+                    }
+                }
+                if (IsDvManaged(pTree))
+                {
+                    double availableEnd = double.IsPositiveInfinity(statsStart) ? Bounds.Width : (statsStart - 8);
+                    double x = uTree.RText.Position.X + Math.Min(text.Width, Math.Max(0, availableEnd - uTree.RText.Position.X - 8)) + 8;
+                    double y = uTree.RTree.Top + (uTree.RTree.Height / 2);
+                    if (x + 4 <= availableEnd)
+                    {
+                        if (TryGetResource("AccentBrush", null, out var accentRes) && accentRes is IBrush accentBrush)
+                            context.DrawEllipse(accentBrush, null, new Rect(x - 3, y - 3, 6, 6));
+                        else
+                            context.DrawEllipse(new SolidColorBrush(Color.FromArgb(0xCC, 0x7A, 0xC9, 0x2E)), null, new Rect(x - 3, y - 3, 6, 6));
+                    }
+                }
             }
 
 
@@ -872,6 +1121,69 @@ namespace ROMVault.Avalonia.Views
                     }
                 }
             }
+        }
+
+        private List<TreeStatColumns> GetStatColumns()
+        {
+            var list = new List<TreeStatColumns>(5);
+            if (StatColumns.HasFlag(TreeStatColumns.Have)) list.Add(TreeStatColumns.Have);
+            if (StatColumns.HasFlag(TreeStatColumns.Missing)) list.Add(TreeStatColumns.Missing);
+            if (StatColumns.HasFlag(TreeStatColumns.MIA)) list.Add(TreeStatColumns.MIA);
+            if (StatColumns.HasFlag(TreeStatColumns.Fix)) list.Add(TreeStatColumns.Fix);
+            if (StatColumns.HasFlag(TreeStatColumns.Unknown)) list.Add(TreeStatColumns.Unknown);
+            return list;
+        }
+
+        private static void DrawStat(DrawingContext context, int value, double xLeft, double yTop, double height, IBrush brush)
+        {
+            if (value <= 0)
+                return;
+
+            var ft = new FormattedText(
+                value.ToString(),
+                System.Globalization.CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                Typeface.Default,
+                11,
+                brush
+            );
+            double colW = 56;
+            double x = xLeft + (colW - ft.Width) / 2;
+            double y = yTop + (height - ft.Height) / 2;
+            context.DrawText(ft, new Point(x, y));
+        }
+
+        private void DrawStat(DrawingContext context, RvFile node, TreeStatColumns col, double xLeft, double yTop, double height)
+        {
+            int v;
+            IBrush brush;
+            switch (col)
+            {
+                case TreeStatColumns.Have:
+                    v = node.DirStatus.CountCorrect();
+                    brush = new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32));
+                    break;
+                case TreeStatColumns.Missing:
+                    v = node.DirStatus.CountMissing(false);
+                    brush = new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28));
+                    break;
+                case TreeStatColumns.MIA:
+                    v = node.DirStatus.CountMIA();
+                    brush = new SolidColorBrush(Color.FromRgb(0xEF, 0x6C, 0x00));
+                    break;
+                case TreeStatColumns.Fix:
+                    v = node.DirStatus.CountCanBeFixed();
+                    brush = new SolidColorBrush(Color.FromRgb(0x15, 0x65, 0xC0));
+                    break;
+                case TreeStatColumns.Unknown:
+                    v = node.DirStatus.CountUnknown();
+                    brush = new SolidColorBrush(Color.FromRgb(0x6D, 0x4C, 0x41));
+                    break;
+                default:
+                    return;
+            }
+
+            DrawStat(context, v, xLeft, yTop, height, brush);
         }
 
         /// <summary>

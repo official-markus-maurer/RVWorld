@@ -100,6 +100,8 @@ namespace ROMVault.Avalonia.Views;
         /// <param name="dLocation">The directory key (tree path).</param>
         public void SetLocation(string dLocation)
         {
+            dLocation = NormalizeDirKey(dLocation);
+            Settings.rvSettings.DatRules.Sort();
             _rule = FindRule(dLocation);
             SetDisplay();
             UpdateGrid();
@@ -119,18 +121,6 @@ namespace ROMVault.Avalonia.Views;
             {
                 bottomGrid.IsVisible = !type;
             }
-
-            if (type)
-            {
-                this.Height = 350;
-                this.MinHeight = 350;
-                // this.SizeToContent = SizeToContent.Height; // Avalonia handles this differently
-            }
-            else
-            {
-                this.Height = 620;
-                this.MinHeight = 600;
-            }
         }
 
         /// <summary>
@@ -138,13 +128,25 @@ namespace ROMVault.Avalonia.Views;
         /// </summary>
         private static DatRule FindRule(string dLocation)
         {
+            dLocation = NormalizeDirKey(dLocation);
             foreach (DatRule t in Settings.rvSettings.DatRules)
             {
-                if (string.Compare(t.DirKey, dLocation, StringComparison.Ordinal) == 0)
+                if (string.Equals(NormalizeDirKey(t.DirKey), dLocation, StringComparison.OrdinalIgnoreCase))
                     return t;
             }
 
             return new DatRule { DirKey = dLocation, IgnoreFiles = new List<string>() };
+        }
+
+        private static string NormalizeDirKey(string? dirKey)
+        {
+            if (string.IsNullOrWhiteSpace(dirKey))
+                return "";
+
+            dirKey = dirKey.Trim().Replace('/', '\\');
+            while (dirKey.EndsWith("\\", StringComparison.Ordinal))
+                dirKey = dirKey.Substring(0, dirKey.Length - 1);
+            return dirKey;
         }
 
         /// <summary>
@@ -251,27 +253,48 @@ namespace ROMVault.Avalonia.Views;
         private void UpdateGrid()
         {
             _datRules.Clear();
+            string rootKey = NormalizeDirKey(_rule.DirKey);
             foreach (DatRule t in Settings.rvSettings.DatRules)
             {
+                string tKey = NormalizeDirKey(t.DirKey);
                 var vm = new DatRuleViewModel(t);
                 
                 if (t.DirPath == "ToSort")
                 {
                      vm.Background = new SolidColorBrush(Down(_cMagenta));
                 }
-                else if (t == _rule)
+                else if (tKey.Equals(rootKey, StringComparison.OrdinalIgnoreCase))
                 {
                      vm.Background = new SolidColorBrush(Down(_cGreen));
                 }
-                else if (t.DirKey.Length > _rule.DirKey.Length)
+                else if (tKey.Length > rootKey.Length)
                 {
-                    if (t.DirKey.Substring(0, _rule.DirKey.Length + 1) == _rule.DirKey + "\\")
+                    if (tKey.StartsWith(rootKey + "\\", StringComparison.OrdinalIgnoreCase))
                     {
                          vm.Background = new SolidColorBrush(Down(_cYellow));
                     }
                 }
                 _datRules.Add(vm);
             }
+        }
+
+        private static bool IsRuleRelevant(string rootKey, string ruleKey)
+        {
+            if (string.IsNullOrWhiteSpace(ruleKey))
+                return false;
+            if (string.IsNullOrWhiteSpace(rootKey))
+                return true;
+
+            if (ruleKey.Equals(rootKey, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (ruleKey.StartsWith(rootKey + "\\", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (rootKey.StartsWith(ruleKey + "\\", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
         }
 
         private static Color Down(Color c)
@@ -338,6 +361,7 @@ namespace ROMVault.Avalonia.Views;
         {
             ChangesMade = true;
 
+            _rule.DirKey = NormalizeDirKey(_rule.DirKey);
             _rule.Compression = cboFileType.SelectedIndex == 3 ? FileType.FileOnly : (FileType)cboFileType.SelectedIndex + 1;
             _rule.CompressionOverrideDAT = chkFileTypeOverride.IsChecked == true;
             _rule.CompressionSub = ReadFromCheckBoxes();
@@ -385,7 +409,9 @@ namespace ROMVault.Avalonia.Views;
                     break;
                 }
 
-                if (string.Compare(Settings.rvSettings.DatRules[i].DirKey, _rule.DirKey, StringComparison.Ordinal) > 0)
+                string left = NormalizeDirKey(Settings.rvSettings.DatRules[i].DirKey);
+                string right = NormalizeDirKey(_rule.DirKey);
+                if (string.Compare(left, right, StringComparison.OrdinalIgnoreCase) > 0)
                 {
                     break;
                 }
@@ -395,6 +421,7 @@ namespace ROMVault.Avalonia.Views;
                 Settings.rvSettings.DatRules.Insert(i, _rule);
 
             Settings.rvSettings.SetRegExRules();
+            Settings.rvSettings.DatRules.Sort();
 
             UpdateGrid();
             Settings.WriteConfig(Settings.rvSettings);

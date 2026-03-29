@@ -40,7 +40,17 @@
         </DataGrid>
 
         <!-- Cancel/Close Button -->
-        <Button Name="btnCancel" Grid.Row="5" Content="Cancel" HorizontalAlignment="Right" Click="OnCancelClick" Width="80"/>
+        <Button Name="btnCancel"
+                Grid.Row="5"
+                Content="Cancel"
+                HorizontalAlignment="Right"
+                VerticalContentAlignment="Center"
+                HorizontalContentAlignment="Center"
+                Click="OnCancelClick"
+                MinWidth="92"
+                Height="32"
+                Padding="12,0"
+                FontSize="12"/>
     </Grid>
     </Border>
 </Window>

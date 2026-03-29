@@ -76,6 +76,17 @@ public partial class MainWindow : Window
         
         // Initialize Tree
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        var treeScrollViewer = this.FindControl<ScrollViewer>("TreeScrollViewer");
+        var treeStatsHeader = this.FindControl<Grid>("TreeStatsHeader");
+        var chkTreeStats = this.FindControl<CheckBox>("chkTreeStats");
+        var lblTreeStatHave = this.FindControl<TextBlock>("lblTreeStatHave");
+        var lblTreeStatMissing = this.FindControl<TextBlock>("lblTreeStatMissing");
+        var lblTreeStatMia = this.FindControl<TextBlock>("lblTreeStatMia");
+        var lblTreeStatFixes = this.FindControl<TextBlock>("lblTreeStatFixes");
+        var lblTreeStatUnknown = this.FindControl<TextBlock>("lblTreeStatUnknown");
+
+        var btnTreeAll = this.FindControl<Button>("btnTreeAll");
+        var btnTreeNil = this.FindControl<Button>("btnTreeNil");
         if (rvTree != null)
         {
             rvTree.Setup(DB.DirRoot);
@@ -90,6 +101,80 @@ public partial class MainWindow : Window
                 var contextMenu = this.FindControl<ContextMenu>("TreeContextMenu");
                 contextMenu?.Open(rvTree);
             };
+        }
+
+        if (treeStatsHeader != null && rvTree != null && chkTreeStats != null)
+        {
+            bool applying = false;
+
+            void ApplyStatsEnabled(bool enabled)
+            {
+                if (applying) return;
+                applying = true;
+
+                rvTree.ShowStats = enabled;
+                rvTree.StatColumns = enabled
+                    ? ROMVault.Avalonia.Views.RvTree.TreeStatColumns.Have |
+                      ROMVault.Avalonia.Views.RvTree.TreeStatColumns.Missing |
+                      ROMVault.Avalonia.Views.RvTree.TreeStatColumns.MIA
+                    : ROMVault.Avalonia.Views.RvTree.TreeStatColumns.None;
+
+                AppSettings.AddUpdateAppSettings($"{UiStatePrefix}.Tree.ShowStats", enabled ? "1" : "0");
+
+                treeStatsHeader.IsVisible = true;
+
+                if (lblTreeStatHave != null) lblTreeStatHave.IsVisible = enabled;
+                if (lblTreeStatMissing != null) lblTreeStatMissing.IsVisible = enabled;
+                if (lblTreeStatMia != null) lblTreeStatMia.IsVisible = enabled;
+                if (lblTreeStatFixes != null) lblTreeStatFixes.IsVisible = false;
+                if (lblTreeStatUnknown != null) lblTreeStatUnknown.IsVisible = false;
+
+                if (treeStatsHeader.ColumnDefinitions.Count >= 6)
+                {
+                    treeStatsHeader.ColumnDefinitions[1].Width = enabled ? new GridLength(56) : new GridLength(0);
+                    treeStatsHeader.ColumnDefinitions[2].Width = enabled ? new GridLength(56) : new GridLength(0);
+                    treeStatsHeader.ColumnDefinitions[3].Width = enabled ? new GridLength(56) : new GridLength(0);
+                    treeStatsHeader.ColumnDefinitions[4].Width = new GridLength(0);
+                    treeStatsHeader.ColumnDefinitions[5].Width = new GridLength(0);
+                }
+
+                chkTreeStats.IsChecked = enabled;
+                rvTree.InvalidateVisual();
+                applying = false;
+            }
+
+            bool enabled = AppSettings.ReadSetting($"{UiStatePrefix}.Tree.ShowStats") == "1";
+            ApplyStatsEnabled(enabled);
+
+            chkTreeStats.IsCheckedChanged += (_, _) =>
+            {
+                if (applying) return;
+                ApplyStatsEnabled(chkTreeStats.IsChecked == true);
+            };
+        }
+
+        if (btnTreeAll != null)
+            btnTreeAll.Click += (_, _) => ApplyTreeCheckAll(true);
+
+        if (btnTreeNil != null)
+            btnTreeNil.Click += (_, _) => ApplyTreeCheckAll(false);
+
+        if (treeScrollViewer != null && rvTree != null)
+        {
+            void SyncTreeViewport()
+            {
+                rvTree.ViewportWidth = treeScrollViewer.Viewport.Width;
+                rvTree.ViewportOffsetX = treeScrollViewer.Offset.X;
+                rvTree.InvalidateVisual();
+            }
+
+            treeScrollViewer.SizeChanged += (_, _) => SyncTreeViewport();
+            treeScrollViewer.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == ScrollViewer.OffsetProperty)
+                    SyncTreeViewport();
+            };
+            SyncTreeViewport();
         }
 
         // Ensure status is calculated
@@ -144,6 +229,11 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveUiState();
     }
 
+    /// <summary>
+    /// Attaches context menus to artwork images and info text panels.
+    /// The actions operate on the "container" (usually the zip/dir holding the artwork/text),
+    /// not the individual entry inside it.
+    /// </summary>
     private void SetupMediaContextMenus()
     {
         AttachImageMenu(picLogo);
@@ -157,6 +247,9 @@ public partial class MainWindow : Window
         AttachTextMenu(txtInfo2);
     }
 
+    /// <summary>
+    /// Adds a context menu to an artwork image control.
+    /// </summary>
     private void AttachImageMenu(global::Avalonia.Controls.Image? image)
     {
         if (image == null) return;
@@ -186,6 +279,9 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Adds a context menu to an info text box.
+    /// </summary>
     private void AttachTextMenu(TextBox? textBox)
     {
         if (textBox == null) return;
@@ -220,6 +316,9 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>
+    /// Opens the resolved container path (file/folder) using the OS shell.
+    /// </summary>
     private void OpenMediaContainer(Control control)
     {
         if (!_mediaContainers.TryGetValue(control, out var container))
@@ -241,6 +340,9 @@ public partial class MainWindow : Window
         catch { }
     }
 
+    /// <summary>
+    /// Copies the resolved container path (file/folder) to the clipboard.
+    /// </summary>
     private async Task CopyMediaContainerPath(Control control)
     {
         if (!_mediaContainers.TryGetValue(control, out var container))
@@ -253,6 +355,9 @@ public partial class MainWindow : Window
         await topLevel.Clipboard.SetTextAsync(container.FullName);
     }
 
+    /// <summary>
+    /// Opens Explorer on the container location. If it's a file, selects it.
+    /// </summary>
     private void ShowMediaContainerInFolder(Control control)
     {
         if (!_mediaContainers.TryGetValue(control, out var container))
@@ -273,6 +378,10 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Hooks the "Columns" context menu so it gets rebuilt each time it opens.
+    /// This keeps the visible/hidden state in sync with the live grid columns.
+    /// </summary>
     private void SetupColumnMenus()
     {
         if (GameGrid.ContextMenu != null)
@@ -292,6 +401,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Builds a column visibility menu and persists changes in AppSettings.
+    /// </summary>
     private static void PopulateColumnsMenu(DataGrid grid, MenuItem hostMenu, string keyPrefix)
     {
         hostMenu.Items.Clear();
@@ -319,6 +431,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Normalizes a column header into a settings-safe key.
+    /// </summary>
     private static string SanitizeKey(string value)
     {
         Span<char> buffer = stackalloc char[value.Length];
@@ -508,6 +623,9 @@ public partial class MainWindow : Window
         textBox.FontFamily = new global::Avalonia.Media.FontFamily("Consolas, Courier New, monospace");
     }
 
+    /// <summary>
+    /// Updates the small counters in the header area (visible/total and sort state).
+    /// </summary>
     private void UpdateGameCountLabel(int visible, int total)
     {
         if (lblGameCount != null)
@@ -522,6 +640,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Shows quick help for the filter syntax.
+    /// </summary>
     private async Task ShowFilterHelp()
     {
         string msg =
@@ -537,6 +658,9 @@ public partial class MainWindow : Window
         await Views.MessageBoxWindow.ShowInfo(this, msg, "Filter Help");
     }
 
+    /// <summary>
+    /// Copies the current selection when Ctrl+C is pressed on either grid.
+    /// </summary>
     private async void OnGridCopyKeyDown(object? sender, KeyEventArgs e)
     {
         if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control || e.Key != Key.C)
@@ -571,6 +695,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Ctrl+clicking on a cell copies the cell text to the clipboard (quick copy workflow).
+    /// </summary>
     private async void OnGridPointerPressedCopy(object? sender, PointerPressedEventArgs e)
     {
         if ((e.KeyModifiers & KeyModifiers.Control) != KeyModifiers.Control)
@@ -587,6 +714,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Updates the small filter suggestion popup (currently for status: tokens).
+    /// </summary>
     private void UpdateFilterSuggestions()
     {
         if (FilterSuggestionsPopup == null || FilterSuggestionsList == null || txtFilter == null)
@@ -628,6 +758,9 @@ public partial class MainWindow : Window
         FilterSuggestionsPopup.IsOpen = true;
     }
 
+    /// <summary>
+    /// Applies the currently selected suggestion by replacing the active token.
+    /// </summary>
     private void ApplySelectedFilterSuggestion()
     {
         if (FilterSuggestionsPopup == null || FilterSuggestionsList == null || txtFilter == null)
@@ -648,6 +781,9 @@ public partial class MainWindow : Window
         txtFilter.Focus();
     }
 
+    /// <summary>
+    /// Handles keyboard navigation inside the filter box, including suggestion navigation and committing the filter.
+    /// </summary>
     private void OnFilterKeyDown(object? sender, KeyEventArgs e)
     {
         if (FilterSuggestionsPopup?.IsOpen == true)
@@ -686,6 +822,9 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Captures and applies GameGrid sorting so it can be persisted and re-applied after refresh.
+    /// </summary>
     private void OnGameGridSorting(object? sender, DataGridColumnEventArgs e)
     {
         e.Handled = true;
@@ -704,6 +843,9 @@ public partial class MainWindow : Window
         UpdateGameGrid();
     }
 
+    /// <summary>
+    /// Captures and applies RomGrid sorting so it can be persisted and re-applied after refresh.
+    /// </summary>
     private void OnRomGridSorting(object? sender, DataGridColumnEventArgs e)
     {
         e.Handled = true;
@@ -898,19 +1040,46 @@ public partial class MainWindow : Window
             lblStatusLeft.Text = cf.FullName;
         }
 
-        // Populate Dat Info
+        UpdateEffectiveDatRuleDisplay(cf);
+
+        lblDITName.Text = cf.Name ?? "";
+
+        RvDat? tDat = null;
         if (cf.Dat != null)
         {
-            lblDITName.Text = cf.Dat.GetData(RvDat.DatData.DatName);
-            lblDITDescription.Text = cf.Dat.GetData(RvDat.DatData.Description);
-            lblDITCategory.Text = cf.Dat.GetData(RvDat.DatData.Category);
-            lblDITVersion.Text = cf.Dat.GetData(RvDat.DatData.Version);
-            lblDITAuthor.Text = cf.Dat.GetData(RvDat.DatData.Author);
-            lblDITDate.Text = cf.Dat.GetData(RvDat.DatData.Date);
+            tDat = cf.Dat;
+        }
+        else if (cf.DirDatCount == 1)
+        {
+            // Many tree nodes represent a directory that *contains* a DAT rather than being the DAT itself.
+            // WinForms treated "single DAT under this node" as the DAT to display.
+            tDat = cf.DirDat(0);
+        }
+
+        if (tDat != null)
+        {
+            string datName = NormalizeDatField(tDat.GetData(RvDat.DatData.DatName));
+            if (!string.IsNullOrWhiteSpace(datName) && !string.Equals(lblDITName.Text, datName, StringComparison.Ordinal))
+            {
+                lblDITName.Text = $"{lblDITName.Text}:  {datName}";
+            }
+
+            string datId = NormalizeDatField(tDat.GetData(RvDat.DatData.Id));
+            if (!string.IsNullOrWhiteSpace(datId))
+                lblDITName.Text += $" (ID:{datId})";
+
+            lblDITDescription.Text = NormalizeDatField(tDat.GetData(RvDat.DatData.Description));
+            lblDITCategory.Text = NormalizeDatField(tDat.GetData(RvDat.DatData.Category));
+            lblDITVersion.Text = NormalizeDatField(tDat.GetData(RvDat.DatData.Version));
+            lblDITAuthor.Text = NormalizeDatField(tDat.GetData(RvDat.DatData.Author));
+            lblDITDate.Text = NormalizeDatField(tDat.GetData(RvDat.DatData.Date));
+
+            string header = NormalizeDatField(tDat.GetData(RvDat.DatData.Header));
+            if (!string.IsNullOrWhiteSpace(header))
+                lblDITName.Text += $" ({header})";
         }
         else
         {
-            lblDITName.Text = "";
             lblDITDescription.Text = "";
             lblDITCategory.Text = "";
             lblDITVersion.Text = "";
@@ -925,6 +1094,84 @@ public partial class MainWindow : Window
         lblDITRomsUnknown.Text = cf.DirStatus.CountUnknown().ToString();
 
         UpdateGameGrid(cf);
+    }
+
+    /// <summary>
+    /// Updates the header-area display that shows the effective (inherited) DAT rule for the currently selected subtree.
+    /// Rules are defined on specific tree paths and cascade downwards, so we resolve the closest matching ancestor rule.
+    /// </summary>
+    private void UpdateEffectiveDatRuleDisplay(RvFile selected)
+    {
+        var lbl = this.FindControl<TextBlock>("lblEffectiveDatRule");
+        var row = this.FindControl<Grid>("EffectiveRuleRow");
+        if (lbl == null || row == null)
+            return;
+
+        var resolved = ResolveEffectiveDatRule(selected.TreeFullName);
+        if (resolved == null)
+        {
+            lbl.Text = "";
+            row.IsVisible = false;
+            return;
+        }
+
+        string inherit = string.Equals(resolved.DirKey, selected.TreeFullName, StringComparison.Ordinal) ? "" : $" (from {resolved.DirKey})";
+        lbl.Text = $"{FormatDatRuleSummary(resolved)}{inherit}";
+        row.IsVisible = true;
+    }
+
+    /// <summary>
+    /// Finds the most specific (longest DirKey) DAT rule whose path matches the selected tree path.
+    /// </summary>
+    private static DatRule? ResolveEffectiveDatRule(string treePath)
+    {
+        if (string.IsNullOrWhiteSpace(treePath))
+            return null;
+
+        DatRule? best = null;
+        foreach (DatRule rule in Settings.rvSettings.DatRules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.DirKey))
+                continue;
+
+            if (treePath.Equals(rule.DirKey, StringComparison.Ordinal) ||
+                treePath.StartsWith(rule.DirKey + "\\", StringComparison.Ordinal))
+            {
+                if (best == null || rule.DirKey.Length > best.DirKey.Length)
+                    best = rule;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>
+    /// Formats the key rule fields into a compact one-line summary suitable for a header area.
+    /// </summary>
+    private static string FormatDatRuleSummary(DatRule rule)
+    {
+        string archive = rule.Compression.ToString();
+        string compression = rule.Compression == FileType.Zip ? rule.CompressionSub.ToString() : "";
+        string merge = rule.Merge.ToString();
+        string header = rule.HeaderType.ToString();
+
+        string summary = $"Archive {archive}";
+        if (!string.IsNullOrWhiteSpace(compression))
+            summary += $", Compression {compression}";
+        summary += $", Merge {merge}, Header {header}";
+        if (rule.SingleArchive)
+            summary += ", Single";
+        return summary;
+    }
+
+    /// <summary>
+    /// Normalizes DAT fields where RomVault uses a sentinel value ("¤") to mean "empty".
+    /// </summary>
+    private static string NormalizeDatField(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value == "¤")
+            return "";
+        return value;
     }
 
     /// <summary>
@@ -1172,7 +1419,7 @@ public partial class MainWindow : Window
     /// <param name="tGame">The selected game file.</param>
     private void UpdateGameMetaData(RvFile? tGame)
     {
-        var lblGameName = this.FindControl<TextBox>("lblGameName");
+        var lblGameName = this.FindControl<TextBlock>("lblGameName");
         
         var lblGameDescriptionLabel = this.FindControl<TextBlock>("lblGameDescriptionLabel");
         var lblGameDescription = this.FindControl<TextBlock>("lblGameDescription");
@@ -1230,29 +1477,38 @@ public partial class MainWindow : Window
             SetVisible(true, lblGameDescriptionLabel, lblGameDescription);
 
             // Manufacturer
-            string manu = tGame.Game.GetData(RvGame.GameData.Manufacturer);
+            string manu = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.Manufacturer));
             if (lblGameManufacturer != null) lblGameManufacturer.Text = manu;
-            SetVisible(!isEmuArc && !string.IsNullOrEmpty(manu), lblGameManufacturerLabel, lblGameManufacturer);
+            SetVisible(!isEmuArc || !string.IsNullOrWhiteSpace(manu), lblGameManufacturerLabel, lblGameManufacturer);
 
             // CloneOf
-            string clone = tGame.Game.GetData(RvGame.GameData.CloneOf);
+            string clone = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.CloneOf));
             if (lblGameCloneOf != null) lblGameCloneOf.Text = clone;
-            SetVisible(!string.IsNullOrEmpty(clone), lblGameCloneOfLabel, lblGameCloneOf);
+            SetVisible(!isEmuArc || !string.IsNullOrWhiteSpace(clone), lblGameCloneOfLabel, lblGameCloneOf);
 
             // RomOf
-            string romOf = tGame.Game.GetData(RvGame.GameData.RomOf);
+            string romOf = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.RomOf));
             if (lblGameRomOf != null) lblGameRomOf.Text = romOf;
-            SetVisible(!string.IsNullOrEmpty(romOf), lblGameRomOfLabel, lblGameRomOf);
+            SetVisible(!isEmuArc || !string.IsNullOrWhiteSpace(romOf), lblGameRomOfLabel, lblGameRomOf);
 
             // Year
-            string year = tGame.Game.GetData(RvGame.GameData.Year);
+            string year = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.Year));
             if (lblGameYear != null) lblGameYear.Text = year;
-            SetVisible(!string.IsNullOrEmpty(year), lblGameYearLabel, lblGameYear);
+            SetVisible(!isEmuArc || !string.IsNullOrWhiteSpace(year), lblGameYearLabel, lblGameYear);
 
             // Category
-            string cat = tGame.Game.GetData(RvGame.GameData.Category);
+            string cat = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.Category));
+            if (string.IsNullOrWhiteSpace(cat) && isEmuArc)
+            {
+                string genre = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.Genre));
+                string sub = NormalizeGameField(tGame.Game.GetData(RvGame.GameData.SubGenre));
+                if (!string.IsNullOrWhiteSpace(genre) && !string.IsNullOrWhiteSpace(sub))
+                    cat = $"{genre} | {sub}";
+                else if (!string.IsNullOrWhiteSpace(genre))
+                    cat = genre;
+            }
             if (lblGameCategory != null) lblGameCategory.Text = cat;
-            SetVisible(!string.IsNullOrEmpty(cat), lblGameCategoryLabel, lblGameCategory);
+            SetVisible(!isEmuArc || !string.IsNullOrWhiteSpace(cat), lblGameCategoryLabel, lblGameCategory);
         }
         else
         {
@@ -1263,6 +1519,13 @@ public partial class MainWindow : Window
                               lblGameYearLabel, lblGameYear,
                               lblGameCategoryLabel, lblGameCategory);
         }
+    }
+
+    private static string NormalizeGameField(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value == "¤")
+            return "";
+        return value;
     }
 
     /// <summary>
@@ -2643,6 +2906,33 @@ public partial class MainWindow : Window
         dtss.read(index);
         var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
         rvTree?.Setup(DB.DirRoot);
+    }
+
+    private void ApplyTreeCheckAll(bool selected)
+    {
+        if (DB.DirRoot == null)
+            return;
+
+        ApplyTreeCheckAllInternal(DB.DirRoot, selected);
+
+        var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        rvTree?.Setup(DB.DirRoot);
+    }
+
+    private static void ApplyTreeCheckAllInternal(RvFile node, bool selected)
+    {
+        if (node.Tree != null && node.Tree.Checked != RvTreeRow.TreeSelect.Locked)
+            node.Tree.SetChecked(selected ? RvTreeRow.TreeSelect.Selected : RvTreeRow.TreeSelect.UnSelected, false);
+
+        if (!node.IsDirectory)
+            return;
+
+        for (int i = 0; i < node.ChildCount; i++)
+        {
+            var child = node.Child(i);
+            if (child.IsDirectory)
+                ApplyTreeCheckAllInternal(child, selected);
+        }
     }
 
     private void UpdateTreePresetTooltips()

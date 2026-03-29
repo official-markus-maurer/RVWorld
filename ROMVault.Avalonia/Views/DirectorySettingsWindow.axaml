@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="600"
         x:Class="ROMVault.Avalonia.Views.DirectorySettingsWindow"
-        Title="Set DAT Rules" Width="820" Height="720" MinWidth="720" MinHeight="650"
+        Title="Set DAT Rules" Width="820" Height="860" MinWidth="720" MinHeight="760"
         WindowStartupLocation="CenterOwner">
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="16">
         <Border Grid.Row="0" Classes="Card" Padding="12">
@@ -28,9 +28,13 @@
                         BorderBrush="{DynamicResource SurfaceBorderBrush}"
                         BorderThickness="0,1,0,0"
                         Padding="12">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                        <Button Grid.Column="1" Name="btnDelete" Content="Delete" MinWidth="92"/>
-                        <Button Grid.Column="2" Name="btnSet" Content="Apply" MinWidth="92"/>
+                    <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" HorizontalAlignment="Right">
+                        <Button Grid.Column="0" Name="btnDelete" Content="Delete"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Padding="12,6"/>
+                        <Button Grid.Column="1" Name="btnSet" Content="Apply"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Padding="12,6"/>
                     </Grid>
                 </Border>
 
@@ -130,15 +134,28 @@
         <Grid Grid.Row="2" Name="BottomGrid" RowDefinitions="Auto,*,Auto" RowSpacing="10">
             <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                 <TextBlock Text="Existing DAT Rules" Classes="SectionHeader" VerticalAlignment="Center"/>
-                <Button Grid.Column="1" Name="btnDeleteSelected" Content="Delete Selected" MinWidth="130"/>
-                <Button Grid.Column="2" Name="btnResetAll" Content="Reset All" MinWidth="110"/>
+                        <Button Grid.Column="1" Name="btnDeleteSelected" Content="Delete Selected"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Padding="12,6"/>
+                        <Button Grid.Column="2" Name="btnResetAll" Content="Reset All"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Padding="12,6"/>
             </Grid>
 
             <Border Grid.Row="1" Classes="Card" Padding="0">
-                <DataGrid Name="DataGridGames" AutoGenerateColumns="False" CanUserResizeColumns="True" GridLinesVisibility="None" MinHeight="150" BorderThickness="0">
+                <DataGrid Name="DataGridGames"
+                          AutoGenerateColumns="False"
+                          CanUserResizeColumns="True"
+                          GridLinesVisibility="None"
+                          MinHeight="150"
+                          BorderThickness="0"
+                          Foreground="{DynamicResource SystemControlForegroundBaseHighBrush}">
                     <DataGrid.Styles>
                         <Style Selector="DataGridRow">
                             <Setter Property="Background" Value="{Binding Background}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
                         </Style>
                     </DataGrid.Styles>
                     <DataGrid.Columns>
@@ -151,7 +168,9 @@
             </Border>
 
             <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-                <Button Grid.Column="1" Name="btnClose" Content="Done" MinWidth="92" HorizontalAlignment="Right"/>
+                <Button Grid.Column="1" Name="btnClose" Content="Done" HorizontalAlignment="Right"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Padding="12,6"/>
             </Grid>
         </Grid>
     </Grid>
