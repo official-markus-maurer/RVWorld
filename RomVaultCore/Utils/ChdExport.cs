@@ -193,8 +193,9 @@ public static class ChdExport
                         using (Stream logical = CHDSharpLib.ChdLogicalStream.OpenRead(chdPath))
                         {
                             ulong cur = 0;
-                            foreach (var t in cdTracks)
+                            for (int i = 0; i < cdTracks.Count; i++)
                             {
+                                var t = cdTracks[i];
                                 ulong start = (ulong)Math.Max(0, t.StartFrame) * (ulong)Math.Max(1, t.SectorSize);
                                 ulong len = (ulong)Math.Max(0, t.Frames) * (ulong)Math.Max(1, t.SectorSize);
                                 if (start < cur)
@@ -211,6 +212,14 @@ public static class ChdExport
                                     using (Stream o = System.IO.File.Create(destPath))
                                     {
                                         CopyBytes(logical, o, len);
+                                        if (i + 1 < cdTracks.Count)
+                                        {
+                                            long nextPregapFrames = Math.Max(0, cdTracks[i + 1].PreGapFrames);
+                                            int nextSectorSize = Math.Max(1, cdTracks[i + 1].SectorSize);
+                                            ulong padLen = (ulong)nextPregapFrames * (ulong)nextSectorSize;
+                                            if (padLen > 0)
+                                                WriteZeroBytes(o, padLen);
+                                        }
                                     }
                                     exported.Add(destName);
                                     RvFile expected = expectedList.FirstOrDefault(e => string.Equals(e.Name, destName, StringComparison.OrdinalIgnoreCase));
@@ -314,6 +323,20 @@ public static class ChdExport
 
             List<RvFile> expectedData = expectedList.Where(e => IsTrackDataFile(e.Name)).ToList();
             expectedData.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name));
+
+            if (!expectsGdi && extractedNames.Count == 1 && expectedData.Count > 1)
+            {
+                string singleName = extractedNames.First();
+                string singlePath = System.IO.Path.Combine(tempDir, singleName);
+                Dictionary<int, RvFile> expectedByTrackNo = BuildExpectedTrackMap(expectedList);
+                if (TryExportSingleBinCueAsSplitTracks(outDescriptor, singlePath, outputDir, expectedByTrackNo, expectedCueName, expectedList, verifyErrors, out List<string> splitExported))
+                {
+                    exported.AddRange(splitExported);
+                    exported.Sort(StringComparer.OrdinalIgnoreCase);
+                    report = BuildExportReport(chdPath, outputDir, exported, verifyErrors);
+                    return verifyErrors.Count == 0 ? 0 : 5;
+                }
+            }
 
             Dictionary<int, string> extractedByTrack = new Dictionary<int, string>();
             foreach (var t in tracks)
@@ -669,6 +692,241 @@ public static class ChdExport
             output.Write(buffer, 0, read);
             bytes -= (ulong)read;
         }
+    }
+
+    private static void WriteZeroBytes(Stream output, ulong bytes)
+    {
+        if (bytes == 0)
+            return;
+        byte[] buffer = new byte[64 * 1024];
+        while (bytes > 0)
+        {
+            int toWrite = (int)Math.Min((ulong)buffer.Length, bytes);
+            output.Write(buffer, 0, toWrite);
+            bytes -= (ulong)toWrite;
+        }
+    }
+
+    private sealed class CueIndexTrack
+    {
+        public int TrackNo;
+        public string TrackType;
+        public long StartFrames;
+        public long PreGapFrames;
+        public long PostGapFrames;
+        public bool IsSynthesizedPregap;
+        public long SynthesizedPregapFrames;
+    }
+
+    private static bool TryExportSingleBinCueAsSplitTracks(
+        string cuePath,
+        string singleBinPath,
+        string outputDir,
+        Dictionary<int, RvFile> expectedByTrack,
+        string expectedCueName,
+        IReadOnlyList<RvFile> expectedMembers,
+        List<string> verifyErrors,
+        out List<string> exportedFiles)
+    {
+        exportedFiles = new List<string>();
+        if (string.IsNullOrWhiteSpace(cuePath) || string.IsNullOrWhiteSpace(singleBinPath))
+            return false;
+        if (!System.IO.File.Exists(cuePath) || !System.IO.File.Exists(singleBinPath))
+            return false;
+
+        List<CueIndexTrack> tracks = ParseCueTracksWithIndexes(cuePath);
+        if (tracks.Count == 0)
+            return false;
+        tracks.Sort((a, b) => a.TrackNo.CompareTo(b.TrackNo));
+
+        long binLength = new FileInfo(singleBinPath).Length;
+        int sectorSize = (binLength % 2352L == 0) ? 2352 : (binLength % 2048L == 0 ? 2048 : 2352);
+
+        List<(CueIndexTrack track, long offset, long length, long zeroPadLength)> segments = new List<(CueIndexTrack, long, long, long)>();
+        for (int i = 0; i < tracks.Count; i++)
+        {
+            long startBytes = tracks[i].StartFrames * sectorSize;
+            long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * sectorSize : binLength;
+            long postGap = tracks[i].PostGapFrames * sectorSize;
+            if (postGap > 0 && endBytes - postGap > startBytes)
+                endBytes -= postGap;
+            if (endBytes < startBytes)
+                endBytes = startBytes;
+            long len = endBytes - startBytes;
+
+            long zeroPadLength = 0;
+            if (i + 1 < tracks.Count && tracks[i + 1].IsSynthesizedPregap)
+                zeroPadLength = tracks[i + 1].SynthesizedPregapFrames * sectorSize;
+
+            segments.Add((tracks[i], startBytes, len, zeroPadLength));
+        }
+
+        for (int i = 0; i < segments.Count; i++)
+        {
+            string destName = null;
+            RvFile expected = null;
+            if (expectedByTrack != null && expectedByTrack.TryGetValue(segments[i].track.TrackNo, out expected) && expected?.Name != null)
+                destName = expected.Name;
+            if (string.IsNullOrWhiteSpace(destName))
+                destName = "Track " + segments[i].track.TrackNo.ToString("D2") + ".bin";
+
+            string destPath = System.IO.Path.Combine(outputDir, destName);
+            try
+            {
+                using (FileStream src = System.IO.File.OpenRead(singleBinPath))
+                using (FileStream dst = System.IO.File.Create(destPath))
+                {
+                    src.Seek(segments[i].offset, SeekOrigin.Begin);
+                    CopyBytes(src, dst, (ulong)segments[i].length);
+                    if (segments[i].zeroPadLength > 0)
+                        WriteZeroBytes(dst, (ulong)segments[i].zeroPadLength);
+                }
+                exportedFiles.Add(destName);
+                if (expected != null)
+                    VerifyFileAgainstExpected(destPath, expected, verifyErrors);
+            }
+            catch (Exception ex)
+            {
+                verifyErrors?.Add($"{destName}: export failed: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            string cueOutName = string.IsNullOrWhiteSpace(expectedCueName) ? System.IO.Path.GetFileName(cuePath) : expectedCueName;
+            string cueOutPath = System.IO.Path.Combine(outputDir, cueOutName);
+            string cueText = BuildSplitCueText(tracks, expectedByTrack);
+            System.IO.File.WriteAllText(cueOutPath, cueText ?? "");
+            exportedFiles.Add(cueOutName);
+        }
+        catch
+        {
+        }
+
+        return exportedFiles.Count > 0;
+    }
+
+    private static string BuildSplitCueText(List<CueIndexTrack> tracks, Dictionary<int, RvFile> expectedByTrack)
+    {
+        if (tracks == null || tracks.Count == 0)
+            return "";
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        for (int i = 0; i < tracks.Count; i++)
+        {
+            string fileName = "Track " + tracks[i].TrackNo.ToString("D2") + ".bin";
+            if (expectedByTrack != null && expectedByTrack.TryGetValue(tracks[i].TrackNo, out RvFile exp) && exp?.Name != null)
+                fileName = exp.Name;
+            sb.Append("FILE \"").Append(fileName).AppendLine("\" BINARY");
+            sb.Append("  TRACK ").Append(tracks[i].TrackNo.ToString("D2")).Append(' ').AppendLine((tracks[i].TrackType ?? "AUDIO").Trim());
+            sb.AppendLine("    INDEX 01 00:00:00");
+        }
+        return sb.ToString();
+    }
+
+    private static List<CueIndexTrack> ParseCueTracksWithIndexes(string cuePath)
+    {
+        List<CueIndexTrack> tracks = new List<CueIndexTrack>();
+        string[] lines;
+        try
+        {
+            lines = System.IO.File.ReadAllLines(cuePath);
+        }
+        catch
+        {
+            return tracks;
+        }
+
+        CueIndexTrack current = null;
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            if (line.Length == 0)
+                continue;
+
+            if (line.StartsWith("TRACK", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3 && int.TryParse(parts[1], out int trackNo))
+                {
+                    current = new CueIndexTrack
+                    {
+                        TrackNo = trackNo,
+                        TrackType = parts[2].Trim(),
+                        StartFrames = 0,
+                        PreGapFrames = 0,
+                        PostGapFrames = 0,
+                        IsSynthesizedPregap = false,
+                        SynthesizedPregapFrames = 0
+                    };
+                    tracks.Add(current);
+                }
+                continue;
+            }
+
+            if (current != null && line.StartsWith("INDEX 01", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                {
+                    if (TryParseMsf(parts[2], out long frames))
+                        current.StartFrames = frames;
+                }
+            }
+
+            if (current != null && line.StartsWith("INDEX 00", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 3)
+                {
+                    if (TryParseMsf(parts[2], out long frames))
+                        current.PreGapFrames = Math.Max(0, current.StartFrames - frames);
+                }
+            }
+
+            if (current != null && line.StartsWith("PREGAP", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    if (TryParseMsf(parts[1], out long frames))
+                    {
+                        current.PreGapFrames = Math.Max(current.PreGapFrames, frames);
+                        current.IsSynthesizedPregap = true;
+                        current.SynthesizedPregapFrames = frames;
+                    }
+                }
+            }
+
+            if (current != null && line.StartsWith("POSTGAP", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2)
+                {
+                    if (TryParseMsf(parts[1], out long frames))
+                        current.PostGapFrames = Math.Max(current.PostGapFrames, frames);
+                }
+            }
+        }
+
+        return tracks;
+    }
+
+    private static bool TryParseMsf(string msf, out long frames)
+    {
+        frames = 0;
+        if (string.IsNullOrWhiteSpace(msf))
+            return false;
+        string[] parts = msf.Trim().Split(':');
+        if (parts.Length != 3)
+            return false;
+        if (!int.TryParse(parts[0], out int mm))
+            return false;
+        if (!int.TryParse(parts[1], out int ss))
+            return false;
+        if (!int.TryParse(parts[2], out int ff))
+            return false;
+        frames = (mm * 60L + ss) * 75L + ff;
+        return true;
     }
 
     private static long GetFreeSpaceBytes(string path)
