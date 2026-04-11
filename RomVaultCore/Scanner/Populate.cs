@@ -1282,11 +1282,9 @@ namespace RomVaultCore.Scanner
             List<(int trackNo, long offset, long length)> segments = new List<(int, long, long)>();
             for (int i = 0; i < tracks.Count; i++)
             {
-                int thisSector = ResolveSectorSize(tracks[i].TrackType, sectorSize);
-                int nextSector = (i + 1 < tracks.Count) ? ResolveSectorSize(tracks[i + 1].TrackType, sectorSize) : thisSector;
-                long startBytes = tracks[i].StartFrames * thisSector;
-                long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * nextSector : binLength;
-                long postGap = tracks[i].PostGapFrames * thisSector;
+                long startBytes = tracks[i].StartFrames * sectorSize;
+                long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * sectorSize : binLength;
+                long postGap = tracks[i].PostGapFrames * sectorSize;
                 if (postGap > 0 && endBytes - postGap > startBytes)
                     endBytes -= postGap;
                 if (endBytes < startBytes)
