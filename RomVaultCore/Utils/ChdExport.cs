@@ -23,6 +23,7 @@ public static class ChdExport
     public static int Export(string chdPath, string outputDir, IReadOnlyList<RvFile> expectedMembers, out string report)
     {
         report = "";
+        chdPath = NormalizeExistingPath(chdPath);
         if (string.IsNullOrWhiteSpace(chdPath) || !System.IO.File.Exists(chdPath))
         {
             report = "export failed: CHD not found";
@@ -994,5 +995,41 @@ public static class ChdExport
         }
 
         return "chdman.exe";
+    }
+
+    private static string NormalizeExistingPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return path;
+
+        string p = path.Trim().Trim('"');
+        if (System.IO.Path.IsPathRooted(p))
+            return p;
+
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            if (!string.IsNullOrWhiteSpace(baseDir))
+            {
+                string candidate = System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, p));
+                if (System.IO.File.Exists(candidate))
+                    return candidate;
+            }
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            string candidate = System.IO.Path.GetFullPath(p);
+            if (System.IO.File.Exists(candidate))
+                return candidate;
+        }
+        catch
+        {
+        }
+
+        return p;
     }
 }
