@@ -89,6 +89,7 @@ namespace RomVaultCore.FixFile.Utils
             {
                 case FileType.FileZip:
                 case FileType.FileSevenZip:
+                case FileType.FileCHD:
                     {
                         string fullPathCheckDelete = fileToCheck.Parent.FullNameCase;
                         if (!File.Exists(fullPathCheckDelete))
