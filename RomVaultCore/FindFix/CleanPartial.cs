@@ -1,4 +1,4 @@
-﻿using DATReader.DatStore;
+using DATReader.DatStore;
 using RomVaultCore.RvDB;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -41,7 +41,8 @@ namespace RomVaultCore.FindFix
                 RvFile child = basePath.Child(i);
                 if (child.Game != null)
                 {
-                    if (nextSelect && datRule != null && datRule.CompleteOnly)
+                    bool isCompleteOnly = nextSelect && datRule != null && datRule.CompleteOnly;
+                    if (isCompleteOnly || child.FileType == FileType.CHD)
                         RemovePartialSets(child);
                 }
                 else
