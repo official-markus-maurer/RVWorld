@@ -767,6 +767,8 @@ namespace RomVaultCore.FixFile.Utils
             {
                 inputPath = ResolveExistingFilePath(ResolveDiscInputPath(sourcePath, destinationFile.Name, destinationFile));
                 workingDir = System.IO.Path.GetDirectoryName(inputPath);
+                if (!ValidateDiscInputCompleteness(inputPath, workingDir, out errorMessage))
+                    return ReturnCode.FileSystemError;
                 return ReturnCode.Good;
             }
 
@@ -795,6 +797,75 @@ namespace RomVaultCore.FixFile.Utils
 
             workingDir = tempDir;
             return ReturnCode.Good;
+        }
+
+        private static bool ValidateDiscInputCompleteness(string inputPath, string workingDir, out string errorMessage)
+        {
+            errorMessage = "";
+            if (string.IsNullOrWhiteSpace(inputPath))
+                return true;
+
+            string ext = System.IO.Path.GetExtension(inputPath).ToLowerInvariant();
+            if (ext != ".cue" && ext != ".gdi")
+                return true;
+
+            if (string.IsNullOrWhiteSpace(workingDir))
+                workingDir = System.IO.Path.GetDirectoryName(inputPath);
+
+            if (string.IsNullOrWhiteSpace(workingDir))
+                return true;
+
+            IEnumerable<string> refs = ext == ".cue"
+                ? GetReferencedFilesFromCue(inputPath)
+                : GetReferencedFilesFromGdi(inputPath);
+
+            foreach (string r in refs)
+            {
+                if (string.IsNullOrWhiteSpace(r))
+                    continue;
+
+                string trimmed = r.Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(trimmed))
+                    continue;
+
+                string candidate = null;
+                if (System.IO.Path.IsPathRooted(trimmed))
+                {
+                    candidate = trimmed;
+                }
+                else
+                {
+                    candidate = NormalizeChildPath(workingDir, trimmed);
+                    if (candidate == null)
+                    {
+                        string baseName = System.IO.Path.GetFileName(trimmed);
+                        if (!string.IsNullOrWhiteSpace(baseName))
+                            candidate = System.IO.Path.Combine(workingDir, baseName);
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    errorMessage = "__SKIP_PARTIAL_SET__";
+                    return false;
+                }
+
+                try
+                {
+                    if (!System.IO.File.Exists(candidate))
+                    {
+                        errorMessage = "__SKIP_PARTIAL_SET__";
+                        return false;
+                    }
+                }
+                catch
+                {
+                    errorMessage = "__SKIP_PARTIAL_SET__";
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static ReturnCode ExtractDiscSetFromArchive(RvFile archiveFile, string destinationName, RvFile destinationFile, string tempDir, out string inputPath, out string errorMessage)

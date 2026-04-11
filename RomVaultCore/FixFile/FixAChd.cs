@@ -59,6 +59,13 @@ public static class FixAChd
 
         if (rc != ReturnCode.Good)
         {
+            if (string.Equals(chdError, "__SKIP_NO_SOURCES__", StringComparison.Ordinal) ||
+                string.Equals(chdError, "__SKIP_PARTIAL_SET__", StringComparison.Ordinal))
+            {
+                errorMessage = "";
+                return ReturnCode.Good;
+            }
+
             errorMessage = chdError;
             try
             {
@@ -571,7 +578,7 @@ public static class FixAChd
         for (int i = 0; i < preferred.Length; i++)
         {
             RvFile f = FindFileByNameInDirs(dirs, preferred[i]);
-            if (f != null)
+            if (f != null && f.GotStatus == GotStatus.Got)
                 return f;
         }
 
