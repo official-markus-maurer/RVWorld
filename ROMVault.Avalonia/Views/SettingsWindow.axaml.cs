@@ -5,9 +5,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using RomVaultCore;
+using RomVaultCore.RvDB;
 using RomVaultCore.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace ROMVault.Avalonia.Views;
 
@@ -46,6 +48,50 @@ namespace ROMVault.Avalonia.Views;
             cbo7zStruct.Items.Add("ZSTD Non-Solid");
 
             chkSendFoundMIA.Click += (s, e) => chkSendFoundMIAAnon.IsEnabled = chkSendFoundMIA.IsChecked == true;
+
+            chkChdStrictCueGdi.Click += async (s, e) =>
+            {
+                if (chkChdStrictCueGdi.IsChecked == true)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "CHD cannot faithfully reproduce original CUE/GDI contents. Strict mode will often keep sets incomplete.", "RomVault");
+                }
+            };
+            chkChdExportOnFix.Click += async (s, e) =>
+            {
+                if (chkChdExportOnFix.IsChecked == true)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "This will extract track files from CHD into your ROM folders during fixing. It is off by default because it defeats CHD container storage.", "RomVault");
+                }
+            };
+            chkChdStreaming.Click += async (s, e) =>
+            {
+                if (chkChdStreaming.IsChecked == true)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "Enables CHD streaming hashing without extracting (DVD/ISO and some CD/GDI when metadata is available).", "RomVault");
+                }
+            };
+            chkChdPreferSynthetic.Click += async (s, e) =>
+            {
+                if (chkChdPreferSynthetic.IsChecked == true)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "Prefer synthetic CUE/GDI when metadata-only descriptors are acceptable (no strict hashes).", "RomVault");
+                }
+            };
+            btnPurgeChdCache.Click += async (s, e) =>
+            {
+                try
+                {
+                    string baseTempDir = DB.GetToSortCache()?.FullName ?? Environment.CurrentDirectory;
+                    string dir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdscanCache");
+                    if (Directory.Exists(dir))
+                        Directory.Delete(dir, true);
+                    await MessageBoxWindow.ShowInfo(this, "CHD scan cache purged.", "RomVault");
+                }
+                catch (Exception ex)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "Failed to purge cache: " + ex.Message, "RomVault");
+                }
+            };
             
             btnDAT.Click += BtnDatClick;
             btnOK.Click += BtnOkClick;
@@ -80,6 +126,15 @@ namespace ROMVault.Avalonia.Views;
             cbo7zStruct.SelectedIndex = Settings.rvSettings.sevenZDefaultStruct;
             chkDarkMode.IsChecked = Settings.rvSettings.Darkness;
             chkDoNotReportFeedback.IsChecked = Settings.rvSettings.DoNotReportFeedback;
+
+            chkChdCache.IsChecked = Settings.rvSettings.ChdScanCacheEnabled;
+            chkChdDebug.IsChecked = Settings.rvSettings.ChdScanDebugEnabled;
+            chkChdStrictCueGdi.IsChecked = Settings.rvSettings.ChdStrictCueGdi;
+            chkChdExportOnFix.IsChecked = Settings.rvSettings.ChdExportTracksOnFix;
+            chkChdStreaming.IsChecked = Settings.rvSettings.ChdStreamingEnabled;
+            chkChdPreferSynthetic.IsChecked = Settings.rvSettings.ChdPreferSyntheticDescriptor;
+            chkChdTrustContainer.IsChecked = Settings.rvSettings.ChdTrustContainerForTracks;
+            upChdDvdHunk.Value = Settings.rvSettings.ChdDvdHunkSizeKiB;
         }
 
         /// <summary>
@@ -142,6 +197,15 @@ namespace ROMVault.Avalonia.Views;
             Settings.rvSettings.Darkness = chkDarkMode.IsChecked == true;
 
             Settings.rvSettings.DoNotReportFeedback = chkDoNotReportFeedback.IsChecked == true;
+
+            Settings.rvSettings.ChdScanCacheEnabled = chkChdCache.IsChecked == true;
+            Settings.rvSettings.ChdScanDebugEnabled = chkChdDebug.IsChecked == true;
+            Settings.rvSettings.ChdStrictCueGdi = chkChdStrictCueGdi.IsChecked == true;
+            Settings.rvSettings.ChdExportTracksOnFix = chkChdExportOnFix.IsChecked == true;
+            Settings.rvSettings.ChdStreamingEnabled = chkChdStreaming.IsChecked == true;
+            Settings.rvSettings.ChdPreferSyntheticDescriptor = chkChdPreferSynthetic.IsChecked == true;
+            Settings.rvSettings.ChdTrustContainerForTracks = chkChdTrustContainer.IsChecked == true;
+            Settings.rvSettings.ChdDvdHunkSizeKiB = (int)(upChdDvdHunk.Value ?? 0);
 
             Settings.WriteConfig(Settings.rvSettings);
             

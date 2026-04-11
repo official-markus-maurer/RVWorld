@@ -749,7 +749,7 @@ namespace RomVaultCore.RvDB
 
 
         /****************** RvDir ***********************/
-        public bool IsDirectory => FileType == FileType.Dir || FileType == FileType.Zip || FileType == FileType.SevenZip;
+        public bool IsDirectory => FileType == FileType.Dir || FileType == FileType.Zip || FileType == FileType.SevenZip || FileType == FileType.CHD;
 
         public int DirDatCount => _dirDats.Count;
         public int ChildCount => _children?.Count ?? 0;
@@ -773,7 +773,8 @@ namespace RomVaultCore.RvDB
             if (
                 FileType == FileType.Dir && child.FileType == FileType.FileZip ||
                 FileType == FileType.Zip && child.FileType != FileType.FileZip ||
-                FileType == FileType.SevenZip && child.FileType != FileType.FileSevenZip
+                FileType == FileType.SevenZip && child.FileType != FileType.FileSevenZip ||
+                FileType == FileType.CHD && child.FileType != FileType.FileCHD
             )
             {
                 ReportError.SendAndShow("Trying to add a " + child.FileType + " to a " + FileType);
@@ -867,7 +868,7 @@ namespace RomVaultCore.RvDB
         }
 
         /****************** RvFile ********************/
-        public bool IsFile => FileType == FileType.File || FileType == FileType.FileZip || FileType == FileType.FileSevenZip;
+        public bool IsFile => FileType == FileType.File || FileType == FileType.FileZip || FileType == FileType.FileSevenZip || FileType == FileType.FileCHD;
 
         public void FileStatusSet(FileStatus flag)
         {

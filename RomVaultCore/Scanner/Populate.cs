@@ -1,4 +1,4 @@
-﻿/******************************************************
+/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
  *     Copyright 2025                                 *
@@ -7,12 +7,18 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 using CHDSharpLib;
 using Compress;
 using FileScanner;
 using RomVaultCore.RvDB;
 using RomVaultCore.Utils;
+using SortMethods;
 using DirectoryInfo = RVIO.DirectoryInfo;
 using File = RVIO.File;
 using FileInfo = RVIO.FileInfo;
@@ -30,8 +36,17 @@ namespace RomVaultCore.Scanner
             if (_fileScans == null) _fileScans = new FileScan();
             _thWrk = thWrk;
 
-            string filename = dbDir.FullNameCase;
+            string filename = ResolveExistingFilePath(dbDir.FullNameCase);
             FileType sType = dbDir.FileType;
+            if (sType == FileType.CHD)
+            {
+                ScannedFile chdScan = ScanChdContainer(dbDir, filename, eScanLevel);
+                if (chdScan != null)
+                    return chdScan;
+
+                dbDir.GotStatus = GotStatus.Corrupt;
+                return null;
+            }
             ZipReturn zr = _fileScans.ScanArchiveFile(sType, filename, dbDir.FileModTimeStamp, eScanLevel == EScanLevel.Level2 || eScanLevel == EScanLevel.Level3, out ScannedFile ar, progress: FileProgress);
 
             if (zr == ZipReturn.ZipGood)
@@ -62,6 +77,1898 @@ namespace RomVaultCore.Scanner
                 thWrk.Report(new bgwShowError(filename, CompressUtils.ZipErrorMessageText(zr)));
                 dbDir.GotStatus = GotStatus.Corrupt;
             }
+            return null;
+        }
+
+        private sealed class ChdTrack
+        {
+            public int TrackNo;
+            public string TrackType;
+            public long StartFrames;
+            public long PreGapFrames;
+            public long PostGapFrames;
+        }
+
+        private sealed class ChdCacheEntry
+        {
+            public string Name { get; set; }
+            public ulong Size { get; set; }
+            public string CRC { get; set; }
+            public string SHA1 { get; set; }
+            public string MD5 { get; set; }
+        }
+
+        private sealed class ChdCacheFile
+        {
+            public int CacheVersion { get; set; }
+            public string SourcePath { get; set; }
+            public long SourceTimestamp { get; set; }
+            public long SourceSize { get; set; }
+            public bool IsDvd { get; set; }
+            public string Descriptor { get; set; }
+            public string DescriptorSha1 { get; set; }
+            public string MappingFingerprint { get; set; }
+            public List<ChdCacheEntry> Entries { get; set; } = new List<ChdCacheEntry>();
+        }
+
+        private const int ChdScanCacheVersion = 2;
+        private const string ChdScanMappingFp = "mapfp2:gaps;type;size;order";
+
+        private static ScannedFile ScanChdContainer(RvFile dbDir, string filename, EScanLevel eScanLevel)
+        {
+            if (!File.Exists(filename))
+                return null;
+
+            if (Settings.rvSettings.CheckCHDVersion)
+            {
+                try
+                {
+                    using (FileStream fs = System.IO.File.OpenRead(filename))
+                    {
+                        if (CHD.CheckFile(fs, filename, false, out uint? ver, out _, out _) == chd_error.CHDERR_NONE)
+                        {
+                            if (ver.GetValueOrDefault() != 5)
+                                _thWrk?.Report(new bgwShowError(filename, "CHD header version is not V5"));
+                        }
+                        else
+                        {
+                            _thWrk?.Report(new bgwShowError(filename, "Unable to read CHD header for version check"));
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _thWrk?.Report(new bgwShowError(filename, "CHD version check failed: " + ex.Message));
+                }
+            }
+
+            bool expectedIsDvd = false;
+            bool expectedIsGdi = false;
+            try
+            {
+                for (int i = 0; i < dbDir.ChildCount; i++)
+                {
+                    RvFile c = dbDir.Child(i);
+                    if (c?.Name == null)
+                        continue;
+                    if (c.Name.EndsWith(".iso", StringComparison.OrdinalIgnoreCase))
+                        expectedIsDvd = true;
+                    if (c.Name.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase))
+                        expectedIsGdi = true;
+                }
+            }
+            catch
+            {
+            }
+            string expectedDescriptor = expectedIsDvd ? "dvd" : expectedIsGdi ? "gdi" : "cue";
+
+            if (Settings.rvSettings.ChdScanCacheEnabled &&
+                TryLoadChdScanCache(filename, out ChdCacheFile cache) &&
+                cache.CacheVersion == ChdScanCacheVersion &&
+                cache.IsDvd == expectedIsDvd &&
+                string.Equals(cache.Descriptor ?? "", expectedDescriptor, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(cache.MappingFingerprint ?? "", ChdScanMappingFp, StringComparison.OrdinalIgnoreCase) &&
+                (expectedDescriptor == "dvd" || !string.IsNullOrWhiteSpace(cache.DescriptorSha1)))
+            {
+                ScannedFile cached = new ScannedFile(FileType.CHD)
+                {
+                    Name = filename,
+                    ZipStruct = ZipStructure.None,
+                    Comment = ""
+                };
+                for (int i = 0; i < cache.Entries.Count; i++)
+                {
+                    ChdCacheEntry e = cache.Entries[i];
+                    ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                    {
+                        Name = e.Name,
+                        FileModTimeStamp = cache.SourceTimestamp,
+                        GotStatus = GotStatus.Got,
+                        DeepScanned = true,
+                        Size = e.Size,
+                        CRC = ParseHexToBytes(e.CRC),
+                        SHA1 = ParseHexToBytes(e.SHA1),
+                        MD5 = ParseHexToBytes(e.MD5)
+                    };
+                    sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                    cached.Add(sf);
+                }
+                cached.Sort();
+                return cached;
+            }
+
+            string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
+            if (string.IsNullOrWhiteSpace(baseTempDir))
+                baseTempDir = Environment.CurrentDirectory;
+            string tempDir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdscan." + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+
+            try
+            {
+                string chdmanExe = FindChdmanExePath();
+                IChdExtractor extractor = new ChdmanChdExtractor(chdmanExe, tempDir);
+                List<RvFile> expectedChildren = new List<RvFile>();
+                for (int i = 0; i < dbDir.ChildCount; i++)
+                {
+                    RvFile c = dbDir.Child(i);
+                    if (c != null && c.IsFile)
+                        expectedChildren.Add(c);
+                }
+
+                bool expectsIso = expectedChildren.Exists(c => c.Name != null && c.Name.EndsWith(".iso", StringComparison.OrdinalIgnoreCase));
+                bool expectsGdi = expectedChildren.Exists(c => c.Name != null && c.Name.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase));
+                string expectedIsoName = expectedChildren.Find(c => c.Name != null && c.Name.EndsWith(".iso", StringComparison.OrdinalIgnoreCase))?.Name;
+
+                if (Settings.rvSettings.CheckCHDVersion && extractor.Info(filename, out string infoText))
+                {
+                    if (!infoText.Contains("zstd", StringComparison.OrdinalIgnoreCase))
+                        _thWrk?.Report(new bgwShowError(filename, "CHD compression does not include zstd; consider rebuilding with zstd profiles"));
+                }
+
+                if (!Settings.rvSettings.ChdStreamingEnabled || !expectsIso)
+                {
+                    long? logicalSize = TryGetChdLogicalSizeBytes(chdmanExe, filename, tempDir);
+                    if (logicalSize.HasValue)
+                    {
+                        long free = GetFreeSpaceBytes(tempDir);
+                        long overhead = expectsIso ? 512L * 1024 * 1024 : 256L * 1024 * 1024;
+                        long required = logicalSize.Value + overhead;
+                        if (free > 0 && free < required)
+                        {
+                            _thWrk?.Report(new bgwShowError(filename, $"Insufficient free space for CHD extraction. required={required} free={free}"));
+                            return null;
+                        }
+                    }
+                }
+
+                ScannedFile ar = new ScannedFile(FileType.CHD)
+                {
+                    Name = filename,
+                    ZipStruct = ZipStructure.None,
+                    Comment = ""
+                };
+
+                if (expectsIso)
+                {
+                    bool useStreaming = Settings.rvSettings.ChdStreamingEnabled;
+                    if (useStreaming)
+                    {
+                        ScannedFile isoSf = new ScannedFile(FileType.FileCHD)
+                        {
+                            Name = expectedIsoName ?? "image.iso",
+                            FileModTimeStamp = dbDir.FileModTimeStamp,
+                            GotStatus = GotStatus.Got,
+                            DeepScanned = true
+                        };
+                        try
+                        {
+                            using (Stream s = CHDSharpLib.ChdLogicalStream.OpenRead(filename))
+                            {
+                                ulong size = (ulong)s.Length;
+                                _fileScans.CheckSumRead(s, isoSf, size, true, false, null, 0, 0);
+                                isoSf.Size = size;
+                            }
+                            ar.Add(isoSf);
+                        }
+                        catch (Exception ex)
+                        {
+                            _thWrk?.Report(new bgwShowError(filename, "CHD streaming failed; falling back to extractdvd. " + ex.Message));
+                            useStreaming = false;
+                        }
+                    }
+                    if (!useStreaming)
+                    {
+                        string outIso = System.IO.Path.Combine(tempDir, "image.iso");
+                        if (extractor.ExtractDvd(filename, outIso, out string err))
+                        {
+                            FileInfo fi = new FileInfo(outIso);
+                            ScannedFile isoSf = new ScannedFile(FileType.FileCHD)
+                            {
+                                Name = expectedIsoName ?? "image.iso",
+                                FileModTimeStamp = fi.LastWriteTime,
+                                GotStatus = GotStatus.Got,
+                                DeepScanned = true
+                            };
+                            using (Stream s = System.IO.File.OpenRead(outIso))
+                            {
+                                _fileScans.CheckSumRead(s, isoSf, (ulong)fi.Length, true, false, null, 0, 0);
+                            }
+                            isoSf.Size = (ulong)fi.Length;
+                            ar.Add(isoSf);
+                        }
+                        else
+                        {
+                            _thWrk?.Report(new bgwShowError(filename, "CHD extractdvd failed: " + err));
+                        }
+                    }
+
+                    if (Settings.rvSettings.ChdScanCacheEnabled)
+                        SaveChdScanCache(filename, ar, isDvd: true, descriptor: "dvd", descriptorSha1: null);
+                    return ar;
+                }
+
+                bool tryStream = Settings.rvSettings.ChdStreamingEnabled;
+                if (tryStream)
+                {
+                    try
+                    {
+                        if (CHDSharpLib.ChdMetadata.TryReadCdTrackLayout(filename, out List<CHDSharpLib.ChdCdTrackInfo> cdTracks, out string metaErr) && cdTracks.Count > 0)
+                        {
+                            Dictionary<int, RvFile> expectedByTrack = BuildExpectedTrackMap(expectedChildren);
+                            List<RvFile> expectedDataFiles = expectedChildren.FindAll(c => IsTrackDataFile(c.Name));
+                            expectedDataFiles.Sort((a, b) => Sorters.DirectoryNameCompareCase(a.Name, b.Name));
+
+                            System.Text.StringBuilder debug = Settings.rvSettings.ChdScanDebugEnabled ? new System.Text.StringBuilder() : null;
+                            if (debug != null)
+                            {
+                                debug.AppendLine("CHD scan");
+                                debug.AppendLine(filename);
+                                debug.AppendLine("descriptor=stream");
+                                debug.AppendLine("expected:");
+                                for (int i = 0; i < expectedDataFiles.Count; i++)
+                                    debug.AppendLine($"  {expectedDataFiles[i].Name} size={(expectedDataFiles[i].Size?.ToString() ?? "")}");
+                                debug.AppendLine("tracks:");
+                                for (int i = 0; i < cdTracks.Count; i++)
+                                    debug.AppendLine($"  track={cdTracks[i].TrackNo:D2} type={cdTracks[i].TrackType} frames={cdTracks[i].Frames} pregap={cdTracks[i].PreGapFrames} postgap={cdTracks[i].PostGapFrames} sector={cdTracks[i].SectorSize}");
+                            }
+
+                            List<(int trackNo, string fileName, string trackType)> trackFiles = new List<(int, string, string)>();
+                            Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache = new Dictionary<string, (ulong, byte[], byte[], byte[])>(StringComparer.OrdinalIgnoreCase);
+
+                            using (Stream logical = CHDSharpLib.ChdLogicalStream.OpenRead(filename))
+                            {
+                                ulong cur = 0;
+                                for (int i = 0; i < cdTracks.Count; i++)
+                                {
+                                    CHDSharpLib.ChdCdTrackInfo t = cdTracks[i];
+                                    ulong startBytes = (ulong)Math.Max(0, t.StartFrame) * (ulong)Math.Max(1, t.SectorSize);
+                                    ulong lenBytes = (ulong)Math.Max(0, t.Frames) * (ulong)Math.Max(1, t.SectorSize);
+                                    if (startBytes < cur)
+                                        startBytes = cur;
+                                    if (startBytes > cur)
+                                    {
+                                        SkipBytes(logical, startBytes - cur);
+                                        cur = startBytes;
+                                    }
+
+                                    string key = "track:" + t.TrackNo.ToString("D2");
+                                    trackFiles.Add((t.TrackNo, key, t.TrackType));
+
+                                    ScannedFile tmp = new ScannedFile(FileType.FileCHD)
+                                    {
+                                        Name = key,
+                                        FileModTimeStamp = dbDir.FileModTimeStamp,
+                                        GotStatus = GotStatus.Got,
+                                        DeepScanned = true,
+                                        Size = lenBytes
+                                    };
+                                    using (ReadOnlyLimitedStream limited = new ReadOnlyLimitedStream(logical, (long)lenBytes))
+                                    {
+                                        _fileScans.CheckSumRead(limited, tmp, lenBytes, true, false, null, 0, 0);
+                                    }
+                                    fileHashCache[key] = (lenBytes, tmp.CRC, tmp.SHA1, tmp.MD5);
+                                    cur += lenBytes;
+                                }
+                            }
+
+                            Dictionary<string, (string extractedName, bool swap16)> mapping = BuildDeterministicMapping(trackFiles, fileHashCache, null, expectedByTrack, expectedDataFiles, debug);
+                            foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
+                            {
+                                if (!fileHashCache.TryGetValue(kvp.Value.extractedName, out var h))
+                                    continue;
+                                ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                                {
+                                    Name = kvp.Key,
+                                    FileModTimeStamp = dbDir.FileModTimeStamp,
+                                    GotStatus = GotStatus.Got,
+                                    DeepScanned = true,
+                                    Size = h.size,
+                                    CRC = h.crc,
+                                    SHA1 = h.sha1,
+                                    MD5 = h.md5
+                                };
+                                sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                                ar.Add(sf);
+                            }
+
+                            Dictionary<string, ScannedFile> byName = new Dictionary<string, ScannedFile>(StringComparer.OrdinalIgnoreCase);
+                            for (int i = 0; i < ar.Count; i++)
+                            {
+                                if (ar[i]?.Name != null && !byName.ContainsKey(ar[i].Name))
+                                    byName.Add(ar[i].Name, ar[i]);
+                            }
+                            bool mismatch = false;
+                            for (int i = 0; i < expectedDataFiles.Count; i++)
+                            {
+                                RvFile exp = expectedDataFiles[i];
+                                if (exp?.Name == null)
+                                    continue;
+                                if (!byName.TryGetValue(exp.Name, out ScannedFile got))
+                                    continue;
+                                if (exp.Size.HasValue && exp.Size.Value != 0 && got.Size != exp.Size.Value)
+                                    mismatch = true;
+                                if (exp.CRC != null && got.CRC != null && !exp.CRC.AsSpan().SequenceEqual(got.CRC))
+                                    mismatch = true;
+                                if (exp.SHA1 != null && got.SHA1 != null && !exp.SHA1.AsSpan().SequenceEqual(got.SHA1))
+                                    mismatch = true;
+                                if (exp.MD5 != null && got.MD5 != null && !exp.MD5.AsSpan().SequenceEqual(got.MD5))
+                                    mismatch = true;
+                                if (mismatch)
+                                    break;
+                            }
+                            if (mismatch)
+                            {
+                                if (debug != null)
+                                    debug.AppendLine("streaming hash mismatch; will fall back to extractcd");
+                                WriteChdDebugLog(filename, debug);
+                                throw new Exception("stream hash mismatch");
+                            }
+
+                            RvFile expectedCue = expectedChildren.Find(c => c.Name != null && c.Name.EndsWith(".cue", StringComparison.OrdinalIgnoreCase));
+                            RvFile expectedGdi = expectedChildren.Find(c => c.Name != null && c.Name.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase));
+                            if (expectedCue != null || expectedGdi != null)
+                            {
+                                string descName = expectedGdi?.Name ?? expectedCue?.Name;
+                                string descText = expectedGdi != null
+                                    ? ChdDescriptorGenerator.BuildGdi(cdTracks, expectedByTrack)
+                                    : ChdDescriptorGenerator.BuildCue(cdTracks, expectedByTrack);
+                                byte[] bytes = System.Text.Encoding.ASCII.GetBytes(descText ?? "");
+                                ScannedFile dsf = new ScannedFile(FileType.FileCHD)
+                                {
+                                    Name = descName,
+                                    FileModTimeStamp = dbDir.FileModTimeStamp,
+                                    GotStatus = GotStatus.Got,
+                                    DeepScanned = true,
+                                    Size = (ulong)bytes.LongLength
+                                };
+                                using (var ms = new System.IO.MemoryStream(bytes, false))
+                                {
+                                    _fileScans.CheckSumRead(ms, dsf, (ulong)bytes.LongLength, true, false, null, 0, 0);
+                                }
+                                bool ok = true;
+                                RvFile expDesc = expectedGdi ?? expectedCue;
+                                if (expDesc != null)
+                                {
+                                    if (expDesc.Size.HasValue && expDesc.Size.Value != 0 && expDesc.Size.Value != (ulong)bytes.LongLength)
+                                        ok = false;
+                                    if (expDesc.CRC != null && dsf.CRC != null && !expDesc.CRC.AsSpan().SequenceEqual(dsf.CRC))
+                                        ok = false;
+                                    if (expDesc.SHA1 != null && dsf.SHA1 != null && !expDesc.SHA1.AsSpan().SequenceEqual(dsf.SHA1))
+                                        ok = false;
+                                    if (expDesc.MD5 != null && dsf.MD5 != null && !expDesc.MD5.AsSpan().SequenceEqual(dsf.MD5))
+                                        ok = false;
+                                }
+                                if (ok || (Settings.rvSettings.ChdPreferSyntheticDescriptor && (expDesc == null || (!expDesc.Size.HasValue || expDesc.Size.Value == 0) && expDesc.CRC == null && expDesc.SHA1 == null && expDesc.MD5 == null)))
+                                {
+                                    ar.Add(dsf);
+                                }
+                                else
+                                {
+                                    if (debug != null)
+                                        debug.AppendLine("synthetic descriptor hash mismatch; will fall back to extractcd");
+                                    WriteChdDebugLog(filename, debug);
+                                    throw new Exception("synthetic descriptor mismatch");
+                                }
+                            }
+
+                            ar.Sort();
+                            if (Settings.rvSettings.ChdScanCacheEnabled)
+                            {
+                                string layoutHash = ComputeTrackLayoutSha1Hex(cdTracks);
+                                SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: layoutHash);
+                            }
+                            WriteChdDebugLog(filename, debug);
+                            return ar;
+                        }
+
+                        if (Settings.rvSettings.ChdStreamingEnabled)
+                            _thWrk?.Report(new bgwShowError(filename, "CHD streaming track metadata not available; falling back to extractcd. " + metaErr));
+                    }
+                    catch (Exception)
+                    {
+                        tryStream = false;
+                    }
+                }
+                {
+                string outMain = System.IO.Path.Combine(tempDir, expectsGdi ? "disc.gdi" : "disc.cue");
+                if (!extractor.ExtractCd(filename, outMain, out string err1))
+                {
+                    _thWrk?.Report(new bgwShowError(filename, "CHD extractcd failed: " + err1));
+                    return null;
+                }
+
+                if (!System.IO.File.Exists(outMain))
+                {
+                    _thWrk?.Report(new bgwShowError(filename, "CHD extraction did not produce main descriptor: " + outMain));
+                    return null;
+                }
+
+                string descriptorSha1 = ComputeFileSha1Hex(outMain);
+                List<(int trackNo, string fileName, string trackType)> trackFiles = expectsGdi ? ParseGdiTrackFiles(outMain) : ParseCueTrackFiles(outMain);
+                if (trackFiles.Count == 0)
+                {
+                    _thWrk?.Report(new bgwShowError(filename, "No track files listed in extracted " + (expectsGdi ? "GDI" : "CUE")));
+                    return null;
+                }
+
+                Dictionary<int, RvFile> expectedByTrack = BuildExpectedTrackMap(expectedChildren);
+                List<RvFile> expectedDataFiles = expectedChildren.FindAll(c => IsTrackDataFile(c.Name));
+                expectedDataFiles.Sort((a, b) => Sorters.DirectoryNameCompareCase(a.Name, b.Name));
+
+                System.Text.StringBuilder debug = Settings.rvSettings.ChdScanDebugEnabled ? new System.Text.StringBuilder() : null;
+                if (debug != null)
+                {
+                    debug.AppendLine("CHD scan");
+                    debug.AppendLine(filename);
+                    debug.AppendLine("descriptor=" + (expectsGdi ? "gdi" : "cue"));
+                    debug.AppendLine("expected:");
+                    for (int i = 0; i < expectedDataFiles.Count; i++)
+                        debug.AppendLine($"  {expectedDataFiles[i].Name} size={(expectedDataFiles[i].Size?.ToString() ?? "")}");
+                    debug.AppendLine("extracted:");
+                    for (int i = 0; i < trackFiles.Count; i++)
+                        debug.AppendLine($"  track={trackFiles[i].trackNo:D2} file={trackFiles[i].fileName} type={trackFiles[i].trackType}");
+                }
+
+                ConcurrentDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache = new ConcurrentDictionary<string, (ulong, byte[], byte[], byte[])>(StringComparer.OrdinalIgnoreCase);
+                ConcurrentDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashSwap16Cache = new ConcurrentDictionary<string, (ulong, byte[], byte[], byte[])>(StringComparer.OrdinalIgnoreCase);
+                HashSet<string> uniqueExtractedSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < trackFiles.Count; i++)
+                {
+                    if (!string.IsNullOrWhiteSpace(trackFiles[i].fileName))
+                        uniqueExtractedSet.Add(trackFiles[i].fileName);
+                }
+                Dictionary<string, bool> audioFiles = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < trackFiles.Count; i++)
+                {
+                    string n = trackFiles[i].fileName;
+                    if (string.IsNullOrWhiteSpace(n))
+                        continue;
+                    string tt = (trackFiles[i].trackType ?? "").Trim().ToUpperInvariant();
+                    if (tt.Contains("AUDIO"))
+                        audioFiles[n] = true;
+                    else if (!audioFiles.ContainsKey(n))
+                        audioFiles[n] = false;
+                }
+                string[] uniqueExtractedArr = new string[uniqueExtractedSet.Count];
+                uniqueExtractedSet.CopyTo(uniqueExtractedArr);
+                Parallel.ForEach(uniqueExtractedArr, new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 4)) }, extractedName =>
+                {
+                    string full = System.IO.Path.Combine(tempDir, extractedName);
+                    if (!System.IO.File.Exists(full))
+                        return;
+                    if (fileHashCache.ContainsKey(extractedName))
+                        return;
+                    FileInfo fi = new FileInfo(full);
+                    ScannedFile tmp = new ScannedFile(FileType.FileCHD)
+                    {
+                        Name = extractedName,
+                        FileModTimeStamp = fi.LastWriteTime,
+                        GotStatus = GotStatus.Got,
+                        DeepScanned = true,
+                        Size = (ulong)fi.Length
+                    };
+                    using (Stream s = System.IO.File.OpenRead(full))
+                    {
+                        _fileScans.CheckSumRead(s, tmp, (ulong)fi.Length, true, false, null, 0, 0);
+                    }
+                    fileHashCache.TryAdd(extractedName, ((ulong)fi.Length, tmp.CRC, tmp.SHA1, tmp.MD5));
+
+                    if (audioFiles.TryGetValue(extractedName, out bool isAudio) && isAudio)
+                    {
+                        ScannedFile tmpSwap = new ScannedFile(FileType.FileCHD)
+                        {
+                            Name = extractedName,
+                            FileModTimeStamp = fi.LastWriteTime,
+                            GotStatus = GotStatus.Got,
+                            DeepScanned = true,
+                            Size = (ulong)fi.Length
+                        };
+                        using (Stream s = System.IO.File.OpenRead(full))
+                        using (Stream swap = new Swap16Stream(s))
+                        {
+                            _fileScans.CheckSumRead(swap, tmpSwap, (ulong)fi.Length, true, false, null, 0, 0);
+                        }
+                        fileHashSwap16Cache.TryAdd(extractedName, ((ulong)fi.Length, tmpSwap.CRC, tmpSwap.SHA1, tmpSwap.MD5));
+                    }
+                });
+
+                HashSet<string> uniqueExtracted = new HashSet<string>(uniqueExtractedSet, StringComparer.OrdinalIgnoreCase);
+
+                if (!expectsGdi && uniqueExtracted.Count == 1 && expectedDataFiles.Count > 1)
+                {
+                    if (debug != null)
+                        debug.AppendLine("single-bin cue detected; attempting fallback slicing");
+                    if (TryScanSingleBinCueAsTracks(filename, chdmanExe, tempDir, outMain, expectedByTrack, expectedDataFiles, ar, debug))
+                    {
+                        ar.Sort();
+                        if (Settings.rvSettings.ChdScanCacheEnabled)
+                        {
+                            string descHash = ComputeFileSha1Hex(outMain);
+                            SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descHash);
+                        }
+                        WriteChdDebugLog(filename, debug);
+                        return ar;
+                    }
+                }
+
+                Dictionary<string, (string extractedName, bool swap16)> mapping = BuildDeterministicMapping(trackFiles, fileHashCache, fileHashSwap16Cache, expectedByTrack, expectedDataFiles, debug);
+                foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
+                {
+                    string expectedName = kvp.Key;
+                    string extractedName = kvp.Value.extractedName;
+                    if (string.IsNullOrWhiteSpace(expectedName) || string.IsNullOrWhiteSpace(extractedName))
+                        continue;
+                    if (kvp.Value.swap16)
+                    {
+                        if (!fileHashSwap16Cache.TryGetValue(extractedName, out var hs))
+                            continue;
+
+                        ScannedFile sfSwap = new ScannedFile(FileType.FileCHD)
+                        {
+                            Name = expectedName,
+                            FileModTimeStamp = dbDir.FileModTimeStamp,
+                            GotStatus = GotStatus.Got,
+                            DeepScanned = true,
+                            Size = hs.size,
+                            CRC = hs.crc,
+                            SHA1 = hs.sha1,
+                            MD5 = hs.md5
+                        };
+                        sfSwap.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                        ar.Add(sfSwap);
+                        continue;
+                    }
+
+                    if (!fileHashCache.TryGetValue(extractedName, out var h))
+                        continue;
+
+                    ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                    {
+                        Name = expectedName,
+                        FileModTimeStamp = dbDir.FileModTimeStamp,
+                        GotStatus = GotStatus.Got,
+                        DeepScanned = true,
+                        Size = h.size,
+                        CRC = h.crc,
+                        SHA1 = h.sha1,
+                        MD5 = h.md5
+                    };
+                    sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                    ar.Add(sf);
+                }
+
+                bool hashMismatch = false;
+                if (expectedDataFiles.Count > 0)
+                {
+                    Dictionary<string, ScannedFile> byName = new Dictionary<string, ScannedFile>(StringComparer.OrdinalIgnoreCase);
+                    for (int i = 0; i < ar.Count; i++)
+                    {
+                        if (ar[i]?.Name != null && !byName.ContainsKey(ar[i].Name))
+                            byName.Add(ar[i].Name, ar[i]);
+                    }
+                    for (int i = 0; i < expectedDataFiles.Count; i++)
+                    {
+                        RvFile exp = expectedDataFiles[i];
+                        if (exp?.Name == null)
+                            continue;
+                        if (!byName.TryGetValue(exp.Name, out ScannedFile got))
+                            continue;
+                        if (exp.Size.HasValue && exp.Size.Value != 0 && got.Size != exp.Size.Value)
+                            hashMismatch = true;
+                        if (exp.CRC != null && got.CRC != null && !exp.CRC.AsSpan().SequenceEqual(got.CRC))
+                            hashMismatch = true;
+                        if (exp.SHA1 != null && got.SHA1 != null && !exp.SHA1.AsSpan().SequenceEqual(got.SHA1))
+                            hashMismatch = true;
+                        if (exp.MD5 != null && got.MD5 != null && !exp.MD5.AsSpan().SequenceEqual(got.MD5))
+                            hashMismatch = true;
+                        if (hashMismatch)
+                            break;
+                    }
+                }
+
+                if (hashMismatch && Settings.rvSettings.ChdTrustContainerForTracks)
+                {
+                    ScannedFile trust = new ScannedFile(FileType.CHD)
+                    {
+                        Name = ar.Name,
+                        ZipStruct = ar.ZipStruct,
+                        Comment = ar.Comment
+                    };
+                    for (int i = 0; i < expectedChildren.Count; i++)
+                    {
+                        RvFile exp = expectedChildren[i];
+                        if (exp == null || !exp.IsFile)
+                            continue;
+                        if (!IsTrackDataFile(exp.Name) && !(exp.Name?.EndsWith(".cue", StringComparison.OrdinalIgnoreCase) ?? false) && !(exp.Name?.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase) ?? false))
+                            continue;
+                        ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                        {
+                            Name = exp.Name,
+                            FileModTimeStamp = dbDir.FileModTimeStamp,
+                            GotStatus = GotStatus.Got,
+                            DeepScanned = true
+                        };
+                        trust.Add(sf);
+                    }
+                    trust.Sort();
+                    if (Settings.rvSettings.ChdScanCacheEnabled)
+                        SaveChdScanCache(filename, trust, isDvd: false, descriptor: "trust", descriptorSha1: descriptorSha1);
+                    WriteChdDebugLog(filename, debug);
+                    return trust;
+                }
+
+                ar.Sort();
+                if (Settings.rvSettings.ChdScanCacheEnabled)
+                    SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descriptorSha1);
+                WriteChdDebugLog(filename, debug);
+                return ar;
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (Directory.Exists(tempDir))
+                        Directory.Delete(tempDir, true);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static string ResolveExistingFilePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            path = NormalizePossiblyConcatenatedPath(path);
+
+            try
+            {
+                if (System.IO.Path.IsPathRooted(path))
+                {
+                    if (System.IO.File.Exists(path) || System.IO.Directory.Exists(path))
+                        return path;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                string baseDir = "";
+                try { baseDir = AppDomain.CurrentDomain.BaseDirectory; } catch { }
+                System.IO.DirectoryInfo di = string.IsNullOrWhiteSpace(baseDir) ? null : new System.IO.DirectoryInfo(baseDir);
+                for (int i = 0; i < 10 && di != null; i++)
+                {
+                    string attempt = System.IO.Path.Combine(di.FullName, path);
+                    if (System.IO.File.Exists(attempt) || System.IO.Directory.Exists(attempt))
+                        return attempt;
+                    di = di.Parent;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return System.IO.Path.GetFullPath(path);
+            }
+            catch
+            {
+                return path;
+            }
+        }
+
+        private static string ResolveExistingDirectoryPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+
+            string p = NormalizePossiblyConcatenatedPath(path);
+            try
+            {
+                if (System.IO.Path.IsPathRooted(p))
+                {
+                    if (System.IO.Directory.Exists(p))
+                        return p;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                if (System.IO.Directory.Exists(p))
+                    return System.IO.Path.GetFullPath(p);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                string baseDir = "";
+                try { baseDir = AppDomain.CurrentDomain.BaseDirectory; } catch { }
+                System.IO.DirectoryInfo di = string.IsNullOrWhiteSpace(baseDir) ? null : new System.IO.DirectoryInfo(baseDir);
+                for (int i = 0; i < 10 && di != null; i++)
+                {
+                    string attempt = System.IO.Path.Combine(di.FullName, p);
+                    if (System.IO.Directory.Exists(attempt))
+                        return attempt;
+                    di = di.Parent;
+                }
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return System.IO.Path.GetFullPath(p);
+            }
+            catch
+            {
+                return p;
+            }
+        }
+
+        private static string NormalizePossiblyConcatenatedPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return path;
+            string p = path.Trim();
+            int last = -1;
+            for (int i = 0; i + 2 < p.Length; i++)
+            {
+                char c0 = p[i];
+                char c1 = p[i + 1];
+                char c2 = p[i + 2];
+                if (((c0 >= 'A' && c0 <= 'Z') || (c0 >= 'a' && c0 <= 'z')) && c1 == ':' && (c2 == '\\' || c2 == '/'))
+                    last = i;
+            }
+            if (last > 0)
+                return p.Substring(last);
+            return p;
+        }
+
+        private sealed class Swap16Stream : Stream
+        {
+            private readonly Stream _source;
+            private readonly byte[] _scratch;
+            private bool _hasCarry;
+            private byte _carry;
+
+            public Swap16Stream(Stream source, int bufferSize = 64 * 1024)
+            {
+                _source = source ?? throw new ArgumentNullException(nameof(source));
+                _scratch = new byte[Math.Max(1024, bufferSize)];
+            }
+
+            public override bool CanRead => _source.CanRead;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _source.Length;
+            public override long Position
+            {
+                get => _source.Position;
+                set => throw new NotSupportedException();
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (count <= 0)
+                    return 0;
+                int want = Math.Min(count, _scratch.Length);
+                int read = _source.Read(_scratch, 0, want);
+                if (read <= 0)
+                    return 0;
+
+                int outPos = offset;
+                int i = 0;
+                if (_hasCarry)
+                {
+                    if (read >= 1)
+                    {
+                        buffer[outPos++] = _scratch[0];
+                        buffer[outPos++] = _carry;
+                        i = 1;
+                        _hasCarry = false;
+                    }
+                    else
+                    {
+                        return 0;
+                    }
+                }
+
+                for (; i + 1 < read; i += 2)
+                {
+                    buffer[outPos++] = _scratch[i + 1];
+                    buffer[outPos++] = _scratch[i];
+                }
+
+                if (i < read)
+                {
+                    _carry = _scratch[i];
+                    _hasCarry = true;
+                }
+
+                return outPos - offset;
+            }
+
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                    _source.Dispose();
+                base.Dispose(disposing);
+            }
+        }
+
+        private static Dictionary<string, (string extractedName, bool swap16)> BuildDeterministicMapping(
+            List<(int trackNo, string fileName, string trackType)> trackFiles,
+            IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache,
+            IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashSwap16Cache,
+            Dictionary<int, RvFile> expectedByTrack,
+            List<RvFile> expectedDataFiles,
+            System.Text.StringBuilder debug)
+        {
+            Dictionary<string, (string extractedName, bool swap16)> mapping = new Dictionary<string, (string extractedName, bool swap16)>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> usedExtracted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> usedExpected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Action<string, string, bool, string> reason = (exp, ext, swap16, why) =>
+            {
+                if (debug != null)
+                    debug.AppendLine($"  reason: {exp} <= {ext}{(swap16 ? " (swap16)" : "")} :: {why}");
+            };
+
+            for (int i = 0; i < expectedDataFiles.Count; i++)
+            {
+                RvFile exp = expectedDataFiles[i];
+                if (exp?.Name == null || usedExpected.Contains(exp.Name))
+                    continue;
+                var hit = FindExtractedByHash(fileHashCache, fileHashSwap16Cache, usedExtracted, exp.SHA1, exp.MD5, exp.CRC, exp.Size);
+                if (string.IsNullOrWhiteSpace(hit.extractedName))
+                    continue;
+                mapping[exp.Name] = (hit.extractedName, hit.swap16);
+                usedExpected.Add(exp.Name);
+                usedExtracted.Add(hit.extractedName);
+                reason(exp.Name, hit.extractedName, hit.swap16, "by hash");
+            }
+
+            Dictionary<string, string> extractedCategory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < trackFiles.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(trackFiles[i].fileName))
+                    continue;
+                if (!extractedCategory.ContainsKey(trackFiles[i].fileName))
+                    extractedCategory[trackFiles[i].fileName] = GetTrackCategory(trackFiles[i].trackType, trackFiles[i].fileName);
+            }
+
+            Dictionary<int, List<string>> extractedByTrackNo = new Dictionary<int, List<string>>();
+            for (int i = 0; i < trackFiles.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(trackFiles[i].fileName))
+                    continue;
+                if (!fileHashCache.ContainsKey(trackFiles[i].fileName))
+                    continue;
+                if (!extractedByTrackNo.TryGetValue(trackFiles[i].trackNo, out List<string> list))
+                {
+                    list = new List<string>();
+                    extractedByTrackNo.Add(trackFiles[i].trackNo, list);
+                }
+                if (!list.Contains(trackFiles[i].fileName))
+                    list.Add(trackFiles[i].fileName);
+            }
+
+            foreach (KeyValuePair<int, RvFile> kvp in expectedByTrack)
+            {
+                if (kvp.Value?.Name == null)
+                    continue;
+                if (usedExpected.Contains(kvp.Value.Name))
+                    continue;
+                if (!extractedByTrackNo.TryGetValue(kvp.Key, out List<string> list) || list.Count == 0)
+                    continue;
+                string extractedName = null;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (!usedExtracted.Contains(list[i]))
+                    {
+                        extractedName = list[i];
+                        break;
+                    }
+                }
+                if (extractedName == null)
+                    continue;
+
+                mapping[kvp.Value.Name] = (extractedName, false);
+                usedExpected.Add(kvp.Value.Name);
+                usedExtracted.Add(extractedName);
+                reason(kvp.Value.Name, extractedName, false, "by track number");
+            }
+
+            Dictionary<ulong, List<string>> extractedBySize = new Dictionary<ulong, List<string>>();
+            foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashCache)
+            {
+                if (usedExtracted.Contains(kvp.Key))
+                    continue;
+                if (!extractedBySize.TryGetValue(kvp.Value.size, out List<string> list))
+                {
+                    list = new List<string>();
+                    extractedBySize.Add(kvp.Value.size, list);
+                }
+                list.Add(kvp.Key);
+            }
+
+            for (int i = 0; i < expectedDataFiles.Count; i++)
+            {
+                string expectedName = expectedDataFiles[i].Name;
+                if (string.IsNullOrWhiteSpace(expectedName) || usedExpected.Contains(expectedName))
+                    continue;
+                ulong expectedSize = expectedDataFiles[i].Size ?? 0;
+                if (expectedSize == 0)
+                    continue;
+                if (!extractedBySize.TryGetValue(expectedSize, out List<string> candidates))
+                    continue;
+                string extractedName = null;
+                if (candidates.Count == 1)
+                {
+                    extractedName = candidates[0];
+                    reason(expectedName, extractedName, false, "by unique size");
+                }
+                else
+                {
+                    string expectedCat = GetExpectedCategory(expectedName);
+                    if (!string.IsNullOrWhiteSpace(expectedCat))
+                    {
+                        List<string> filtered = new List<string>();
+                        for (int c = 0; c < candidates.Count; c++)
+                        {
+                            if (extractedCategory.TryGetValue(candidates[c], out string cat) && string.Equals(cat, expectedCat, StringComparison.OrdinalIgnoreCase))
+                                filtered.Add(candidates[c]);
+                        }
+                        if (filtered.Count == 1)
+                        {
+                            extractedName = filtered[0];
+                            reason(expectedName, extractedName, false, "by size+type");
+                        }
+                    }
+
+                    if (extractedName == null)
+                    {
+                        string expectedExt = System.IO.Path.GetExtension(expectedName) ?? "";
+                        if (!string.IsNullOrWhiteSpace(expectedExt))
+                        {
+                            List<string> filtered = new List<string>();
+                            for (int c = 0; c < candidates.Count; c++)
+                            {
+                                string ext = System.IO.Path.GetExtension(candidates[c]) ?? "";
+                                if (string.Equals(ext, expectedExt, StringComparison.OrdinalIgnoreCase))
+                                    filtered.Add(candidates[c]);
+                            }
+                            if (filtered.Count == 1)
+                            {
+                                extractedName = filtered[0];
+                                reason(expectedName, extractedName, false, "by size+ext");
+                            }
+                        }
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(extractedName))
+                    continue;
+                mapping[expectedName] = (extractedName, false);
+                usedExpected.Add(expectedName);
+                usedExtracted.Add(extractedName);
+            }
+
+            int fallbackIndex = 0;
+            for (int i = 0; i < trackFiles.Count; i++)
+            {
+                string extractedName = trackFiles[i].fileName;
+                if (string.IsNullOrWhiteSpace(extractedName))
+                    continue;
+                if (usedExtracted.Contains(extractedName))
+                    continue;
+                if (!fileHashCache.ContainsKey(extractedName))
+                    continue;
+
+                while (fallbackIndex < expectedDataFiles.Count && usedExpected.Contains(expectedDataFiles[fallbackIndex].Name))
+                    fallbackIndex++;
+                if (fallbackIndex >= expectedDataFiles.Count)
+                    break;
+
+                string expectedName = expectedDataFiles[fallbackIndex++].Name;
+                if (string.IsNullOrWhiteSpace(expectedName))
+                    continue;
+
+                mapping[expectedName] = (extractedName, false);
+                usedExpected.Add(expectedName);
+                usedExtracted.Add(extractedName);
+                reason(expectedName, extractedName, false, "by order fallback");
+            }
+
+            if (debug != null)
+            {
+                debug.AppendLine("mapping:");
+                foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
+                    debug.AppendLine($"  {kvp.Key} <= {kvp.Value.extractedName}{(kvp.Value.swap16 ? " (swap16)" : "")}");
+            }
+
+            return mapping;
+        }
+
+        private static (string extractedName, bool swap16) FindExtractedByHash(
+            IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache,
+            IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashSwap16Cache,
+            HashSet<string> usedExtracted,
+            byte[] expSha1,
+            byte[] expMd5,
+            byte[] expCrc,
+            ulong? expSize)
+        {
+            if (fileHashCache == null || usedExtracted == null)
+                return (null, false);
+
+            if (expSha1 != null && expSha1.Length > 0)
+            {
+                foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashCache)
+                {
+                    if (usedExtracted.Contains(kvp.Key))
+                        continue;
+                    if (kvp.Value.sha1 == null)
+                        continue;
+                    if (kvp.Value.sha1.AsSpan().SequenceEqual(expSha1))
+                        return (kvp.Key, false);
+                }
+                if (fileHashSwap16Cache != null)
+                {
+                    foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashSwap16Cache)
+                    {
+                        if (usedExtracted.Contains(kvp.Key))
+                            continue;
+                        if (kvp.Value.sha1 == null)
+                            continue;
+                        if (kvp.Value.sha1.AsSpan().SequenceEqual(expSha1))
+                            return (kvp.Key, true);
+                    }
+                }
+            }
+
+            if (expMd5 != null && expMd5.Length > 0)
+            {
+                foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashCache)
+                {
+                    if (usedExtracted.Contains(kvp.Key))
+                        continue;
+                    if (kvp.Value.md5 == null)
+                        continue;
+                    if (kvp.Value.md5.AsSpan().SequenceEqual(expMd5))
+                        return (kvp.Key, false);
+                }
+                if (fileHashSwap16Cache != null)
+                {
+                    foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashSwap16Cache)
+                    {
+                        if (usedExtracted.Contains(kvp.Key))
+                            continue;
+                        if (kvp.Value.md5 == null)
+                            continue;
+                        if (kvp.Value.md5.AsSpan().SequenceEqual(expMd5))
+                            return (kvp.Key, true);
+                    }
+                }
+            }
+
+            if (expCrc != null && expCrc.Length > 0 && expSize.HasValue && expSize.Value != 0)
+            {
+                foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashCache)
+                {
+                    if (usedExtracted.Contains(kvp.Key))
+                        continue;
+                    if (kvp.Value.crc == null)
+                        continue;
+                    if (kvp.Value.size != expSize.Value)
+                        continue;
+                    if (kvp.Value.crc.AsSpan().SequenceEqual(expCrc))
+                        return (kvp.Key, false);
+                }
+                if (fileHashSwap16Cache != null)
+                {
+                    foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashSwap16Cache)
+                    {
+                        if (usedExtracted.Contains(kvp.Key))
+                            continue;
+                        if (kvp.Value.crc == null)
+                            continue;
+                        if (kvp.Value.size != expSize.Value)
+                            continue;
+                        if (kvp.Value.crc.AsSpan().SequenceEqual(expCrc))
+                            return (kvp.Key, true);
+                    }
+                }
+            }
+
+            return (null, false);
+        }
+
+        private static string GetExpectedCategory(string expectedName)
+        {
+            if (string.IsNullOrWhiteSpace(expectedName))
+                return "";
+            string ext = (System.IO.Path.GetExtension(expectedName) ?? "").ToLowerInvariant();
+            string name = expectedName.ToLowerInvariant();
+            if (ext == ".iso")
+                return "data";
+            if (name.Contains("data"))
+                return "data";
+            if (name.Contains("audio"))
+                return "audio";
+            if (name.Contains("track"))
+                return "audio";
+            return "";
+        }
+
+        private static string GetTrackCategory(string trackType, string fileName)
+        {
+            string tt = (trackType ?? "").Trim().ToUpperInvariant();
+            if (tt.Contains("AUDIO"))
+                return "audio";
+            if (tt.Contains("2048"))
+                return "data";
+            string ext = (System.IO.Path.GetExtension(fileName) ?? "").ToLowerInvariant();
+            if (ext == ".iso")
+                return "data";
+            return "";
+        }
+
+        private static bool TryScanSingleBinCueAsTracks(
+            string chdPath,
+            string chdmanExe,
+            string tempDir,
+            string cuePath,
+            Dictionary<int, RvFile> expectedByTrack,
+            List<RvFile> expectedDataFiles,
+            ScannedFile archive,
+            System.Text.StringBuilder debug)
+        {
+            string outBin = System.IO.Path.Combine(tempDir, "disc.bin");
+            string extractArgs = $"extractcd -i \"{chdPath}\" -o \"{cuePath}\" -ob \"{outBin}\" -f";
+            if (!RunProcess(chdmanExe, extractArgs, tempDir, out string err))
+            {
+                _thWrk?.Report(new bgwShowError(chdPath, "CHD extractcd (single bin) failed: " + err));
+                return false;
+            }
+
+            if (!System.IO.File.Exists(outBin))
+                return false;
+
+            List<ChdTrack> tracks = ParseCueTracksWithIndexes(cuePath);
+            if (tracks.Count == 0)
+                return false;
+            tracks.Sort((a, b) => a.TrackNo.CompareTo(b.TrackNo));
+
+            long binLength = new FileInfo(outBin).Length;
+            int sectorSize = (binLength % 2352L == 0) ? 2352 : (binLength % 2048L == 0 ? 2048 : 2352);
+
+            List<(int trackNo, long offset, long length)> segments = new List<(int, long, long)>();
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                int thisSector = ResolveSectorSize(tracks[i].TrackType, sectorSize);
+                int nextSector = (i + 1 < tracks.Count) ? ResolveSectorSize(tracks[i + 1].TrackType, sectorSize) : thisSector;
+                long startBytes = tracks[i].StartFrames * thisSector;
+                long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * nextSector : binLength;
+                long postGap = tracks[i].PostGapFrames * thisSector;
+                if (postGap > 0 && endBytes - postGap > startBytes)
+                    endBytes -= postGap;
+                if (endBytes < startBytes)
+                    endBytes = startBytes;
+                long len = endBytes - startBytes;
+                segments.Add((tracks[i].TrackNo, startBytes, len));
+            }
+
+            Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> sliceHashes = new Dictionary<string, (ulong, byte[], byte[], byte[])>(StringComparer.OrdinalIgnoreCase);
+            using (FileStream binStream = System.IO.File.OpenRead(outBin))
+            {
+                for (int i = 0; i < segments.Count; i++)
+                {
+                    string key = "track:" + segments[i].trackNo.ToString("D2");
+                    ScannedFile tmp = new ScannedFile(FileType.FileCHD)
+                    {
+                        Name = key,
+                        FileModTimeStamp = new FileInfo(outBin).LastWriteTime,
+                        GotStatus = GotStatus.Got,
+                        DeepScanned = true,
+                        Size = (ulong)segments[i].length
+                    };
+                    using (ReadOnlySliceStream slice = new ReadOnlySliceStream(binStream, segments[i].offset, segments[i].length))
+                    {
+                        _fileScans.CheckSumRead(slice, tmp, (ulong)segments[i].length, true, false, null, 0, 0);
+                    }
+                    sliceHashes[key] = ((ulong)segments[i].length, tmp.CRC, tmp.SHA1, tmp.MD5);
+                }
+            }
+
+            List<(int trackNo, string fileName, string trackType)> pseudoTracks = new List<(int, string, string)>();
+            for (int i = 0; i < segments.Count; i++)
+                pseudoTracks.Add((segments[i].trackNo, "track:" + segments[i].trackNo.ToString("D2"), ""));
+
+            Dictionary<string, (string extractedName, bool swap16)> mapping = BuildDeterministicMapping(pseudoTracks, sliceHashes, null, expectedByTrack, expectedDataFiles, debug);
+            foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
+            {
+                if (!sliceHashes.TryGetValue(kvp.Value.extractedName, out var h))
+                    continue;
+                ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                {
+                    Name = kvp.Key,
+                    FileModTimeStamp = new FileInfo(outBin).LastWriteTime,
+                    GotStatus = GotStatus.Got,
+                    DeepScanned = true,
+                    Size = h.size,
+                    CRC = h.crc,
+                    SHA1 = h.sha1,
+                    MD5 = h.md5
+                };
+                sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                archive.Add(sf);
+            }
+
+            return archive.Count > 0;
+        }
+
+        private static List<ChdTrack> ParseCueTracksWithIndexes(string cuePath)
+        {
+            List<ChdTrack> tracks = new List<ChdTrack>();
+            string[] lines;
+            try
+            {
+                lines = System.IO.File.ReadAllLines(cuePath);
+            }
+            catch
+            {
+                return tracks;
+            }
+
+            ChdTrack current = null;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.Length == 0)
+                    continue;
+
+                if (line.StartsWith("TRACK", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 3 && int.TryParse(parts[1], out int trackNo))
+                    {
+                        current = new ChdTrack
+                        {
+                            TrackNo = trackNo,
+                            TrackType = parts[2].Trim(),
+                            StartFrames = 0,
+                            PreGapFrames = 0,
+                            PostGapFrames = 0
+                        };
+                        tracks.Add(current);
+                    }
+                    continue;
+                }
+
+                if (current != null && line.StartsWith("INDEX 01", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 3)
+                    {
+                        if (TryParseMsf(parts[2], out long frames))
+                            current.StartFrames = frames;
+                    }
+                }
+
+                if (current != null && line.StartsWith("INDEX 00", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 3)
+                    {
+                        if (TryParseMsf(parts[2], out long frames))
+                            current.PreGapFrames = Math.Max(0, current.StartFrames - frames);
+                    }
+                }
+
+                if (current != null && line.StartsWith("PREGAP", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        if (TryParseMsf(parts[1], out long frames))
+                            current.PreGapFrames = Math.Max(current.PreGapFrames, frames);
+                    }
+                }
+
+                if (current != null && line.StartsWith("POSTGAP", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2)
+                    {
+                        if (TryParseMsf(parts[1], out long frames))
+                            current.PostGapFrames = Math.Max(current.PostGapFrames, frames);
+                    }
+                }
+            }
+
+            return tracks;
+        }
+
+        private static int ResolveSectorSize(string trackType, int fallback)
+        {
+            if (string.IsNullOrWhiteSpace(trackType))
+                return fallback;
+            string t = trackType.Trim().ToUpperInvariant();
+            if (t.Contains("2048"))
+                return 2048;
+            if (t.Contains("AUDIO"))
+                return 2352;
+            if (t.Contains("2352"))
+                return 2352;
+            return fallback;
+        }
+
+        private static string GetChdScanDebugPath(string chdPath)
+        {
+            string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
+            if (string.IsNullOrWhiteSpace(baseTempDir))
+                baseTempDir = Environment.CurrentDirectory;
+            string dir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdscanCache");
+            string key = ComputeMd5Hex(chdPath.ToLowerInvariant());
+            return System.IO.Path.Combine(dir, key + ".log");
+        }
+
+        private static void WriteChdDebugLog(string chdPath, System.Text.StringBuilder debug)
+        {
+            if (debug == null)
+                return;
+            try
+            {
+                string path = GetChdScanDebugPath(chdPath);
+                System.IO.File.WriteAllText(path, debug.ToString());
+            }
+            catch
+            {
+            }
+        }
+
+        private static List<(int trackNo, string fileName, string trackType)> ParseCueTrackFiles(string cuePath)
+        {
+            List<(int, string, string)> list = new List<(int, string, string)>();
+            string[] lines;
+            try
+            {
+                lines = System.IO.File.ReadAllLines(cuePath);
+            }
+            catch
+            {
+                return list;
+            }
+
+            string currentFile = null;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string trimmed = lines[i].Trim();
+                if (trimmed.Length == 0)
+                    continue;
+
+                if (trimmed.StartsWith("FILE", StringComparison.OrdinalIgnoreCase))
+                {
+                    int q1 = trimmed.IndexOf('"');
+                    if (q1 >= 0)
+                    {
+                        int q2 = trimmed.IndexOf('"', q1 + 1);
+                        if (q2 > q1)
+                        {
+                            currentFile = trimmed.Substring(q1 + 1, q2 - q1 - 1);
+                            continue;
+                        }
+                    }
+                    string[] p = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 2)
+                        currentFile = p[1].Trim('"');
+                    continue;
+                }
+
+                if (trimmed.StartsWith("TRACK", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] p = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (p.Length >= 3 && int.TryParse(p[1], out int trackNo))
+                    {
+                        string trackType = p[2].Trim();
+                        if (!string.IsNullOrWhiteSpace(currentFile))
+                            list.Add((trackNo, currentFile, trackType));
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        private static List<(int trackNo, string fileName, string trackType)> ParseGdiTrackFiles(string gdiPath)
+        {
+            List<(int, string, string)> list = new List<(int, string, string)>();
+            string[] lines;
+            try
+            {
+                lines = System.IO.File.ReadAllLines(gdiPath);
+            }
+            catch
+            {
+                return list;
+            }
+
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.Length == 0)
+                    continue;
+
+                string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 5)
+                    continue;
+
+                if (!int.TryParse(parts[0], out int trackNo))
+                    continue;
+
+                string name = parts[4].Trim().Trim('"');
+                string trackType = parts.Length >= 3 ? parts[2] : "";
+                if (!string.IsNullOrWhiteSpace(name))
+                    list.Add((trackNo, name, trackType));
+            }
+
+            return list;
+        }
+
+        private static string GetChdScanCachePath(string chdPath)
+        {
+            string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
+            if (string.IsNullOrWhiteSpace(baseTempDir))
+                baseTempDir = Environment.CurrentDirectory;
+            string dir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdscanCache");
+            try
+            {
+                Directory.CreateDirectory(dir);
+            }
+            catch
+            {
+            }
+
+            string key = ComputeMd5Hex(chdPath.ToLowerInvariant());
+            return System.IO.Path.Combine(dir, key + ".json");
+        }
+
+        private static bool TryLoadChdScanCache(string chdPath, out ChdCacheFile cache)
+        {
+            cache = null;
+            try
+            {
+                string cachePath = GetChdScanCachePath(chdPath);
+                if (!System.IO.File.Exists(cachePath))
+                    return false;
+
+                FileInfo fi = new FileInfo(chdPath);
+                string json = System.IO.File.ReadAllText(cachePath);
+                ChdCacheFile loaded = JsonSerializer.Deserialize<ChdCacheFile>(json);
+                if (loaded == null)
+                    return false;
+
+                if (loaded.CacheVersion != ChdScanCacheVersion)
+                    return false;
+                if (!string.Equals(loaded.SourcePath, chdPath, StringComparison.OrdinalIgnoreCase))
+                    return false;
+                if (loaded.SourceTimestamp != fi.LastWriteTime)
+                    return false;
+                if (loaded.SourceSize != fi.Length)
+                    return false;
+
+                cache = loaded;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static void SaveChdScanCache(string chdPath, ScannedFile archive, bool isDvd, string descriptor, string descriptorSha1)
+        {
+            try
+            {
+                FileInfo fi = new FileInfo(chdPath);
+                ChdCacheFile cache = new ChdCacheFile
+                {
+                    CacheVersion = ChdScanCacheVersion,
+                    SourcePath = chdPath,
+                    SourceTimestamp = fi.LastWriteTime,
+                    SourceSize = fi.Length,
+                    IsDvd = isDvd,
+                    Descriptor = descriptor,
+                    DescriptorSha1 = descriptorSha1,
+                    MappingFingerprint = ChdScanMappingFp
+                };
+
+                for (int i = 0; i < archive.Count; i++)
+                {
+                    ScannedFile c = archive[i];
+                    if (c == null || c.FileType != FileType.FileCHD)
+                        continue;
+                    cache.Entries.Add(new ChdCacheEntry
+                    {
+                        Name = c.Name,
+                        Size = c.Size ?? 0,
+                        CRC = c.CRC?.ToHexString(),
+                        SHA1 = c.SHA1?.ToHexString(),
+                        MD5 = c.MD5?.ToHexString()
+                    });
+                }
+
+                string cachePath = GetChdScanCachePath(chdPath);
+                string json = JsonSerializer.Serialize(cache);
+                System.IO.File.WriteAllText(cachePath, json);
+            }
+            catch
+            {
+            }
+        }
+
+        private static string ComputeMd5Hex(string text)
+        {
+            try
+            {
+                using (MD5 md5 = MD5.Create())
+                {
+                    byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text ?? "");
+                    byte[] hash = md5.ComputeHash(bytes);
+                    return hash.ToHexString();
+                }
+            }
+            catch
+            {
+                return Guid.NewGuid().ToString("N");
+            }
+        }
+
+        private static string ComputeFileSha1Hex(string path)
+        {
+            try
+            {
+                using (var sha1 = SHA1.Create())
+                using (var fs = System.IO.File.OpenRead(path))
+                {
+                    var hash = sha1.ComputeHash(fs);
+                    return hash.ToHexString();
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string ComputeTrackLayoutSha1Hex(List<CHDSharpLib.ChdCdTrackInfo> tracks)
+        {
+            try
+            {
+                using (SHA1 sha1 = SHA1.Create())
+                {
+                    for (int i = 0; i < tracks.Count; i++)
+                    {
+                        string line = $"{tracks[i].TrackNo:D2}|{tracks[i].TrackType}|{tracks[i].StartFrame}|{tracks[i].Frames}|{tracks[i].PreGapFrames}|{tracks[i].PostGapFrames}|{tracks[i].SectorSize}\n";
+                        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(line);
+                        sha1.TransformBlock(bytes, 0, bytes.Length, null, 0);
+                    }
+                    sha1.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                    return sha1.Hash.ToHexString();
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static void SkipBytes(Stream s, ulong bytes)
+        {
+            if (bytes == 0)
+                return;
+            byte[] buffer = new byte[64 * 1024];
+            while (bytes > 0)
+            {
+                int toRead = (int)Math.Min((ulong)buffer.Length, bytes);
+                int read = s.Read(buffer, 0, toRead);
+                if (read <= 0)
+                    break;
+                bytes -= (ulong)read;
+            }
+        }
+
+        private static byte[] ParseHexToBytes(string hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex))
+                return null;
+            hex = hex.Trim();
+            if (hex.Length % 2 != 0)
+                return null;
+            byte[] bytes = new byte[hex.Length / 2];
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                if (!byte.TryParse(hex.Substring(i * 2, 2), System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out byte b))
+                    return null;
+                bytes[i] = b;
+            }
+            return bytes;
+        }
+
+        private static Dictionary<int, RvFile> BuildExpectedTrackMap(List<RvFile> expectedChildren)
+        {
+            Dictionary<int, RvFile> map = new Dictionary<int, RvFile>();
+            Regex[] patterns = new[]
+            {
+                new Regex(@"\(Track\s*(\d+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+                new Regex(@"track[\s_]*(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+                new Regex(@"track(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+                new Regex(@"\b(\d{1,2})\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)
+            };
+            for (int i = 0; i < expectedChildren.Count; i++)
+            {
+                RvFile f = expectedChildren[i];
+                if (f?.Name == null)
+                    continue;
+                int tno = ExtractTrackNumber(f.Name, patterns);
+                if (tno > 0)
+                {
+                    if (!map.ContainsKey(tno))
+                        map.Add(tno, f);
+                }
+            }
+            return map;
+        }
+
+        private static int ExtractTrackNumber(string name, Regex[] patterns)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return -1;
+            foreach (var r in patterns)
+            {
+                Match m = r.Match(name);
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int tno))
+                    return tno;
+            }
+            return -1;
+        }
+
+        private static bool IsTrackDataFile(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return false;
+            string ext = System.IO.Path.GetExtension(name).ToLowerInvariant();
+            return ext == ".bin" || ext == ".raw" || ext == ".iso";
+        }
+
+        private static List<ChdTrack> ParseCueTracks(string cuePath)
+        {
+            List<ChdTrack> tracks = new List<ChdTrack>();
+            string[] lines;
+            try
+            {
+                lines = System.IO.File.ReadAllLines(cuePath);
+            }
+            catch
+            {
+                return tracks;
+            }
+
+            ChdTrack current = null;
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i].Trim();
+                if (line.Length == 0)
+                    continue;
+
+                if (line.StartsWith("TRACK", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 3 && int.TryParse(parts[1], out int trackNo))
+                    {
+                        current = new ChdTrack
+                        {
+                            TrackNo = trackNo,
+                            TrackType = parts[2].Trim(),
+                            StartFrames = 0
+                        };
+                        tracks.Add(current);
+                    }
+                    continue;
+                }
+
+                if (current != null && line.StartsWith("INDEX 01", StringComparison.OrdinalIgnoreCase))
+                {
+                    string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 3)
+                    {
+                        if (TryParseMsf(parts[2], out long frames))
+                            current.StartFrames = frames;
+                    }
+                }
+            }
+
+            return tracks;
+        }
+
+        private static bool TryParseMsf(string msf, out long frames)
+        {
+            frames = 0;
+            if (string.IsNullOrWhiteSpace(msf))
+                return false;
+            string[] parts = msf.Trim().Split(':');
+            if (parts.Length != 3)
+                return false;
+            if (!int.TryParse(parts[0], out int mm))
+                return false;
+            if (!int.TryParse(parts[1], out int ss))
+                return false;
+            if (!int.TryParse(parts[2], out int ff))
+                return false;
+            frames = (mm * 60L + ss) * 75L + ff;
+            return true;
+        }
+
+        private static string BuildPerTrackCueText(List<RvFile> expectedBins, List<ChdTrack> tracks)
+        {
+            Dictionary<int, string> byTrackNo = new Dictionary<int, string>();
+            Regex r = new Regex(@"\(Track\s*(\d+)\)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            for (int i = 0; i < expectedBins.Count; i++)
+            {
+                Match m = r.Match(expectedBins[i].Name ?? "");
+                if (m.Success && int.TryParse(m.Groups[1].Value, out int tno))
+                {
+                    if (!byTrackNo.ContainsKey(tno))
+                        byTrackNo.Add(tno, expectedBins[i].Name);
+                }
+            }
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                string fileName = byTrackNo.TryGetValue(tracks[i].TrackNo, out string name) ? name : $"Track {tracks[i].TrackNo:D2}.bin";
+                sb.Append("FILE \"").Append(fileName).AppendLine("\" BINARY");
+                sb.Append("  TRACK ").Append(tracks[i].TrackNo.ToString("D2")).Append(' ').AppendLine(tracks[i].TrackType);
+                sb.AppendLine("    INDEX 01 00:00:00");
+            }
+            return sb.ToString();
+        }
+
+        private static string FindChdmanExePath()
+        {
+            string baseDir = "";
+            try
+            {
+                baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            }
+            catch
+            {
+            }
+
+            if (!string.IsNullOrWhiteSpace(baseDir))
+            {
+                string candidate = System.IO.Path.Combine(baseDir, "chdman.exe");
+                if (System.IO.File.Exists(candidate))
+                    return candidate;
+            }
+
+            string cwd = "";
+            try
+            {
+                cwd = Environment.CurrentDirectory;
+            }
+            catch
+            {
+            }
+
+            if (!string.IsNullOrWhiteSpace(cwd))
+            {
+                string candidate = System.IO.Path.Combine(cwd, "chdman.exe");
+                if (System.IO.File.Exists(candidate))
+                    return candidate;
+            }
+
+            return "chdman.exe";
+        }
+
+        private static bool RunProcess(string exe, string args, string workingDir, out string output)
+        {
+            output = "";
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = args,
+                    WorkingDirectory = workingDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                using (Process p = new Process { StartInfo = psi })
+                {
+                    p.Start();
+                    string stdout = p.StandardOutput.ReadToEnd();
+                    string stderr = p.StandardError.ReadToEnd();
+                    p.WaitForExit();
+                    output = (stdout + Environment.NewLine + stderr).Trim();
+                    return p.ExitCode == 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                output = ex.Message;
+                return false;
+            }
+        }
+
+        private static long GetFreeSpaceBytes(string path)
+        {
+            try
+            {
+                string root = System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(path));
+                DriveInfo di = new DriveInfo(root);
+                return di.AvailableFreeSpace;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static long? TryGetChdLogicalSizeBytes(string chdmanExe, string chdPath, string workingDir)
+        {
+            if (!RunProcess(chdmanExe, $"info -i \"{chdPath}\"", workingDir, out string output))
+                return null;
+
+            try
+            {
+                Match m = Regex.Match(output ?? "", @"\((\d+)\s+bytes\)", RegexOptions.IgnoreCase);
+                if (m.Success && long.TryParse(m.Groups[1].Value, out long v))
+                    return v;
+            }
+            catch
+            {
+            }
+
             return null;
         }
 

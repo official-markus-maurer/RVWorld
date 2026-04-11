@@ -1,25 +1,43 @@
-﻿using Compress;
+using Compress;
 using DATReader.DatStore;
 
 namespace DATReader.DatClean
 {
     public static class DatSetCompressionType
     {
+        public static bool ChdStrictCueGdi = false;
 
-
-        public static FileType[] GetFileTypeFromDir = new FileType[]
+        private static FileType GetFileTypeFromDir(FileType fileType)
         {
-            FileType.UnSet,
-            FileType.File,
-            FileType.FileZip,
-            FileType.FileSevenZip
-        };
+            switch (fileType)
+            {
+                case FileType.Dir:
+                    return FileType.File;
+                case FileType.Zip:
+                    return FileType.FileZip;
+                case FileType.SevenZip:
+                    return FileType.FileSevenZip;
+                case FileType.CHD:
+                    return FileType.FileCHD;
+                default:
+                    return FileType.File;
+            }
+        }
 
         public static void SetType(DatBase inDat, FileType fileType, ZipStructure zs, bool fix)
         {
             if (inDat is DatFile dFile)
             {
-                dFile.FileType = GetFileTypeFromDir[(int)fileType];
+                dFile.FileType = GetFileTypeFromDir(fileType);
+                if (fileType == FileType.CHD && dFile.isDisk == false)
+                {
+                    string ext = System.IO.Path.GetExtension(dFile.Name)?.ToLowerInvariant() ?? "";
+                    if (ext == ".cue" || ext == ".gdi")
+                    {
+                        if (!ChdStrictCueGdi)
+                            dFile.DatStatus = DatStatus.InDatMerged;
+                    }
+                }
                 return;
             }
 
@@ -48,6 +66,11 @@ namespace DATReader.DatClean
                     {
                         fileType = FileType.SevenZip;
                         zs = ZipStructure.SevenZipNZSTD;
+                    }
+                    if (dDir.FileType == FileType.CHD)
+                    {
+                        fileType = FileType.CHD;
+                        zs = ZipStructure.None;
                     }
                 }
                 dDir.FileType = fileType;

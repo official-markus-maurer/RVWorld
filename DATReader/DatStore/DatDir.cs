@@ -1,4 +1,4 @@
-﻿using Compress;
+using Compress;
 using SortMethods;
 using System;
 using System.Collections.Generic;
@@ -227,6 +227,13 @@ namespace DATReader.DatStore
                 case FileType.SevenZip:
                     {
                         int res = Sorters.Trrnt7ZipStringCompare(lName.Name, dBase.Name);
+                        if (res != 0)
+                            return res;
+                        break;
+                    }
+                case FileType.CHD:
+                    {
+                        int res = Sorters.DirectoryNameCompareCase(lName.Name, dBase.Name);
                         if (res != 0)
                             return res;
                         break;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -100,7 +100,11 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
         public static List<RvFile> GetFixFileList(RvFile fixFile)
         {
-            return fixFile.FileGroup.Files.FindAll(file => file.GotStatus == GotStatus.Got && DBHelper.CheckIfMissingFileCanBeFixedByGotFile(fixFile, file));
+            if (fixFile == null)
+                return new List<RvFile>();
+            if (fixFile.FileGroup == null || fixFile.FileGroup.Files == null)
+                return new List<RvFile>();
+            return fixFile.FileGroup.Files.FindAll(file => file != null && file.GotStatus == GotStatus.Got && DBHelper.CheckIfMissingFileCanBeFixedByGotFile(fixFile, file));
         }
 
 

@@ -1,4 +1,4 @@
-﻿using Compress;
+using Compress;
 using RomVaultCore.Utils;
 using SortMethods;
 using System.Collections.Generic;
@@ -71,7 +71,7 @@ public class ScannedFile
         StatusFlags |= flag;
     }
 
-    public bool IsDirectory => FileType == FileType.Dir || FileType == FileType.Zip || FileType == FileType.SevenZip;
+    public bool IsDirectory => FileType == FileType.Dir || FileType == FileType.Zip || FileType == FileType.SevenZip || FileType == FileType.CHD;
 
     public void Sort()
     {
@@ -87,6 +87,7 @@ public class ScannedFile
             case FileType.Zip:
                 cf = CompareNameTrrntZip;
                 break;
+            case FileType.CHD:
             case FileType.Dir:
                 cf = CompareNameDir;
                 break;

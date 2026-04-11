@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using ROMVault.Avalonia.Utils;
 
 namespace ROMVault.Avalonia.Views
 {
@@ -21,11 +22,7 @@ namespace ROMVault.Avalonia.Views
         {
             InitializeComponent();
             
-            var version = Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(1, 0, 0, 0);
-            string strVersion = $"{version.Major}.{version.Minor}.{version.Build}";
-            if (version.Revision > 0)
-                strVersion += $" WIP{version.Revision}";
-
+            string strVersion = BuildInfo.DisplayString;
             Title = "Version " + strVersion + " : " + AppDomain.CurrentDomain.BaseDirectory;
             
             var lblVersion = this.FindControl<TextBlock>("lblVersion");

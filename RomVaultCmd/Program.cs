@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Threading;
 using RomVaultCore;
@@ -7,6 +7,7 @@ using RomVaultCore.FixFile;
 using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
 using RomVaultCore.Scanner;
+using RomVaultCore.Utils;
 
 namespace RomVaultCmd
 {
@@ -25,6 +26,14 @@ namespace RomVaultCmd
             if (args.Length == 0)
             {
                 ShowHelp();
+                return;
+            }
+
+            if (args.Length >= 2 && string.Equals(args[0], "-verifychd", StringComparison.OrdinalIgnoreCase))
+            {
+                string chdPath = args[1];
+                string outPath = args.Length >= 3 ? args[2] : null;
+                Environment.ExitCode = ChdVerify.Verify(chdPath, outPath);
                 return;
             }
 
@@ -104,6 +113,8 @@ namespace RomVaultCmd
             Console.WriteLine("-fix     -f  : FindFixes / FixROMs");
             Console.WriteLine("-all     -a  : All of the above");
             Console.WriteLine("-scanfix -sf : Scan ROMs / FindFixes / FixROMs");
+            Console.WriteLine("-verifychd   : Verify CHD by extracting and hashing contents");
+            Console.WriteLine("              RomVaultCmd -verifychd <path-to-chd> [optional-output-file]");
         }
 
         private static void DoWork()

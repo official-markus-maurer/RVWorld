@@ -24,6 +24,7 @@ using System.ComponentModel;
 using System.Globalization;
 using ROMVault.Avalonia.Utils;
 using System.Threading.Tasks;
+using ROMVault.Avalonia.Views;
 using Path = System.IO.Path;
 using File = System.IO.File;
 
@@ -70,6 +71,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = "RomVault " + BuildInfo.DisplayString;
 
         if (lblStatusLeft != null) lblStatusLeft.Text = "";
         if (lblStatusRight != null) lblStatusRight.Text = "";
@@ -227,6 +229,43 @@ public partial class MainWindow : Window
         LoadUiState();
         UpdateTreePresetTooltips();
         Closing += (_, _) => SaveUiState();
+    }
+
+    private async void OnVerifyChdClick(object? sender, RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null)
+            return;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select CHD file",
+            FileTypeFilter = new List<FilePickerFileType>
+            {
+                new FilePickerFileType("CHD") { Patterns = new List<string> { "*.chd" } }
+            }
+        });
+
+        if (files.Count == 0)
+            return;
+
+        string chdPath = files[0].Path.LocalPath;
+        if (string.IsNullOrWhiteSpace(chdPath) || !System.IO.File.Exists(chdPath))
+            return;
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdVerify.TryGenerateReport(chdPath, out string report);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
     }
 
     /// <summary>
@@ -2320,6 +2359,130 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnExportChdTracksClick(object? sender, RoutedEventArgs e)
+    {
+        var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        var selected = rvTree?.Selected;
+        if (selected == null)
+            return;
+
+        string chdPath = selected.FullName;
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file to export.", "RomVault");
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null)
+            return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select output folder"
+        });
+        if (folders.Count == 0)
+            return;
+
+        string outDir = folders[0].Path.LocalPath;
+        if (string.IsNullOrWhiteSpace(outDir))
+            return;
+
+        List<RvFile> expected = new List<RvFile>();
+        for (int i = 0; i < selected.ChildCount; i++)
+        {
+            RvFile c = selected.Child(i);
+            if (c != null && c.IsFile)
+                expected.Add(c);
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdExport.Export(chdPath, outDir, expected, out string report);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
+    }
+
+    private async void OnVerifyChdTreeClick(object? sender, RoutedEventArgs e)
+    {
+        var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        var selected = rvTree?.Selected;
+        if (selected == null)
+            return;
+
+        string chdPath = selected.FullName;
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file to verify.", "RomVault");
+            return;
+        }
+
+        List<RvFile> expected = new List<RvFile>();
+        for (int i = 0; i < selected.ChildCount; i++)
+        {
+            RvFile c = selected.Child(i);
+            if (c != null && c.IsFile)
+                expected.Add(c);
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdVerify.TryGenerateReport(chdPath, expected, out string report, out var _);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
+    }
+
+    private async void OnVerifyChdParityTreeClick(object? sender, RoutedEventArgs e)
+    {
+        var rvTree = this.FindControl<ROMVault.Avalonia.Views.RvTree>("RvTreeControl");
+        var selected = rvTree?.Selected;
+        if (selected == null)
+            return;
+
+        string chdPath = selected.FullName;
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file to verify.", "RomVault");
+            return;
+        }
+
+        List<RvFile> expected = new List<RvFile>();
+        for (int i = 0; i < selected.ChildCount; i++)
+        {
+            RvFile c = selected.Child(i);
+            if (c != null && c.IsFile)
+                expected.Add(c);
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdVerify.TryGenerateParityReport(chdPath, expected, out string report);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
+    }
+
     /// <summary>
     /// Handles the "Save Fix DATs" context menu click.
     /// Generates fix DATs for the selected directory.
@@ -2435,6 +2598,133 @@ public partial class MainWindow : Window
         var win = new Views.RomInfoWindow();
         win.SetRom(file);
         win.ShowDialog(this);
+    }
+
+    private async void OnRomGridVerifyChdClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+
+        string chdPath = ResolveOsPath(file.FullNameCase);
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file in the ROM list.", "RomVault");
+            return;
+        }
+
+        List<RvFile> expected = new List<RvFile>();
+        if (file.Parent != null)
+        {
+            for (int i = 0; i < file.Parent.ChildCount; i++)
+            {
+                RvFile c = file.Parent.Child(i);
+                if (c != null && c.IsFile)
+                    expected.Add(c);
+            }
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdVerify.TryGenerateReport(chdPath, expected, out string report, out var _);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
+    }
+
+    private async void OnRomGridVerifyChdParityClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+
+        string chdPath = ResolveOsPath(file.FullNameCase);
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file in the ROM list.", "RomVault");
+            return;
+        }
+
+        List<RvFile> expected = new List<RvFile>();
+        if (file.Parent != null)
+        {
+            for (int i = 0; i < file.Parent.ChildCount; i++)
+            {
+                RvFile c = file.Parent.Child(i);
+                if (c != null && c.IsFile)
+                    expected.Add(c);
+            }
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdVerify.TryGenerateParityReport(chdPath, expected, out string report);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
+    }
+
+    private async void OnRomGridExportChdTracksClick(object? sender, RoutedEventArgs e)
+    {
+        if (RomGrid.SelectedItem is not RvFile file)
+            return;
+
+        string chdPath = ResolveOsPath(file.FullNameCase);
+        if (string.IsNullOrWhiteSpace(chdPath) || !chdPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase) || !System.IO.File.Exists(chdPath))
+        {
+            await MessageBoxWindow.ShowInfo(this, "Please select a .chd file in the ROM list.", "RomVault");
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel?.StorageProvider == null)
+            return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            AllowMultiple = false,
+            Title = "Select output folder"
+        });
+        if (folders.Count == 0)
+            return;
+
+        string outDir = folders[0].Path.LocalPath;
+        if (string.IsNullOrWhiteSpace(outDir))
+            return;
+
+        List<RvFile> expected = new List<RvFile>();
+        if (file.Parent != null)
+        {
+            for (int i = 0; i < file.Parent.ChildCount; i++)
+            {
+                RvFile c = file.Parent.Child(i);
+                if (c != null && c.IsFile)
+                    expected.Add(c);
+            }
+        }
+
+        ChdVerifyWindow win = new ChdVerifyWindow();
+        win.SetReport("Running...", "");
+        win.Show(this);
+        _ = Task.Run(() =>
+        {
+            int rc = ChdExport.Export(chdPath, outDir, expected, out string report);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (win.IsVisible)
+                    win.SetReport(report, rc == 0 ? "OK" : "Errors");
+            });
+        });
     }
 
     private async Task CopyTextToClipboard(string text)

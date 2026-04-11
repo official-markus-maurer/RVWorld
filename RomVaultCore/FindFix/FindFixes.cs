@@ -1,8 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using ByteSortedList;
+using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
 using RomVaultCore.Utils;
 using StorageList;
@@ -252,6 +254,7 @@ namespace RomVaultCore.FindFix
         public static void MergeInMissingFiles(FileGroup[] mergedCRCFamily, FileGroup[] mergedSHA1Family, FileGroup[] mergedMD5Family,
                                                 FileGroup[] mergedAltCRCFamily, FileGroup[] mergedAltSHA1Family, FileGroup[] mergedAltMD5Family, List<RvFile> missingFiles)
         {
+            Dictionary<string, int> discSourceIndex = BuildDiscSourceIndex(mergedCRCFamily);
             foreach (RvFile f in missingFiles)
             {
                 if (_thWrk.CancellationPending)
@@ -309,6 +312,9 @@ namespace RomVaultCore.FindFix
                         continue;
                 }
 
+                if (TryMergeMissingChdOnDiscSourceName(f, discSourceIndex, mergedCRCFamily))
+                    continue;
+
                 if (f.CRC == null && f.SHA1 == null && f.MD5 == null)
                 {
 
@@ -322,6 +328,98 @@ namespace RomVaultCore.FindFix
                     }
                 }
             }
+        }
+
+        private static Dictionary<string, int> BuildDiscSourceIndex(FileGroup[] mergedCRCFamily)
+        {
+            Dictionary<string, int> index = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < mergedCRCFamily.Length; i++)
+            {
+                FileGroup group = mergedCRCFamily[i];
+                for (int j = 0; j < group.Files.Count; j++)
+                {
+                    RvFile file = group.Files[j];
+                    if (!file.IsFile)
+                        continue;
+
+                    string ext = Path.GetExtension(file.Name);
+                    int priority = DiscSourcePriority(ext);
+                    if (priority == 0)
+                        continue;
+
+                    string key = Path.GetFileNameWithoutExtension(file.Name);
+                    if (string.IsNullOrWhiteSpace(key))
+                        continue;
+
+                    if (!index.TryGetValue(key, out int existingIndex))
+                    {
+                        index[key] = i;
+                        continue;
+                    }
+
+                    int existingPriority = 0;
+                    FileGroup existingGroup = mergedCRCFamily[existingIndex];
+                    for (int k = 0; k < existingGroup.Files.Count; k++)
+                    {
+                        RvFile existingFile = existingGroup.Files[k];
+                        if (!existingFile.IsFile)
+                            continue;
+                        if (!key.Equals(Path.GetFileNameWithoutExtension(existingFile.Name), StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        existingPriority = Math.Max(existingPriority, DiscSourcePriority(Path.GetExtension(existingFile.Name)));
+                    }
+                    if (priority > existingPriority)
+                    {
+                        index[key] = i;
+                    }
+                }
+            }
+            return index;
+        }
+
+        private static int DiscSourcePriority(string ext)
+        {
+            if (string.IsNullOrWhiteSpace(ext))
+                return 0;
+            switch (ext.ToLowerInvariant())
+            {
+                case ".gdi":
+                    return 3;
+                case ".cue":
+                    return 2;
+                case ".iso":
+                    return 1;
+                default:
+                    return 0;
+            }
+        }
+
+        private static bool TryMergeMissingChdOnDiscSourceName(RvFile missingFile, Dictionary<string, int> discSourceIndex, FileGroup[] mergedCRCFamily)
+        {
+            if (!missingFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (!missingFile.IsFile && missingFile.FileType != FileType.CHD)
+                return false;
+
+            RomVaultCore.DatRule rule = RomVaultCore.ReadDat.DatReader.FindDatRule(missingFile.Parent?.DatTreeFullName + "\\");
+            if (rule == null || !rule.DiscArchiveAsCHD)
+                return false;
+
+            if (!DBHelper.IsChdCreationAllowedForSet(missingFile))
+                return false;
+
+            string key = Path.GetFileNameWithoutExtension(missingFile.Name);
+            if (string.IsNullOrWhiteSpace(key))
+                return false;
+
+            if (!discSourceIndex.TryGetValue(key, out int groupIndex))
+                return false;
+
+            if (groupIndex < 0 || groupIndex >= mergedCRCFamily.Length)
+                return false;
+
+            mergedCRCFamily[groupIndex].MergeFileIntoGroup(missingFile);
+            return true;
         }
 
 

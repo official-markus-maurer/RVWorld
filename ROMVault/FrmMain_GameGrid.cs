@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -43,6 +43,9 @@ namespace ROMVault
         ToolStripMenuItem mnuOpenParentDir;
         ToolStripMenuItem mnuLaunchEmulator;
         ToolStripMenuItem mnuOpenPage;
+        ToolStripMenuItem mnuVerifyChd;
+        ToolStripMenuItem mnuVerifyChdParity;
+        ToolStripMenuItem mnuExportChd;
 
         private void InitGameGridMenu()
         {
@@ -97,6 +100,27 @@ namespace ROMVault
                 Tag = null
             };
             mnuOpenPage.Click += OpenWebPage;
+
+            mnuVerifyChd = new ToolStripMenuItem
+            {
+                Text = @"Verify CHD Container...",
+                Tag = null
+            };
+            mnuVerifyChd.Click += MnuGameVerifyChd;
+
+            mnuVerifyChdParity = new ToolStripMenuItem
+            {
+                Text = @"Verify CHD Parity (Stream vs Extract)...",
+                Tag = null
+            };
+            mnuVerifyChdParity.Click += MnuGameVerifyChdParity;
+
+            mnuExportChd = new ToolStripMenuItem
+            {
+                Text = @"Export Tracks from CHD...",
+                Tag = null
+            };
+            mnuExportChd.Click += MnuGameExportChd;
 
         }
 
@@ -703,6 +727,18 @@ namespace ROMVault
                 if (mouseRow < 0)
                     return;
 
+                RvFile thisGameForMenu = gameGrid[mouseRow];
+                if (Control.ModifierKeys != Keys.Shift && thisGameForMenu != null && thisGameForMenu.FileType == FileType.CHD)
+                {
+                    _mnuGameGrid.Items.Clear();
+                    _mnuGameGrid.Items.Add(mnuVerifyChd);
+                    _mnuGameGrid.Items.Add(mnuVerifyChdParity);
+                    _mnuGameGrid.Items.Add(mnuExportChd);
+                    _mnuGameGrid.Tag = thisGameForMenu;
+                    Point controLocationChd = ControlLoc(GameGrid);
+                    _mnuGameGrid.Show(this, new Point(controLocationChd.X + e.X - 32, controLocationChd.Y + e.Y - 10));
+                    return;
+                }
 
                 Point controLocation = ControlLoc(GameGrid);
 
@@ -777,6 +813,15 @@ namespace ROMVault
                     if (FindEmulatorInfo(thisGame) != null && found)
                         _mnuGameGrid.Items.Add(mnuLaunchEmulator);
 
+                    if (thisGame.FileType == FileType.CHD)
+                    {
+                        if (_mnuGameGrid.Items.Count > 0)
+                            _mnuGameGrid.Items.Add(new ToolStripSeparator());
+                        _mnuGameGrid.Items.Add(mnuVerifyChd);
+                        _mnuGameGrid.Items.Add(mnuVerifyChdParity);
+                        _mnuGameGrid.Items.Add(mnuExportChd);
+                    }
+
                     if (_mnuGameGrid.Items.Count == 0)
                         return;
 
@@ -820,6 +865,24 @@ namespace ROMVault
             }
             catch { }
             return;
+        }
+
+        private void MnuGameVerifyChd(object sender, EventArgs e)
+        {
+            if (_mnuGameGrid?.Tag is RvFile chd)
+                RunChdVerifyFor(chd, ChdVerifyMode.Container);
+        }
+
+        private void MnuGameVerifyChdParity(object sender, EventArgs e)
+        {
+            if (_mnuGameGrid?.Tag is RvFile chd)
+                RunChdVerifyFor(chd, ChdVerifyMode.Parity);
+        }
+
+        private void MnuGameExportChd(object sender, EventArgs e)
+        {
+            if (_mnuGameGrid?.Tag is RvFile chd)
+                RunChdVerifyFor(chd, ChdVerifyMode.ExportTracks);
         }
 
         private void MnuGameScan(object sender, EventArgs e)

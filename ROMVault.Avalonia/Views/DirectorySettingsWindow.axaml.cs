@@ -59,6 +59,7 @@ namespace ROMVault.Avalonia.Views;
             cboFileType.Items.Add("Uncompressed");
             cboFileType.Items.Add("Zip");
             cboFileType.Items.Add("SevenZip");
+            cboFileType.Items.Add("CHD");
             cboFileType.Items.Add("Mixed (Archive as File)");
 
             cboMergeType.Items.Add("Nothing");
@@ -161,6 +162,7 @@ namespace ROMVault.Avalonia.Views;
                     chkFileTypeOverride.IsEnabled = true;
                     cboCompression.IsEnabled = false;
                     chkConvertWhenFixing.IsEnabled = false;
+                    cboFilterType.IsEnabled = true;
                     break;
                 case 1:
                     chkFileTypeOverride.IsEnabled = true;
@@ -168,6 +170,7 @@ namespace ROMVault.Avalonia.Views;
                     cboCompression.Items.Add("ZSTD");
                     cboCompression.IsEnabled = true;
                     chkConvertWhenFixing.IsEnabled = true;
+                    cboFilterType.IsEnabled = true;
                     if (_rule.CompressionSub == ZipStructure.ZipTrrnt)
                         cboCompression.SelectedIndex = 0;
                     else if (_rule.CompressionSub == ZipStructure.ZipZSTD)
@@ -183,6 +186,7 @@ namespace ROMVault.Avalonia.Views;
                     cboCompression.Items.Add("ZSTD Non-Solid");
                     cboCompression.IsEnabled = true;
                     chkConvertWhenFixing.IsEnabled = true;
+                    cboFilterType.IsEnabled = true;
                     if (_rule.CompressionSub == ZipStructure.SevenZipSLZMA)
                         cboCompression.SelectedIndex = 0;
                     else if (_rule.CompressionSub == ZipStructure.SevenZipNLZMA)
@@ -195,9 +199,27 @@ namespace ROMVault.Avalonia.Views;
                         cboCompression.SelectedIndex = 0;
                     break;
                 case 3:
+                    chkFileTypeOverride.IsEnabled = true;
+                    cboCompression.Items.Add("Auto (CD/DVD/PSP)");
+                    cboCompression.Items.Add("Normal (zstd)");
+                    cboCompression.Items.Add("CD (cdzs,cdzl,cdfl)");
+                    cboCompression.Items.Add("DVD (zstd,zlib,huff,flac)");
+                    cboCompression.Items.Add("PSP (DVD + -hs 2048)");
+                    cboCompression.IsEnabled = true;
+                    chkConvertWhenFixing.IsEnabled = true;
+                    if (cboFilterType.SelectedIndex == (int)FilterType.CHDsOnly)
+                        cboFilterType.SelectedIndex = (int)FilterType.KeepAll;
+                    cboFilterType.IsEnabled = true;
+                    int chdIndex = (int)_rule.ChdCompressionType;
+                    if (chdIndex < 0 || chdIndex >= cboCompression.Items.Count)
+                        chdIndex = 0;
+                    cboCompression.SelectedIndex = chdIndex;
+                    break;
+                case 4:
                     chkFileTypeOverride.IsEnabled = false;
                     cboCompression.IsEnabled = false;
                     chkConvertWhenFixing.IsEnabled = false;
+                    cboFilterType.IsEnabled = true;
                     break;
             }
         }
@@ -209,7 +231,7 @@ namespace ROMVault.Avalonia.Views;
         {
             txtDATLocation.Text = _rule.DirKey;
 
-            cboFileType.SelectedIndex = _rule.Compression == FileType.FileOnly ? 3 : (int)_rule.Compression - 1;
+            cboFileType.SelectedIndex = _rule.Compression == FileType.FileOnly ? 4 : _rule.Compression == FileType.CHD ? 3 : (int)_rule.Compression - 1;
             chkFileTypeOverride.IsChecked = _rule.CompressionOverrideDAT;
 
             SetCompressionTypeFromArchive();
@@ -219,6 +241,8 @@ namespace ROMVault.Avalonia.Views;
             chkMergeTypeOverride.IsChecked = _rule.MergeOverrideDAT;
 
             cboFilterType.SelectedIndex = (int)_rule.Filter;
+            if (_rule.DiscArchiveAsCHD && cboFilterType.SelectedIndex == (int)FilterType.CHDsOnly)
+                cboFilterType.SelectedIndex = (int)FilterType.KeepAll;
 
             chkMultiDatDirOverride.IsChecked = _rule.MultiDATDirOverride;
             chkUseDescription.IsChecked = _rule.UseDescriptionAsDirName;
@@ -348,7 +372,7 @@ namespace ROMVault.Avalonia.Views;
                 if (cboCompression.SelectedIndex == 3)
                     return ZipStructure.SevenZipNZSTD;
             }
-            else if (cboFileType.SelectedIndex == 3)
+            else if (cboFileType.SelectedIndex == 3 || cboFileType.SelectedIndex == 4)
                 return ZipStructure.None;
 
             return ZipStructure.None;
@@ -362,13 +386,18 @@ namespace ROMVault.Avalonia.Views;
             ChangesMade = true;
 
             _rule.DirKey = NormalizeDirKey(_rule.DirKey);
-            _rule.Compression = cboFileType.SelectedIndex == 3 ? FileType.FileOnly : (FileType)cboFileType.SelectedIndex + 1;
+            _rule.Compression = cboFileType.SelectedIndex == 4 ? FileType.FileOnly : cboFileType.SelectedIndex == 3 ? FileType.CHD : (FileType)cboFileType.SelectedIndex + 1;
             _rule.CompressionOverrideDAT = chkFileTypeOverride.IsChecked == true;
             _rule.CompressionSub = ReadFromCheckBoxes();
             _rule.ConvertWhileFixing = chkConvertWhenFixing.IsChecked == true;
+            _rule.DiscArchiveAsCHD = cboFileType.SelectedIndex == 3;
+            if (_rule.DiscArchiveAsCHD)
+                _rule.ChdCompressionType = (ChdCompressionType)Math.Max(0, cboCompression.SelectedIndex);
             _rule.Merge = (MergeType)cboMergeType.SelectedIndex;
             _rule.MergeOverrideDAT = chkMergeTypeOverride.IsChecked == true;
             _rule.Filter = (FilterType)cboFilterType.SelectedIndex;
+            if (_rule.DiscArchiveAsCHD && _rule.Filter == FilterType.CHDsOnly)
+                _rule.Filter = FilterType.KeepAll;
             _rule.HeaderType = (HeaderType)cboHeaderType.SelectedIndex;
             _rule.SingleArchive = chkSingleArchive.IsChecked == true;
             _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
@@ -628,7 +657,7 @@ namespace ROMVault.Avalonia.Views;
     {
         public DatRule Rule { get; }
         public string DirKey => Rule.DirKey;
-        public ZipStructure CompressionSub => Rule.CompressionSub;
+        public string CompressionSub => Rule.DiscArchiveAsCHD ? $"CHD:{Rule.ChdCompressionType}" : Rule.CompressionSub.ToString();
         public MergeType Merge => Rule.Merge;
         public bool SingleArchive => Rule.SingleArchive;
         public IBrush Background { get; set; } = Brushes.Transparent;

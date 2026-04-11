@@ -87,6 +87,24 @@
 
                 <Border Classes="Card" Padding="12">
                     <StackPanel Spacing="10">
+                        <TextBlock Text="CHD" Classes="SectionHeader"/>
+                        <CheckBox Name="chkChdCache" Content="Enable CHD scan cache"/>
+                        <CheckBox Name="chkChdDebug" Content="Write CHD scan debug logs"/>
+                        <CheckBox Name="chkChdStrictCueGdi" Content="Strict: require CUE/GDI in CHD mode"/>
+                        <CheckBox Name="chkChdExportOnFix" Content="Allow exporting tracks during Fix"/>
+                        <CheckBox Name="chkChdStreaming" Content="Enable CHD streaming (experimental)"/>
+                        <CheckBox Name="chkChdPreferSynthetic" Content="Prefer synthetic CUE/GDI when possible"/>
+                        <CheckBox Name="chkChdTrustContainer" Content="Treat CHD as satisfying track files"/>
+                        <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" ColumnSpacing="10">
+                            <TextBlock Grid.Column="0" Text="DVD hunk size (KiB)" Classes="Muted" VerticalAlignment="Center"/>
+                            <NumericUpDown Grid.Column="1" Name="upChdDvdHunk" Minimum="0" Maximum="1024" Increment="32" Width="140" FormatString="0"/>
+                        </Grid>
+                        <Button Name="btnPurgeChdCache" Content="Purge CHD Scan Cache" HorizontalAlignment="Left" MinWidth="200"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="Card" Padding="12">
+                    <StackPanel Spacing="10">
                         <TextBlock Text="Ignore Rules" Classes="SectionHeader"/>
                         <TextBlock Classes="Muted"
                                    Text="One rule per line. Use * and ? wildcards. Regex rules start with 'regex:'. Scanning ignore rules start with 'ignore:'."/>

@@ -1,4 +1,4 @@
-﻿using Compress;
+using Compress;
 using DATReader.DatClean;
 using RomVaultCore.RvDB;
 using System;
@@ -49,6 +49,15 @@ namespace RomVaultCore
         Headerless
     }
 
+    public enum ChdCompressionType
+    {
+        Auto,
+        Normal,
+        CD,
+        DVD,
+        PSP
+    }
+
     public class Settings
     {
         public static Settings rvSettings;
@@ -94,6 +103,29 @@ namespace RomVaultCore
         [XmlElement(ElementName = "Darkness", DataType = "boolean", IsNullable = false), DefaultValue(false)]
         public bool Darkness = false;
 
+        [XmlElement(ElementName = "ChdScanCacheEnabled", DataType = "boolean", IsNullable = false), DefaultValue(true)]
+        public bool ChdScanCacheEnabled = true;
+
+        [XmlElement(ElementName = "ChdScanDebugEnabled", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdScanDebugEnabled = false;
+
+        [XmlElement(ElementName = "ChdStrictCueGdi", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdStrictCueGdi = false;
+
+        [XmlElement(ElementName = "ChdExportTracksOnFix", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdExportTracksOnFix = false;
+
+        [XmlElement(ElementName = "ChdStreamingEnabled", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdStreamingEnabled = false;
+
+        [XmlElement(ElementName = "ChdPreferSyntheticDescriptor", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdPreferSyntheticDescriptor = false;
+
+        [XmlElement(ElementName = "ChdTrustContainerForTracks", DataType = "boolean", IsNullable = false), DefaultValue(true)]
+        public bool ChdTrustContainerForTracks = true;
+
+        [XmlElement(ElementName = "ChdDvdHunkSizeKiB", DataType = "int", IsNullable = false), DefaultValue(256)]
+        public int ChdDvdHunkSizeKiB = 256;
 
         [XmlElement(ElementName = "CheckCHDVersion", DataType = "boolean", IsNullable = false), DefaultValue(false)]
         public bool CheckCHDVersion = false;
@@ -147,6 +179,9 @@ namespace RomVaultCore
                 string lastchar = r.DirKey.Substring(r.DirKey.Length - 1);
                 if (lastchar == "\\")
                     r.DirKey = r.DirKey.Substring(0, r.DirKey.Length - 1);
+
+                if ((r.DiscArchiveAsCHD || r.Compression == FileType.CHD) && r.Filter == FilterType.CHDsOnly)
+                    r.Filter = FilterType.KeepAll;
             }
             ret.DatRules.Sort();
 
@@ -337,6 +372,9 @@ namespace RomVaultCore
                     rule.Merge = MergeType.Merge;
                     rule.Filter = FilterType.CHDsOnly;
                 }
+
+                if ((rule.DiscArchiveAsCHD || rule.Compression == FileType.CHD) && rule.Filter == FilterType.CHDsOnly)
+                    rule.Filter = FilterType.KeepAll;
             }
 
             return retSettings;
@@ -382,6 +420,9 @@ namespace RomVaultCore
 
         public ZipStructure CompressionSub = ZipStructure.ZipTrrnt;
         public bool ConvertWhileFixing = true;
+
+        public bool DiscArchiveAsCHD = false;
+        public ChdCompressionType ChdCompressionType = ChdCompressionType.Normal;
 
 
         // Merge Type

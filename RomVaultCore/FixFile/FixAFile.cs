@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
+using FileScanner;
 using RomVaultCore.FixFile.Utils;
 using RomVaultCore.RvDB;
+using RomVaultCore.Utils;
 using RVIO;
 using static RomVaultCore.FixFile.FixAZipCore.FindSourceFile;
 
@@ -358,6 +360,61 @@ namespace RomVaultCore.FixFile
             string fixFileFullName = fixFile.FullName;
             FixFileUtils.CheckCreateDirectories(fixFile.Parent);
 
+            if (Settings.rvSettings.ChdExportTracksOnFix)
+            {
+                try
+                {
+                    string ext = System.IO.Path.GetExtension(fixFile.Name ?? "").ToLowerInvariant();
+                    bool isDiscMember = ext == ".bin" || ext == ".raw" || ext == ".iso" || ext == ".cue" || ext == ".gdi";
+                    if (isDiscMember && !RVIO.File.Exists(fixFile.FullNameCase))
+                    {
+                        string parentDir = fixFile.Parent.FullNameCase;
+                        string[] chds = System.IO.Directory.Exists(parentDir) ? System.IO.Directory.GetFiles(parentDir, "*.chd") : System.Array.Empty<string>();
+                        if (chds.Length > 0)
+                        {
+                            List<RvFile> expected = new List<RvFile>();
+                            for (int i = 0; i < fixFile.Parent.ChildCount; i++)
+                            {
+                                RvFile c = fixFile.Parent.Child(i);
+                                if (c != null && c.IsFile)
+                                    expected.Add(c);
+                            }
+
+                            int rc = ChdExport.Export(chds[0], parentDir, expected, out _);
+                            if (rc == 0 && RVIO.File.Exists(fixFile.FullNameCase))
+                            {
+                                FileScan scanner = new FileScan();
+                                System.IO.FileInfo fi = new System.IO.FileInfo(fixFile.FullNameCase);
+                                ScannedFile sf = new ScannedFile(FileType.File)
+                                {
+                                    Name = fi.Name,
+                                    FileModTimeStamp = fi.LastWriteTime.ToFileTimeUtc(),
+                                    GotStatus = GotStatus.Got,
+                                    DeepScanned = true,
+                                    Size = (ulong)fi.Length
+                                };
+                                using (System.IO.Stream s = System.IO.File.OpenRead(fixFile.FullNameCase))
+                                {
+                                    scanner.CheckSumRead(s, sf, (ulong)fi.Length, true, false, null, 0, 0);
+                                }
+
+                                fixFile.Size = (ulong)fi.Length;
+                                fixFile.CRC = sf.CRC;
+                                fixFile.SHA1 = sf.SHA1;
+                                fixFile.MD5 = sf.MD5;
+                                fixFile.GotStatus = GotStatus.Got;
+                                errorMessage = "";
+                                totalFixed++;
+                                return ReturnCode.Good;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+
             // check to see if there is already a file with the name of the fixFile, and move it out the way.
             ReturnCode returnCode = FixFilePreCheckFixFile(fixFile, out errorMessage);
             if (returnCode != ReturnCode.Good)
@@ -410,6 +467,19 @@ namespace RomVaultCore.FixFile
             bool fileMove = FixFileUtils.TestFileMove(fixingFile, fixFile);
             string fts = fixingFile.FullName;
             Report.ReportProgress(new bgwShowFix(Path.GetDirectoryName(fixFileFullName), "", Path.GetFileName(fixFileFullName), fixFile.Size, "<--" + (fileMove ? "Move" : "Copy"), Path.GetDirectoryName(fts), Path.GetFileName(fts), fixingFile.Name));
+
+            if (FixFileUtils.TryCreateChdFromDiscSource(fixingFile, fixFile, out ReturnCode chdReturnCode, out string chdError))
+            {
+                if (chdReturnCode != ReturnCode.Good)
+                {
+                    errorMessage = fixFile.FullName + " " + fixFile.RepStatus + " " + chdReturnCode + " : " + chdError;
+                    return chdReturnCode;
+                }
+
+                FixFileUtils.CheckFilesUsedForFix(fixFiles, fileProcessQueue, true);
+                totalFixed++;
+                return ReturnCode.Good;
+            }
 
             // this may move the hash values to the altHash locations.
             fixFile.FileTestFix(fixingFile);

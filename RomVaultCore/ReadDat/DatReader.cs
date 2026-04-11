@@ -1,4 +1,4 @@
-﻿/******************************************************
+/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
  *     Copyright 2025                                 *
@@ -151,6 +151,7 @@ namespace RomVaultCore.ReadDat
                     DatClean.MakeDatSingleLevel(datHeader, datRule.UseDescriptionAsDirName, datRule.SubDirType, ft == FileType.Dir, datRule.AddCategorySubDirs, datRule.CategoryOrder);
 
                 // 9: SetFileTypes / This also sorts the dirs into there type sort orders
+                DatSetCompressionType.ChdStrictCueGdi = Settings.rvSettings?.ChdStrictCueGdi == true;
                 DatSetCompressionType.SetType(datHeader.BaseDir, ft, zs, datRule.ConvertWhileFixing);
 
                 // 10: Remove unneeded directories from Zip's / 7Z's 
@@ -276,6 +277,12 @@ namespace RomVaultCore.ReadDat
             ft = datRule.Compression == FileType.FileOnly ? FileType.File : datRule.Compression;
 
             zs = datRule.CompressionSub;
+            if (datRule.DiscArchiveAsCHD)
+            {
+                ft = FileType.CHD;
+                zs = ZipStructure.None;
+                return;
+            }
             if (!datRule.CompressionOverrideDAT && datRule.Compression!=FileType.FileOnly)
             {
                 switch (dh.Compression?.ToLower())

@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="1430" d:DesignHeight="749"
         x:Class="ROMVault.Avalonia.MainWindow"
         Icon="/Assets/chip.ico"
-        Title="RomVault (V3.0)"
+        Title="RomVault"
         KeyDown="OnMainWindowKeyDown">
 
   <Window.Resources>
@@ -45,6 +45,7 @@
       </MenuItem>
       <MenuItem Header="Add ToSort" Click="OnAddToSortClick"/>
       <MenuItem Header="Help">
+          <MenuItem Header="Verify CHD Container..." Click="OnVerifyChdClick"/>
           <MenuItem Header="TorrentZip" Click="OnHelpTorrentZipClick"/>
           <MenuItem Header="Visit Help Wiki" Click="OnHelpWikiClick"/>
           <MenuItem Header="Color Key" Click="OnHelpColorKeyClick"/>
@@ -230,6 +231,9 @@
                                   <MenuItem Header="Set Dir Mappings" Click="OnSetDirMappingsClick"/>
                                   <Separator/>
                                   <MenuItem Header="Open Directory" Click="OnOpenDirectoryClick"/>
+                                  <MenuItem Header="Verify CHD Container..." Click="OnVerifyChdTreeClick"/>
+                                  <MenuItem Header="Verify CHD Parity (Stream vs Extract)..." Click="OnVerifyChdParityTreeClick"/>
+                                  <MenuItem Header="Export Tracks from CHD..." Click="OnExportChdTracksClick"/>
                                   <MenuItem Header="Save fix DATs" Click="OnSaveFixDatsClick"/>
                                   <MenuItem Header="Save full DAT" Click="OnSaveFullDatClick"/>
                               </ContextMenu>
@@ -414,6 +418,10 @@
                                         <MenuItem Header="Copy SHA1" Click="OnRomGridCopySha1Click"/>
                                         <MenuItem Header="Copy MD5" Click="OnRomGridCopyMd5Click"/>
                                     </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Header="Verify CHD Container..." Click="OnRomGridVerifyChdClick"/>
+                                    <MenuItem Header="Verify CHD Parity (Stream vs Extract)..." Click="OnRomGridVerifyChdParityClick"/>
+                                    <MenuItem Header="Export Tracks from CHD..." Click="OnRomGridExportChdTracksClick"/>
                                     <MenuItem Header="Open Containing Folder" Click="OnRomGridOpenFolderClick"/>
                                     <MenuItem Header="Show Occurrences" Click="OnRomGridShowOccurrencesClick"/>
                                     <Separator/>

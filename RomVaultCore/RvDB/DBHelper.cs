@@ -1,4 +1,4 @@
-﻿/******************************************************
+/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
  *     Copyright 2013                                *
@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using RomVaultCore.Storage.Dat;
 using RomVaultCore.Utils;
 using SortMethods;
@@ -175,6 +176,9 @@ namespace RomVaultCore.RvDB
         // this means that if the gotfile has not been fully scanned this will return true even with the source and destination SHA1/MD5 possibly different.
         public static bool CheckIfMissingFileCanBeFixedByGotFile(RvFile missingFile, RvFile gotFile)
         {
+            if (IsDiscChdNameMatch(missingFile, gotFile))
+                return true;
+
             // should probably be checking that the header type also match
             if (missingFile.HeaderFileType != HeaderFileType.Nothing && gotFile.HeaderFileType != HeaderFileType.Nothing)
             {
@@ -198,6 +202,93 @@ namespace RomVaultCore.RvDB
             }
 
             return true;
+        }
+
+        public static bool IsChdCreationAllowedForSet(RvFile missingChdFile)
+        {
+            return IsChdCreationAllowedForSet(missingChdFile, out _);
+        }
+
+        public static bool IsChdCreationAllowedForSet(RvFile missingChdFile, out string reason)
+        {
+            reason = "";
+            if (missingChdFile == null)
+            {
+                reason = "Missing CHD file is not valid.";
+                return false;
+            }
+
+            bool isChdFile = missingChdFile.IsFile && missingChdFile.Name != null && missingChdFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+            bool isChdContainer = missingChdFile.FileType == FileType.CHD && missingChdFile.Name != null && missingChdFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+            if (!isChdFile && !isChdContainer)
+            {
+                reason = "Missing CHD file is not valid.";
+                return false;
+            }
+
+            RvFile setRoot = isChdFile ? missingChdFile.Parent : missingChdFile;
+            if (setRoot == null)
+            {
+                reason = "Missing CHD file has no parent directory.";
+                return false;
+            }
+
+            for (int i = 0; i < setRoot.ChildCount; i++)
+            {
+                RvFile child = setRoot.Child(i);
+                if (child == null)
+                    continue;
+
+                if (child == missingChdFile)
+                    continue;
+
+                if (child.DatStatus == DatStatus.InDatMIA)
+                {
+                    reason = $"Set contains MIA entry: {child.Name}";
+                    return false;
+                }
+
+                if (child.DatStatus == DatStatus.InDatCollect || child.DatStatus == DatStatus.InDatMerged)
+                    continue;
+            }
+
+            return true;
+        }
+
+        private static bool IsDiscChdNameMatch(RvFile missingFile, RvFile gotFile)
+        {
+            if (missingFile == null || gotFile == null)
+                return false;
+            if (!missingFile.IsFile || !gotFile.IsFile)
+                return false;
+            if (!missingFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (gotFile.GotStatus != GotStatus.Got)
+                return false;
+
+            string ext = Path.GetExtension(gotFile.Name);
+            if (string.IsNullOrWhiteSpace(ext))
+                return false;
+
+            switch (ext.ToLowerInvariant())
+            {
+                case ".cue":
+                case ".gdi":
+                case ".iso":
+                    break;
+                default:
+                    return false;
+            }
+
+            string missingKey = Path.GetFileNameWithoutExtension(missingFile.Name);
+            string gotKey = Path.GetFileNameWithoutExtension(gotFile.Name);
+            if (string.IsNullOrWhiteSpace(missingKey) || string.IsNullOrWhiteSpace(gotKey))
+                return false;
+
+            if (!string.Equals(missingKey, gotKey, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            return IsChdCreationAllowedForSet(missingFile, out _);
         }
 
 
