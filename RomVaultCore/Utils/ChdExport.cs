@@ -213,15 +213,16 @@ public static class ChdExport
                                     string destPath = System.IO.Path.Combine(outputDir, destName);
                                     using (Stream o = System.IO.File.Create(destPath))
                                     {
+                                        long pregapFrames = Math.Max(0, t.PreGapFrames);
+                                        int curSectorSize = Math.Max(1, t.SectorSize);
+                                        ulong pregapLen = (ulong)pregapFrames * (ulong)curSectorSize;
+                                        if (pregapLen > 0)
+                                            WriteZeroBytes(o, pregapLen);
                                         CopyBytes(logical, o, len);
-                                        if (i + 1 < cdTracks.Count)
-                                        {
-                                            long nextPregapFrames = Math.Max(0, cdTracks[i + 1].PreGapFrames);
-                                            int nextSectorSize = Math.Max(1, cdTracks[i + 1].SectorSize);
-                                            ulong padLen = (ulong)nextPregapFrames * (ulong)nextSectorSize;
-                                            if (padLen > 0)
-                                                WriteZeroBytes(o, padLen);
-                                        }
+                                        long postgapFrames = Math.Max(0, t.PostGapFrames);
+                                        ulong postgapLen = (ulong)postgapFrames * (ulong)curSectorSize;
+                                        if (postgapLen > 0)
+                                            WriteZeroBytes(o, postgapLen);
                                     }
                                     exported.Add(destName);
                                     RvFile expected = expectedList.FirstOrDefault(e => string.Equals(e.Name, destName, StringComparison.OrdinalIgnoreCase));
@@ -331,7 +332,7 @@ public static class ChdExport
                 string singleName = extractedNames.First();
                 string singlePath = System.IO.Path.Combine(tempDir, singleName);
                 Dictionary<int, RvFile> expectedByTrackNo = BuildExpectedTrackMap(expectedList);
-                if (TryExportSingleBinCueAsSplitTracks(outDescriptor, singlePath, outputDir, expectedByTrackNo, expectedCueName, expectedList, verifyErrors, out List<string> splitExported))
+                if (TryExportSingleBinCueAsSplitTracks(chdPath, outDescriptor, singlePath, outputDir, expectedByTrackNo, expectedCueName, expectedList, verifyErrors, out List<string> splitExported))
                 {
                     exported.AddRange(splitExported);
                     exported.Sort(StringComparer.OrdinalIgnoreCase);
@@ -714,13 +715,17 @@ public static class ChdExport
         public int TrackNo;
         public string TrackType;
         public long StartFrames;
+        public long? Index00Frames;
         public long PreGapFrames;
         public long PostGapFrames;
         public bool IsSynthesizedPregap;
         public long SynthesizedPregapFrames;
+        public bool IsSynthesizedPostgap;
+        public long SynthesizedPostgapFrames;
     }
 
     private static bool TryExportSingleBinCueAsSplitTracks(
+        string chdPath,
         string cuePath,
         string singleBinPath,
         string outputDir,
@@ -731,7 +736,7 @@ public static class ChdExport
         out List<string> exportedFiles)
     {
         exportedFiles = new List<string>();
-        if (string.IsNullOrWhiteSpace(cuePath) || string.IsNullOrWhiteSpace(singleBinPath))
+        if (string.IsNullOrWhiteSpace(chdPath) || string.IsNullOrWhiteSpace(cuePath) || string.IsNullOrWhiteSpace(singleBinPath))
             return false;
         if (!System.IO.File.Exists(cuePath) || !System.IO.File.Exists(singleBinPath))
             return false;
@@ -744,23 +749,30 @@ public static class ChdExport
         long binLength = new FileInfo(singleBinPath).Length;
         int sectorSize = (binLength % 2352L == 0) ? 2352 : (binLength % 2048L == 0 ? 2048 : 2352);
 
-        List<(CueIndexTrack track, long offset, long length, long zeroPadLength)> segments = new List<(CueIndexTrack, long, long, long)>();
+        List<(CueIndexTrack track, long offset, long length, long prefixPadLength, long suffixPadLength)> segments = new List<(CueIndexTrack, long, long, long, long)>();
         for (int i = 0; i < tracks.Count; i++)
         {
-            long startBytes = tracks[i].StartFrames * sectorSize;
-            long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * sectorSize : binLength;
-            long postGap = tracks[i].PostGapFrames * sectorSize;
-            if (postGap > 0 && endBytes - postGap > startBytes)
-                endBytes -= postGap;
+            long thisStartFrames = (tracks[i].Index00Frames.HasValue && !tracks[i].IsSynthesizedPregap) ? tracks[i].Index00Frames.Value : tracks[i].StartFrames;
+            long startBytes = thisStartFrames * sectorSize;
+
+            long endBytes = binLength;
+            if (i + 1 < tracks.Count)
+            {
+                long nextStartFrames = (tracks[i + 1].Index00Frames.HasValue && !tracks[i + 1].IsSynthesizedPregap) ? tracks[i + 1].Index00Frames.Value : tracks[i + 1].StartFrames;
+                endBytes = nextStartFrames * sectorSize;
+            }
             if (endBytes < startBytes)
                 endBytes = startBytes;
             long len = endBytes - startBytes;
 
-            long zeroPadLength = 0;
-            if (i + 1 < tracks.Count && tracks[i + 1].IsSynthesizedPregap)
-                zeroPadLength = tracks[i + 1].SynthesizedPregapFrames * sectorSize;
+            long prefixPadLength = 0;
+            long suffixPadLength = 0;
+            if (tracks[i].IsSynthesizedPregap)
+                prefixPadLength = Math.Max(0, tracks[i].SynthesizedPregapFrames) * sectorSize;
+            if (tracks[i].IsSynthesizedPostgap)
+                suffixPadLength = Math.Max(0, tracks[i].SynthesizedPostgapFrames) * sectorSize;
 
-            segments.Add((tracks[i], startBytes, len, zeroPadLength));
+            segments.Add((tracks[i], startBytes, len, prefixPadLength, suffixPadLength));
         }
 
         for (int i = 0; i < segments.Count; i++)
@@ -779,9 +791,11 @@ public static class ChdExport
                 using (FileStream dst = System.IO.File.Create(destPath))
                 {
                     src.Seek(segments[i].offset, SeekOrigin.Begin);
+                    if (segments[i].prefixPadLength > 0)
+                        WriteZeroBytes(dst, (ulong)segments[i].prefixPadLength);
                     CopyBytes(src, dst, (ulong)segments[i].length);
-                    if (segments[i].zeroPadLength > 0)
-                        WriteZeroBytes(dst, (ulong)segments[i].zeroPadLength);
+                    if (segments[i].suffixPadLength > 0)
+                        WriteZeroBytes(dst, (ulong)segments[i].suffixPadLength);
                 }
                 exportedFiles.Add(destName);
                 if (expected != null)
@@ -855,10 +869,13 @@ public static class ChdExport
                         TrackNo = trackNo,
                         TrackType = parts[2].Trim(),
                         StartFrames = 0,
+                        Index00Frames = null,
                         PreGapFrames = 0,
                         PostGapFrames = 0,
                         IsSynthesizedPregap = false,
-                        SynthesizedPregapFrames = 0
+                        SynthesizedPregapFrames = 0,
+                        IsSynthesizedPostgap = false,
+                        SynthesizedPostgapFrames = 0
                     };
                     tracks.Add(current);
                 }
@@ -872,6 +889,8 @@ public static class ChdExport
                 {
                     if (TryParseMsf(parts[2], out long frames))
                         current.StartFrames = frames;
+                    if (current.Index00Frames.HasValue)
+                        current.PreGapFrames = Math.Max(current.PreGapFrames, Math.Max(0, current.StartFrames - current.Index00Frames.Value));
                 }
             }
 
@@ -881,7 +900,11 @@ public static class ChdExport
                 if (parts.Length >= 3)
                 {
                     if (TryParseMsf(parts[2], out long frames))
-                        current.PreGapFrames = Math.Max(0, current.StartFrames - frames);
+                    {
+                        current.Index00Frames = frames;
+                        if (current.StartFrames > 0)
+                            current.PreGapFrames = Math.Max(current.PreGapFrames, Math.Max(0, current.StartFrames - frames));
+                    }
                 }
             }
 
@@ -905,7 +928,11 @@ public static class ChdExport
                 if (parts.Length >= 2)
                 {
                     if (TryParseMsf(parts[1], out long frames))
+                    {
                         current.PostGapFrames = Math.Max(current.PostGapFrames, frames);
+                        current.IsSynthesizedPostgap = true;
+                        current.SynthesizedPostgapFrames = frames;
+                    }
                 }
             }
         }

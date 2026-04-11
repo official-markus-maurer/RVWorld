@@ -85,10 +85,13 @@ namespace RomVaultCore.Scanner
             public int TrackNo;
             public string TrackType;
             public long StartFrames;
+            public long? Index00Frames;
             public long PreGapFrames;
             public long PostGapFrames;
             public bool IsSynthesizedPregap;
             public long SynthesizedPregapFrames;
+            public bool IsSynthesizedPostgap;
+            public long SynthesizedPostgapFrames;
         }
 
         private sealed class ZeroPadStream : Stream
@@ -148,6 +151,59 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        private sealed class PrefixZeroStream : Stream
+        {
+            private readonly Stream _baseStream;
+            private readonly long _prefixLength;
+            private long _position;
+
+            public PrefixZeroStream(Stream baseStream, long prefixLength)
+            {
+                _baseStream = baseStream;
+                _prefixLength = prefixLength;
+                _position = 0;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _baseStream.Length + _prefixLength;
+            public override long Position { get => _position; set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int totalRead = 0;
+                if (_position < _prefixLength)
+                {
+                    long remainingPrefix = _prefixLength - _position;
+                    int toPad = (int)Math.Min(count, remainingPrefix);
+                    Array.Clear(buffer, offset, toPad);
+                    totalRead += toPad;
+                    _position += toPad;
+                    offset += toPad;
+                    count -= toPad;
+                }
+                if (count > 0)
+                {
+                    int r = _baseStream.Read(buffer, offset, count);
+                    if (r > 0)
+                    {
+                        totalRead += r;
+                        _position += r;
+                    }
+                }
+                return totalRead;
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing) _baseStream.Dispose();
+                base.Dispose(disposing);
+            }
+        }
+
         private sealed class ChdCacheEntry
         {
             public string Name { get; set; }
@@ -171,7 +227,7 @@ namespace RomVaultCore.Scanner
         }
 
         private const int ChdScanCacheVersion = 2;
-        private const string ChdScanMappingFp = "mapfp2:gaps;type;size;order";
+        private const string ChdScanMappingFp = "mapfp3:gaps;idx00;pregap;postgap";
 
         private static ScannedFile ScanChdContainer(RvFile dbDir, string filename, EScanLevel eScanLevel)
         {
@@ -1338,25 +1394,31 @@ namespace RomVaultCore.Scanner
             long binLength = new FileInfo(outBin).Length;
             int sectorSize = (binLength % 2352L == 0) ? 2352 : (binLength % 2048L == 0 ? 2048 : 2352);
 
-            List<(int trackNo, long offset, long length, long zeroPadLength)> segments = new List<(int, long, long, long)>();
+            List<(int trackNo, long offset, long length, long prefixPadLength, long suffixPadLength)> segments = new List<(int, long, long, long, long)>();
             for (int i = 0; i < tracks.Count; i++)
             {
-                long startBytes = tracks[i].StartFrames * sectorSize;
-                long endBytes = (i + 1 < tracks.Count) ? tracks[i + 1].StartFrames * sectorSize : binLength;
-                long postGap = tracks[i].PostGapFrames * sectorSize;
-                if (postGap > 0 && endBytes - postGap > startBytes)
-                    endBytes -= postGap;
+                long thisStartFrames = (tracks[i].Index00Frames.HasValue && !tracks[i].IsSynthesizedPregap) ? tracks[i].Index00Frames.Value : tracks[i].StartFrames;
+                long startBytes = thisStartFrames * sectorSize;
+
+                long endBytes = binLength;
+                if (i + 1 < tracks.Count)
+                {
+                    long nextStartFrames = (tracks[i + 1].Index00Frames.HasValue && !tracks[i + 1].IsSynthesizedPregap) ? tracks[i + 1].Index00Frames.Value : tracks[i + 1].StartFrames;
+                    endBytes = nextStartFrames * sectorSize;
+                }
+
                 if (endBytes < startBytes)
                     endBytes = startBytes;
                 long len = endBytes - startBytes;
 
-                long zeroPadLength = 0;
-                if (i + 1 < tracks.Count && tracks[i + 1].IsSynthesizedPregap)
-                {
-                    zeroPadLength = tracks[i + 1].SynthesizedPregapFrames * sectorSize;
-                }
+                long prefixPadLength = 0;
+                long suffixPadLength = 0;
+                if (tracks[i].IsSynthesizedPregap)
+                    prefixPadLength = Math.Max(0, tracks[i].SynthesizedPregapFrames) * sectorSize;
+                if (tracks[i].IsSynthesizedPostgap)
+                    suffixPadLength = Math.Max(0, tracks[i].SynthesizedPostgapFrames) * sectorSize;
 
-                segments.Add((tracks[i].TrackNo, startBytes, len, zeroPadLength));
+                segments.Add((tracks[i].TrackNo, startBytes, len, prefixPadLength, suffixPadLength));
             }
 
             Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> sliceHashes = new Dictionary<string, (ulong, byte[], byte[], byte[])>(StringComparer.OrdinalIgnoreCase);
@@ -1365,7 +1427,7 @@ namespace RomVaultCore.Scanner
                 for (int i = 0; i < segments.Count; i++)
                 {
                     string key = "track:" + segments[i].trackNo.ToString("D2");
-                    ulong totalLength = (ulong)(segments[i].length + segments[i].zeroPadLength);
+                    ulong totalLength = (ulong)(segments[i].length + segments[i].prefixPadLength + segments[i].suffixPadLength);
                     ScannedFile tmp = new ScannedFile(FileType.FileCHD)
                     {
                         Name = key,
@@ -1376,11 +1438,16 @@ namespace RomVaultCore.Scanner
                     };
                     using (ReadOnlySliceStream slice = new ReadOnlySliceStream(binStream, segments[i].offset, segments[i].length))
                     {
-                        if (segments[i].zeroPadLength > 0)
+                        if (segments[i].prefixPadLength > 0 || segments[i].suffixPadLength > 0)
                         {
-                            using (ZeroPadStream padded = new ZeroPadStream(slice, segments[i].zeroPadLength))
+                            Stream s = slice;
+                            if (segments[i].suffixPadLength > 0)
+                                s = new ZeroPadStream(s, segments[i].suffixPadLength);
+                            if (segments[i].prefixPadLength > 0)
+                                s = new PrefixZeroStream(s, segments[i].prefixPadLength);
+                            using (s)
                             {
-                                _fileScans.CheckSumRead(padded, tmp, totalLength, true, false, null, 0, 0);
+                                _fileScans.CheckSumRead(s, tmp, totalLength, true, false, null, 0, 0);
                             }
                         }
                         else
@@ -1449,8 +1516,13 @@ namespace RomVaultCore.Scanner
                             TrackNo = trackNo,
                             TrackType = parts[2].Trim(),
                             StartFrames = 0,
+                            Index00Frames = null,
                             PreGapFrames = 0,
-                            PostGapFrames = 0
+                            PostGapFrames = 0,
+                            IsSynthesizedPregap = false,
+                            SynthesizedPregapFrames = 0,
+                            IsSynthesizedPostgap = false,
+                            SynthesizedPostgapFrames = 0
                         };
                         tracks.Add(current);
                     }
@@ -1464,6 +1536,8 @@ namespace RomVaultCore.Scanner
                     {
                         if (TryParseMsf(parts[2], out long frames))
                             current.StartFrames = frames;
+                        if (current.Index00Frames.HasValue)
+                            current.PreGapFrames = Math.Max(current.PreGapFrames, Math.Max(0, current.StartFrames - current.Index00Frames.Value));
                     }
                 }
 
@@ -1473,7 +1547,11 @@ namespace RomVaultCore.Scanner
                     if (parts.Length >= 3)
                     {
                         if (TryParseMsf(parts[2], out long frames))
-                            current.PreGapFrames = Math.Max(0, current.StartFrames - frames);
+                        {
+                            current.Index00Frames = frames;
+                            if (current.StartFrames > 0)
+                                current.PreGapFrames = Math.Max(current.PreGapFrames, Math.Max(0, current.StartFrames - frames));
+                        }
                     }
                 }
 
@@ -1497,7 +1575,11 @@ namespace RomVaultCore.Scanner
                     if (parts.Length >= 2)
                     {
                         if (TryParseMsf(parts[1], out long frames))
+                        {
                             current.PostGapFrames = Math.Max(current.PostGapFrames, frames);
+                            current.IsSynthesizedPostgap = true;
+                            current.SynthesizedPostgapFrames = frames;
+                        }
                     }
                 }
             }

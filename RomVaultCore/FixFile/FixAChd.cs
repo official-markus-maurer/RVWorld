@@ -53,8 +53,31 @@ public static class FixAChd
 
         if (!FixFileUtils.TryCreateChdFromDiscSource(source, chdDir, out ReturnCode rc, out string chdError))
         {
-            errorMessage = "CHD creation was not triggered.";
-            return ReturnCode.LogicError;
+            RomVaultCore.DatRule rule = null;
+            try
+            {
+                string ruleKey = (chdDir.Parent?.DatTreeFullName ?? "") + "\\";
+                rule = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
+            }
+            catch
+            {
+            }
+
+            if (rule == null)
+            {
+                errorMessage = "CHD creation was not triggered because no matching DAT rule was found for this path.";
+                return ReturnCode.FileSystemError;
+            }
+
+            if (!rule.DiscArchiveAsCHD)
+            {
+                errorMessage = "CHD creation was not triggered because DiscArchiveAsCHD is disabled for this DAT rule.";
+                return ReturnCode.FileSystemError;
+            }
+
+            string ext = System.IO.Path.GetExtension(source?.Name ?? "").ToLowerInvariant();
+            errorMessage = $"CHD creation was not triggered (unsupported disc source extension '{ext}').";
+            return ReturnCode.FileSystemError;
         }
 
         if (rc != ReturnCode.Good)
@@ -582,21 +605,32 @@ public static class FixAChd
                 return f;
         }
 
+        int bestPriority = 0;
+        RvFile best = null;
         for (int i = 0; i < dirs.Count; i++)
         {
             RvFile dir = dirs[i];
             if (dir == null || !dir.IsDirectory)
                 continue;
+
+            if (!string.Equals(dir.Name, setName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             for (int j = 0; j < dir.ChildCount; j++)
             {
                 RvFile f = dir.Child(j);
                 if (f == null || !f.IsFile || f.GotStatus != GotStatus.Got)
                     continue;
                 int pr = SourcePriority(f.Name);
-                if (pr > 0)
-                    return f;
+                if (pr > bestPriority)
+                {
+                    bestPriority = pr;
+                    best = f;
+                }
             }
         }
+        if (best != null)
+            return best;
 
         return null;
     }
