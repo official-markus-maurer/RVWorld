@@ -53,6 +53,7 @@ public static class ChdExport
         string expectedGdiName = expectedList.FirstOrDefault(n => n.Name.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase))?.Name;
 
         string baseTempDir = DB.GetToSortCache()?.FullName ?? Environment.CurrentDirectory;
+        baseTempDir = NormalizeDirectoryPath(baseTempDir);
         string tempDir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdexport." + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
 
@@ -1025,6 +1026,36 @@ public static class ChdExport
             string candidate = System.IO.Path.GetFullPath(p);
             if (System.IO.File.Exists(candidate))
                 return candidate;
+        }
+        catch
+        {
+        }
+
+        return p;
+    }
+
+    private static string NormalizeDirectoryPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return path;
+
+        string p = path.Trim().Trim('"');
+        if (System.IO.Path.IsPathRooted(p))
+            return p;
+
+        try
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            if (!string.IsNullOrWhiteSpace(baseDir))
+                return System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, p));
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            return System.IO.Path.GetFullPath(p);
         }
         catch
         {
