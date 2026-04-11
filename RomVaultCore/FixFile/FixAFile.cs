@@ -468,7 +468,7 @@ namespace RomVaultCore.FixFile
             string fts = fixingFile.FullName;
             Report.ReportProgress(new bgwShowFix(Path.GetDirectoryName(fixFileFullName), "", Path.GetFileName(fixFileFullName), fixFile.Size, "<--" + (fileMove ? "Move" : "Copy"), Path.GetDirectoryName(fts), Path.GetFileName(fts), fixingFile.Name));
 
-            if (FixFileUtils.TryCreateChdFromDiscSource(fixingFile, fixFile, out ReturnCode chdReturnCode, out string chdError))
+            if (FixFileUtils.TryCreateChdFromDiscSource(fixingFile, fixFile, out ReturnCode chdReturnCode, out string chdError, out List<RvFile> chdUsedFiles))
             {
                 if (chdReturnCode != ReturnCode.Good)
                 {
@@ -476,7 +476,7 @@ namespace RomVaultCore.FixFile
                     return chdReturnCode;
                 }
 
-                FixFileUtils.CheckFilesUsedForFix(fixFiles, fileProcessQueue, true);
+                FixFileUtils.CheckFilesUsedForFix(chdUsedFiles, fileProcessQueue, true);
                 totalFixed++;
                 return ReturnCode.Good;
             }

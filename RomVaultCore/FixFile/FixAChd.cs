@@ -51,7 +51,7 @@ public static class FixAChd
         {
         }
 
-        if (!FixFileUtils.TryCreateChdFromDiscSource(source, chdDir, out ReturnCode rc, out string chdError))
+        if (!FixFileUtils.TryCreateChdFromDiscSource(source, chdDir, out ReturnCode rc, out string chdError, out List<RvFile> usedFiles))
         {
             RomVaultCore.DatRule rule = null;
             try
@@ -100,7 +100,7 @@ public static class FixAChd
             return rc;
         }
 
-        FixFileUtils.CheckFilesUsedForFix(new List<RvFile> { source }, fileProcessQueue, true);
+        FixFileUtils.CheckFilesUsedForFix(usedFiles, fileProcessQueue, true);
         totalFixed++;
         return ReturnCode.Good;
     }

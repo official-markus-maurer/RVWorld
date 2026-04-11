@@ -267,6 +267,45 @@ Some configurations use virtual roots like `RomRoot\...` and `ToSort\...`. Any C
   - Settings: keep CHD options grouped in a dedicated section to avoid layout overlap.
 - Add a status indicator when a set is considered satisfied “by container trust” rather than by per-track hash match.
 
+### CHDs Outside DAT Context (ToSort / Unknown CHDs)
+
+RomVault currently treats CHD as a file first, and only goes “inside” when verifying a CHD against a DAT that expects track files. As CHD adoption grows, users will also place CHDs into `ToSort` that are not yet associated with any DAT entry.
+
+Key questions:
+
+- How should RomVault represent a CHD that is scanned outside the context of a DAT?
+- Should “contents” (tracks / descriptor) be visible in the UI tree, or remain internal?
+- Can ToSort CHDs be used as fix sources for other CHDs / zips / track-based sets?
+
+Proposed direction (keeps the DB stable while enabling future fixes):
+
+- **In-DAT sets where the DAT expects `*.chd`**: treat CHD as a single collectible file. Track contents are an implementation detail used for optional verification/export.
+- **In-DAT sets where the DAT expects `cue/gdi + tracks` but storage is CHD**: treat CHD as a container for matching and export, but the DAT’s original `cue/gdi` should not be considered faithfully reproducible from CHD (see “CUE Caveats”).
+- **ToSort / Unknown CHDs**: do not expand CHD into permanent child entries in the main DB tree by default. Instead, store “virtual track entries” in the CHD scan cache (JSON) as a content index:
+  - Track layout (track types, frames, INDEX 00/01 boundaries where applicable)
+  - Per-track size + CRC/SHA1/MD5 as RomVault defines them for matching
+  - Optional synthetic descriptor hash (layout-based) when applicable
+
+This allows:
+
+- Marking ToSort CHDs as `Delete` when a fully matching CHD already exists in RomRoot and the ToSort CHD is not needed for any fix.
+- Marking ToSort CHDs as `NeededForFix` when their cached “virtual track entries” match missing DAT members elsewhere (future work).
+
+Notes:
+
+- CHD is not a “raw copy” source for other CHDs. Even if a ToSort CHD contains matching tracks, fixes will still typically involve extraction/streaming and rebuild, similar to 7z cache behavior.
+- If the UI ever shows CHD contents for ToSort, prefer an opt-in “details” view over expanding the primary tree to avoid clutter and ambiguity between “real files” vs “derived virtual members”.
+
+### Cue / Descriptor Policy (When CHD Is The Stored Artifact)
+
+When users adopt CHD as the stored artifact, cue/gdi handling needs explicit policy options (per DAT rule or global setting):
+
+- **Don’t collect cues**: CHD is the collected artifact; cue/gdi are treated as auxiliary inputs only.
+- **Cues next to CHD**: keep cue/gdi alongside the CHD for convenience, without treating them as authoritative for hashing/verification.
+- **Cues in a subdir**: keep cue/gdi in a dedicated folder (e.g. `_cues`) to reduce clutter in RomRoot.
+
+Similarly, incomplete disc sets may benefit from a policy (e.g. keep incomplete sources in a dedicated subdir) so users can distinguish “kept for later completion” from “ready to archive as CHD”.
+
 ### Tooling / Diagnostics
 
 - Provide a single “CHD health” report that includes:

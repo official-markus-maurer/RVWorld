@@ -215,8 +215,6 @@ namespace RomVaultCore.FindFix
 
             Parallel.ForEach(gotFilesSortedByCRC, po, (file, state) =>
             {
-                if (file.CRC == null)
-                    return;
                 listFileGroupsOut.AddFindWithExact(file, exactFunc);
                 if (_thWrk != null && _thWrk.CancellationPending)
                 {
@@ -232,6 +230,8 @@ namespace RomVaultCore.FindFix
         }
         private static byte getByteFunc(RvFile v1)
         {
+            if (v1.CRC == null || v1.CRC.Length == 0)
+                return 0;
             return v1.CRC[0];
         }
         private static FileGroup newFunc(RvFile file)

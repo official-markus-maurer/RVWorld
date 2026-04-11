@@ -18,10 +18,11 @@ namespace RomVaultCore.FixFile.Utils
 {
     public static partial class FixFileUtils
     {
-        public static bool TryCreateChdFromDiscSource(RvFile sourceFile, RvFile destinationFile, out ReturnCode returnCode, out string errorMessage)
+        public static bool TryCreateChdFromDiscSource(RvFile sourceFile, RvFile destinationFile, out ReturnCode returnCode, out string errorMessage, out List<RvFile> usedFiles)
         {
             returnCode = ReturnCode.Good;
             errorMessage = "";
+            usedFiles = new List<RvFile>();
 
             if (sourceFile == null || destinationFile == null)
                 return false;
@@ -168,7 +169,33 @@ namespace RomVaultCore.FixFile.Utils
                 return true;
             }
 
-            CleanupSourceFiles(inputPath);
+            usedFiles.Add(sourceFile);
+            if (sourceFile.Parent != null && !string.IsNullOrWhiteSpace(inputPath))
+            {
+                string ext = Path.GetExtension(inputPath).ToLowerInvariant();
+                if (ext == ".cue" || ext == ".gdi")
+                {
+                    IEnumerable<string> refs = ext == ".cue" ? GetReferencedFilesFromCue(inputPath) : GetReferencedFilesFromGdi(inputPath);
+                    foreach (string r in refs)
+                    {
+                        if (string.IsNullOrWhiteSpace(r))
+                            continue;
+                        string trimmed = r.Trim().Trim('"');
+                        string baseName = Path.GetFileName(trimmed);
+                        if (!string.IsNullOrWhiteSpace(baseName))
+                        {
+                            FileType searchType = sourceFile.FileType == FileType.File ? FileType.File : sourceFile.FileType;
+                            if (sourceFile.Parent.ChildNameSearch(searchType, baseName, out int idx) == 0)
+                            {
+                                RvFile rf = sourceFile.Parent.Child(idx);
+                                if (rf != null && !usedFiles.Contains(rf))
+                                    usedFiles.Add(rf);
+                            }
+                        }
+                    }
+                }
+            }
+
             CleanupTempPaths(tempPathsToDelete);
             return true;
         }
@@ -662,7 +689,15 @@ namespace RomVaultCore.FixFile.Utils
                             Name = exp.Name,
                             FileModTimeStamp = ts,
                             GotStatus = GotStatus.Got,
-                            DeepScanned = true
+                            DeepScanned = true,
+                            Size = exp.Size,
+                            CRC = exp.CRC,
+                            SHA1 = exp.SHA1,
+                            MD5 = exp.MD5,
+                            AltSize = exp.AltSize,
+                            AltCRC = exp.AltCRC,
+                            AltSHA1 = exp.AltSHA1,
+                            AltMD5 = exp.AltMD5
                         });
                     }
                     trust.Sort();
@@ -1259,66 +1294,6 @@ namespace RomVaultCore.FixFile.Utils
         private static void CleanupFailedChd(string destinationPath)
         {
             TryDeleteFile(destinationPath);
-        }
-
-        private static void CleanupSourceFiles(string inputPath)
-        {
-            if (string.IsNullOrWhiteSpace(inputPath))
-                return;
-            if (!System.IO.File.Exists(inputPath))
-                return;
-
-            string ext = Path.GetExtension(inputPath).ToLowerInvariant();
-            switch (ext)
-            {
-                case ".iso":
-                    TryDeleteFile(inputPath);
-                    break;
-                case ".cue":
-                    CleanupCue(inputPath);
-                    break;
-                case ".gdi":
-                    CleanupGdi(inputPath);
-                    break;
-            }
-        }
-
-        private static void CleanupCue(string cuePath)
-        {
-            string dir = Path.GetDirectoryName(cuePath);
-            if (string.IsNullOrWhiteSpace(dir))
-                return;
-
-            HashSet<string> files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            files.Add(cuePath);
-            foreach (string refFile in GetReferencedFilesFromCue(cuePath))
-            {
-                string fullPath = NormalizeChildPath(dir, refFile);
-                if (fullPath != null)
-                    files.Add(fullPath);
-            }
-
-            foreach (string file in files)
-                TryDeleteFile(file);
-        }
-
-        private static void CleanupGdi(string gdiPath)
-        {
-            string dir = Path.GetDirectoryName(gdiPath);
-            if (string.IsNullOrWhiteSpace(dir))
-                return;
-
-            HashSet<string> files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            files.Add(gdiPath);
-            foreach (string refFile in GetReferencedFilesFromGdi(gdiPath))
-            {
-                string fullPath = NormalizeChildPath(dir, refFile);
-                if (fullPath != null)
-                    files.Add(fullPath);
-            }
-
-            foreach (string file in files)
-                TryDeleteFile(file);
         }
 
         private static IEnumerable<string> GetReferencedFilesFromCue(string cuePath)
