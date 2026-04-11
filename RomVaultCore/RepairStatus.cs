@@ -259,8 +259,7 @@ namespace RomVaultCore
             tFile.RepStatusReset();
             tFile.FileGroup = null;
 
-            FileType ftBase = tFile.FileType;
-            if (ftBase != FileType.Zip && ftBase != FileType.SevenZip && ftBase != FileType.Dir)
+            if (!tFile.IsDirectory)
             {
                 return;
             }

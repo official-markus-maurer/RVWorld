@@ -1,4 +1,4 @@
-﻿public enum FileType
+﻿﻿public enum FileType
 {
     UnSet = 0,
     Dir = 1,
