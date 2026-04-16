@@ -4,6 +4,13 @@ using System.Diagnostics;
 
 namespace RomVaultCore.Utils;
 
+/// <summary>
+/// Tracks spawned <c>chdman</c> processes so they can be safely terminated on shutdown or cancellation.
+/// </summary>
+/// <remarks>
+/// CHD workflows may spawn long-running external processes (create/extract/verify).
+/// This helper centralizes lifecycle management to reduce orphaned background processes.
+/// </remarks>
 internal static class ChdmanProcessTracker
 {
     private static readonly object Gate = new object();
@@ -59,6 +66,9 @@ internal static class ChdmanProcessTracker
         }
     }
 
+    /// <summary>
+    /// Terminates a single process and removes it from the tracker.
+    /// </summary>
     public static void Kill(Process p)
     {
         if (p == null)
@@ -90,6 +100,9 @@ internal static class ChdmanProcessTracker
         }
     }
 
+    /// <summary>
+    /// Terminates all tracked processes.
+    /// </summary>
     public static void KillAll()
     {
         List<Process> list = new List<Process>();
@@ -126,4 +139,3 @@ internal static class ChdmanProcessTracker
         }
     }
 }
-

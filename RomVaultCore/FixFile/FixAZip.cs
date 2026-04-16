@@ -12,8 +12,25 @@ using RVIO;
 
 namespace RomVaultCore.FixFile
 {
+    /// <summary>
+    /// Fix routine for ZIP/7z container nodes.
+    /// </summary>
+    /// <remarks>
+    /// This rebuilds an archive when any of the following is true:
+    /// - members can be fixed (missing/corrupt)
+    /// - members should be removed (NotInDat / Delete / MoveToSort)
+    /// - archive structure must be converted (e.g. trrntzip/rv7zip policies)
+    ///
+    /// The fix works by creating a temporary output archive and then, per-member, choosing one of:
+    /// - raw copy from the original archive
+    /// - compress from a verified source file
+    /// - extract-to-cache then reselect (for multi-file archives or CHD member sources)
+    /// </remarks>
     public static partial class FixAZip 
     {
+        /// <summary>
+        /// Exception wrapper used to propagate archive fix failures with a classified <see cref="ReturnCode"/>.
+        /// </summary>
         public class ZipFileException : Exception
         {
             public ZipFileException(ReturnCode rc, string message) : base(message)
@@ -24,6 +41,14 @@ namespace RomVaultCore.FixFile
             public ReturnCode returnCode { get; }
         }
 
+        /// <summary>
+        /// Fixes a single archive container node.
+        /// </summary>
+        /// <param name="fixZip">Archive container to fix.</param>
+        /// <param name="fileProcessQueue">Queue used for dependent follow-up fix operations.</param>
+        /// <param name="totalFixed">Running count of fixed items.</param>
+        /// <param name="errorMessage">Error message on failure.</param>
+        /// <returns>Result code indicating success/failure class.</returns>
         public static ReturnCode FixZip(RvFile fixZip, List<RvFile> fileProcessQueue, ref int totalFixed, out string errorMessage)
         {
             errorMessage = "";

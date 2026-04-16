@@ -8,6 +8,13 @@ using RomVaultCore.Scanner;
 
 namespace RomVaultCore.FixFile.FixAZipCore
 {
+    /// <summary>
+    /// Defines source/destination fix priority matrices and source selection helpers.
+    /// </summary>
+    /// <remarks>
+    /// This component determines which available source format should be used to fix a missing target format,
+    /// including special handling for CHD member sources (<see cref="SourceFileFixTypes.FileCHD_V"/>).
+    /// </remarks>
     public static class FindSourceFile
     {
 
@@ -71,6 +78,9 @@ namespace RomVaultCore.FixFile.FixAZipCore
             ExtractToCache
         }
 
+        /// <summary>
+        /// Associates a source type with the fix strategy required to generate the destination.
+        /// </summary>
         public class FixPriorityStyle
         {
             public SourceFileFixTypes SourceType;
@@ -83,6 +93,9 @@ namespace RomVaultCore.FixFile.FixAZipCore
             }
         }
 
+        /// <summary>
+        /// Declares the ordered list of acceptable sources for a given destination format.
+        /// </summary>
         public class PriorityOrder
         {
             public DestinationFileFixTypes DestinationType;
@@ -99,6 +112,9 @@ namespace RomVaultCore.FixFile.FixAZipCore
         public static FixStyle[,] FixOrderStyle = null;
 
 
+        /// <summary>
+        /// Returns usable source files for a missing target file, filtered by hash/header compatibility.
+        /// </summary>
         public static List<RvFile> GetFixFileList(RvFile fixFile)
         {
             if (fixFile == null)
@@ -109,6 +125,12 @@ namespace RomVaultCore.FixFile.FixAZipCore
         }
 
 
+        /// <summary>
+        /// Builds source-priority lookup tables used by fix routines.
+        /// </summary>
+        /// <remarks>
+        /// The generated tables drive whether a fix operation can raw-copy, recompress, or extract-to-cache.
+        /// </remarks>
         public static void SetFixOrderSettings()
         {
 

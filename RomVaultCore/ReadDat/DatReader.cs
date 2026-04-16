@@ -17,6 +17,9 @@ using RVIO;
 
 namespace RomVaultCore.ReadDat
 {
+    /// <summary>
+    /// Loads DAT files and applies DAT-driven rules to the database tree.
+    /// </summary>
     public static class DatReader
     {
         private static ThreadWorker _thWrk;

@@ -671,6 +671,9 @@ namespace ROMVault
             catch { }
         }
 
+        /// <summary>
+        /// Sort comparer for the game grid.
+        /// </summary>
         private class GameUiCompare : IComparer<RvFile>
         {
             private readonly GameGridColumns _colIndex;

@@ -30,6 +30,10 @@ namespace ROMVault.Avalonia.Views
             Fix = 1 << 3,
             Unknown = 1 << 4
         }
+
+        /// <summary>
+        /// Cached layout rectangles for a single rendered tree row.
+        /// </summary>
         private class UiTree
         {
             public string TreeBranches = "";

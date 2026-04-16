@@ -5,6 +5,15 @@ using RomVaultCore.Utils;
 
 namespace ROMVault;
 
+/// <summary>
+/// WinForms report window for CHD verification and mapping diagnostics.
+/// </summary>
+/// <remarks>
+/// Displays:
+/// - parsed member hashes (Name/Size/CRC/SHA1/MD5)
+/// - expected-to-extracted mapping rows
+/// - raw text report emitted by <see cref="RomVaultCore.Utils.ChdVerify"/>
+/// </remarks>
 public sealed class FrmChdVerify : Form
 {
     private readonly string _baseTitle;
@@ -15,6 +24,10 @@ public sealed class FrmChdVerify : Form
     private readonly Button _btnCopy;
     private readonly Button _btnSave;
 
+    /// <summary>
+    /// Creates a CHD report viewer window.
+    /// </summary>
+    /// <param name="title">Base window title.</param>
     public FrmChdVerify(string title)
     {
         _baseTitle = title;
@@ -98,6 +111,10 @@ public sealed class FrmChdVerify : Form
         Controls.Add(buttons);
     }
 
+    /// <summary>
+    /// Updates the window content from a full textual verify report.
+    /// </summary>
+    /// <param name="text">Report text.</param>
     public void SetText(string text)
     {
         _txt.Text = text ?? "";
@@ -127,6 +144,11 @@ public sealed class FrmChdVerify : Form
             Text = _baseTitle;
     }
 
+    /// <summary>
+    /// Runs verification for a CHD and shows the report window.
+    /// </summary>
+    /// <param name="owner">Owning window.</param>
+    /// <param name="chdPath">CHD path.</param>
     public static void RunAndShow(IWin32Window owner, string chdPath)
     {
         using FrmChdVerify frm = new FrmChdVerify("Verify CHD");
@@ -138,6 +160,9 @@ public sealed class FrmChdVerify : Form
             frm.Text = "Verify CHD (errors)";
     }
 
+    /// <summary>
+    /// Parses flat report lines into table rows for member hash display.
+    /// </summary>
     private static System.Collections.Generic.List<Entry> ParseEntries(string report)
     {
         var items = new System.Collections.Generic.List<Entry>();
@@ -163,6 +188,9 @@ public sealed class FrmChdVerify : Form
         return items;
     }
 
+    /// <summary>
+    /// Parses the "mapping:" block into table rows.
+    /// </summary>
     private static System.Collections.Generic.List<ChdVerify.MapRow> ParseMapping(string report)
     {
         var items = new System.Collections.Generic.List<ChdVerify.MapRow>();
@@ -232,6 +260,10 @@ public sealed class FrmChdVerify : Form
         }
         return "";
     }
+
+    /// <summary>
+    /// Row model for CHD member hash output.
+    /// </summary>
     private sealed class Entry
     {
         public string Name { get; set; }

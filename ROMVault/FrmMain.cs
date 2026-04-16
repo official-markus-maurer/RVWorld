@@ -25,6 +25,15 @@ using System.Threading;
 
 namespace ROMVault
 {
+    /// <summary>
+    /// Main WinForms application window.
+    /// </summary>
+    /// <remarks>
+    /// Provides the primary UI for:
+    /// - scanning ROM roots into the DB tree
+    /// - finding fixes and applying fixes
+    /// - CHD workflows (verify container/parity and export)
+    /// </remarks>
     public partial class FrmMain : Form
     {
         private static readonly Color CBlue = Color.FromArgb(214, 214, 255);
@@ -578,16 +587,26 @@ namespace ROMVault
             if (Directory.Exists(tDir))
                 try { Process.Start(tDir); } catch { }
         }
+
+        /// <summary>
+        /// Context menu action: verify a CHD container against expected members for the selected node.
+        /// </summary>
         private void MnuVerifyChd(object sender, EventArgs e)
         {
             RunChdVerifyFor(_clickedTree, ChdVerifyMode.Container);
         }
 
+        /// <summary>
+        /// Context menu action: run parity verification (stream vs extract) for a CHD.
+        /// </summary>
         private void MnuVerifyChdParity(object sender, EventArgs e)
         {
             RunChdVerifyFor(_clickedTree, ChdVerifyMode.Parity);
         }
 
+        /// <summary>
+        /// Context menu action: export track files from a CHD.
+        /// </summary>
         private void MnuExportChd(object sender, EventArgs e)
         {
             RunChdVerifyFor(_clickedTree, ChdVerifyMode.ExportTracks);
@@ -600,6 +619,13 @@ namespace ROMVault
             ExportTracks
         }
 
+        /// <summary>
+        /// Executes a CHD operation on the currently selected tree node.
+        /// </summary>
+        /// <remarks>
+        /// Expected members are derived from the node's children (tracks/descriptors) so reports can include
+        /// mapping details relative to the active DAT.
+        /// </remarks>
         private void RunChdVerifyFor(RvFile chdDir, ChdVerifyMode mode)
         {
             if (chdDir == null)

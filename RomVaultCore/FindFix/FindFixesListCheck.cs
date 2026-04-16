@@ -4,6 +4,9 @@ using RomVaultCore.RvDB;
 
 namespace RomVaultCore.FindFix
 {
+    /// <summary>
+    /// Updates <see cref="RvFile.RepStatus"/> within a <see cref="FileGroup"/> based on which members are present and fixable.
+    /// </summary>
     public static class FindFixesListCheck
     {
         public static void GroupListCheck(FileGroup[] filegroupList)

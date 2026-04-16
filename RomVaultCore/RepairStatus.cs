@@ -6,6 +6,9 @@ using RomVaultCore.RvDB;
 
 namespace RomVaultCore
 {
+    /// <summary>
+    /// Repair/scanning status values used to drive UI coloring and fix workflows.
+    /// </summary>
     public enum RepStatus
     {
         // Scanning Status:
@@ -56,6 +59,9 @@ namespace RomVaultCore
         EndValue
     }
 
+    /// <summary>
+    /// Computes and updates <see cref="RepStatus"/> values and provides status reset/initialization helpers.
+    /// </summary>
     public static class RepairStatus
     {
         public static List<RepStatus>[,,] StatusCheck;
@@ -273,6 +279,9 @@ namespace RomVaultCore
         }
     }
 
+    /// <summary>
+    /// Accumulates per-status counts for a subtree, supporting fast aggregate UI updates.
+    /// </summary>
     public class ReportStatus
     {
         private readonly int[] _arrRepStatus = new int[(int)RepStatus.EndValue];

@@ -1,9 +1,12 @@
-﻿using DATReader.DatStore;
+using DATReader.DatStore;
 using System;
 using System.Collections.Generic;
 
 namespace DATReader.DatClean
 {
+    /// <summary>
+    /// Normalizes DAT trees by lifting CHD/disc members to the expected parent game directory level.
+    /// </summary>
     public static class DatSetMoveCHDs
     {
 

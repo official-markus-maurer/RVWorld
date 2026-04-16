@@ -26,11 +26,29 @@ using Path = RVIO.Path;
 
 namespace RomVaultCore.Scanner
 {
+    /// <summary>
+    /// Populates <see cref="ScannedFile"/> structures from on-disk directories and archive-like containers.
+    /// </summary>
+    /// <remarks>
+    /// This is the scanning bridge between:
+    /// - the database tree (<see cref="RvFile"/>)
+    /// - file-system content (directories, archives, and CHD containers)
+    ///
+    /// For CHDs, this class can scan containers either via streaming (no extraction) or via tool-based extraction.
+    /// </remarks>
     public static class Populate
     {
 
         private static ThreadWorker _thWrk;
         private static FileScan _fileScans;
+
+        /// <summary>
+        /// Scans an archive-like container (ZIP/7z/CHD) and returns its members as a <see cref="ScannedFile"/>.
+        /// </summary>
+        /// <param name="dbDir">Database node representing the container file.</param>
+        /// <param name="eScanLevel">Requested scan depth.</param>
+        /// <param name="thWrk">Optional background worker used for progress reporting.</param>
+        /// <returns>A populated <see cref="ScannedFile"/> on success; otherwise null.</returns>
         public static ScannedFile FromAZipFileArchive(RvFile dbDir, EScanLevel eScanLevel, ThreadWorker thWrk)
         {
             if (_fileScans == null) _fileScans = new FileScan();
@@ -80,6 +98,9 @@ namespace RomVaultCore.Scanner
             return null;
         }
 
+        /// <summary>
+        /// Normalized track layout used when mapping CHD CD metadata to expected DAT members.
+        /// </summary>
         private sealed class ChdTrack
         {
             public int TrackNo;
@@ -94,6 +115,9 @@ namespace RomVaultCore.Scanner
             public long SynthesizedPostgapFrames;
         }
 
+        /// <summary>
+        /// Stream wrapper that appends a suffix of zero bytes after the base stream ends.
+        /// </summary>
         private sealed class ZeroPadStream : Stream
         {
             private readonly Stream _baseStream;
@@ -151,6 +175,9 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        /// <summary>
+        /// Stream wrapper that prefixes a stream with a fixed number of zero bytes.
+        /// </summary>
         private sealed class PrefixZeroStream : Stream
         {
             private readonly Stream _baseStream;
@@ -204,6 +231,12 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        /// <summary>
+        /// A single cached member entry produced by CHD scanning.
+        /// </summary>
+        /// <remarks>
+        /// The cache stores member hashes as hex strings so the scan can be reused without re-extracting.
+        /// </remarks>
         private sealed class ChdCacheEntry
         {
             public string Name { get; set; }
@@ -217,6 +250,13 @@ namespace RomVaultCore.Scanner
             public string ChdDescriptorMatch { get; set; }
         }
 
+        /// <summary>
+        /// Cached scan results for a single CHD file.
+        /// </summary>
+        /// <remarks>
+        /// Cache validity is based on source path, size, timestamp, descriptor expectation, and a mapping fingerprint
+        /// that encodes the hashing/mapping rules.
+        /// </remarks>
         private sealed class ChdCacheFile
         {
             public int CacheVersion { get; set; }
@@ -234,9 +274,26 @@ namespace RomVaultCore.Scanner
             public List<ChdCacheEntry> Entries { get; set; } = new List<ChdCacheEntry>();
         }
 
+        /// <summary>
+        /// Current CHD scan cache schema version.
+        /// </summary>
         private const int ChdScanCacheVersion = 3;
+
+        /// <summary>
+        /// Fingerprint describing the mapping and hashing behavior used when scanning CHDs.
+        /// </summary>
+        /// <remarks>
+        /// This is used to invalidate old cache entries when mapping logic changes (pregap/index handling, ToSort naming, etc.).
+        /// </remarks>
         private const string ChdScanMappingFp = "mapfp4:gaps;idx00;pregap;postgap;health;tosortnaming";
 
+        /// <summary>
+        /// Scans a CHD file as a container and returns a directory-like <see cref="ScannedFile"/> containing member entries.
+        /// </summary>
+        /// <remarks>
+        /// Members are emitted as <see cref="FileType.FileCHD"/> so the normal archive merge pipeline can match them against DAT expectations.
+        /// The scan may run in streaming mode (no extraction) when CHD metadata is available; otherwise it falls back to chdman extraction.
+        /// </remarks>
         private static ScannedFile ScanChdContainer(RvFile dbDir, string filename, EScanLevel eScanLevel)
         {
             if (!File.Exists(filename))
@@ -1184,6 +1241,9 @@ namespace RomVaultCore.Scanner
             return p;
         }
 
+        /// <summary>
+        /// Stream wrapper that swaps adjacent bytes (16-bit endianness) while reading.
+        /// </summary>
         private sealed class Swap16Stream : Stream
         {
             private readonly Stream _source;
@@ -1261,6 +1321,19 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        /// <summary>
+        /// Builds a deterministic mapping from expected DAT members to extracted/streamed track blobs.
+        /// </summary>
+        /// <remarks>
+        /// Mapping proceeds in stages:
+        /// - Hash match (SHA1/MD5/CRC+Size), optionally allowing swap16 for audio when configured.
+        /// - Track-number match when a track number can be inferred from expected filenames.
+        /// - Unique-size match, optionally constrained by inferred "audio/data" category or filename extension.
+        /// - Optional order fallback (disabled when layout strictness is <c>Strict</c>).
+        ///
+        /// The returned map is used to emit <see cref="FileType.FileCHD"/> child entries named to match the DAT.
+        /// </remarks>
+        /// <returns>A map from expected member name to extracted name and whether swap16 was used.</returns>
         private static Dictionary<string, (string extractedName, bool swap16)> BuildDeterministicMapping(
             List<(int trackNo, string fileName, string trackType)> trackFiles,
             IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache,
@@ -1464,6 +1537,17 @@ namespace RomVaultCore.Scanner
             return mapping;
         }
 
+        /// <summary>
+        /// Finds an unused extracted entry that matches the expected hashes.
+        /// </summary>
+        /// <remarks>
+        /// Hash preference order is:
+        /// - SHA1
+        /// - MD5
+        /// - CRC+Size (only when size is known)
+        ///
+        /// When <paramref name="fileHashSwap16Cache"/> is provided, swap16 variants are also considered.
+        /// </remarks>
         private static (string extractedName, bool swap16) FindExtractedByHash(
             IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache,
             IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashSwap16Cache,
@@ -1588,6 +1672,14 @@ namespace RomVaultCore.Scanner
             return "";
         }
 
+        /// <summary>
+        /// Fallback scan mode for single-BIN CUEs where the DAT expects per-track files.
+        /// </summary>
+        /// <remarks>
+        /// Some CHD extracts produce a single <c>disc.bin</c> referenced by a CUE, but DATs may list one file per track.
+        /// This mode extracts to a single BIN, slices it into track windows (including synthesized pregap/postgap where applicable),
+        /// hashes each slice, and maps slices to expected DAT members.
+        /// </remarks>
         private static bool TryScanSingleBinCueAsTracks(
             string chdPath,
             string chdmanExe,
@@ -1851,6 +1943,9 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        /// <summary>
+        /// Parses a CUE file and returns referenced track files with inferred track numbers and types.
+        /// </summary>
         private static List<(int trackNo, string fileName, string trackType)> ParseCueTrackFiles(string cuePath)
         {
             List<(int, string, string)> list = new List<(int, string, string)>();
@@ -1904,6 +1999,12 @@ namespace RomVaultCore.Scanner
             return list;
         }
 
+        /// <summary>
+        /// Parses a GDI file and returns referenced track files with inferred track numbers and types.
+        /// </summary>
+        /// <remarks>
+        /// Filenames may contain spaces, so parsing must respect quoted filenames where present.
+        /// </remarks>
         private static List<(int trackNo, string fileName, string trackType)> ParseGdiTrackFiles(string gdiPath)
         {
             List<(int, string, string)> list = new List<(int, string, string)>();
@@ -1939,6 +2040,12 @@ namespace RomVaultCore.Scanner
             return list;
         }
 
+        /// <summary>
+        /// Returns the filesystem path to the JSON cache entry for a CHD file.
+        /// </summary>
+        /// <remarks>
+        /// Cache keys are derived from the CHD's full path (MD5 hex) and stored under ToSortCache.
+        /// </remarks>
         private static string GetChdScanCachePath(string chdPath)
         {
             string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
@@ -1957,6 +2064,15 @@ namespace RomVaultCore.Scanner
             return System.IO.Path.Combine(dir, key + ".json");
         }
 
+        /// <summary>
+        /// Attempts to load a cached scan result for a CHD file and validates it against current rules.
+        /// </summary>
+        /// <remarks>
+        /// Cache validity requires:
+        /// - same source path, size, and last write time
+        /// - same cache version and mapping fingerprint
+        /// - same expected descriptor type (dvd/cue/gdi/trust)
+        /// </remarks>
         private static bool TryLoadChdScanCache(string chdPath, out ChdCacheFile cache)
         {
             cache = null;
@@ -1990,6 +2106,12 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        /// <summary>
+        /// Writes the scan result of a CHD container to the JSON cache for reuse on future scans.
+        /// </summary>
+        /// <remarks>
+        /// Only member entries (<see cref="FileType.FileCHD"/>) are persisted.
+        /// </remarks>
         private static void SaveChdScanCache(string chdPath, ScannedFile archive, bool isDvd, string descriptor, string descriptorSha1)
         {
             try

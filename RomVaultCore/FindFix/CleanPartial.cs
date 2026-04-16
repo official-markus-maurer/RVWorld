@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace RomVaultCore.FindFix
 {
+    /// <summary>
+    /// Utilities for clearing partial/incomplete sets and resetting corrupt status based on selection rules.
+    /// </summary>
     public static class ClearPartial
     {
         public static void ResetCorrupt(RvFile basePath)

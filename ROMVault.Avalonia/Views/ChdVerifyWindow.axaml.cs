@@ -6,8 +6,20 @@ using System.IO;
 
 namespace ROMVault.Avalonia.Views;
 
+/// <summary>
+/// Avalonia report window for CHD verification and mapping diagnostics.
+/// </summary>
+/// <remarks>
+/// Mirrors the WinForms CHD verify experience:
+/// - tabular member hash view
+/// - mapping view
+/// - raw textual report for copy/save workflows
+/// </remarks>
 public partial class ChdVerifyWindow : Window
 {
+    /// <summary>
+    /// Row model for CHD member hash output.
+    /// </summary>
     public class Entry
     {
         public string? Name { get; set; }
@@ -17,6 +29,9 @@ public partial class ChdVerifyWindow : Window
         public string? MD5 { get; set; }
     }
 
+    /// <summary>
+    /// Row model for CHD member mapping diagnostics.
+    /// </summary>
     public class MapEntry
     {
         public string? Expected { get; set; }
@@ -42,6 +57,11 @@ public partial class ChdVerifyWindow : Window
         Close();
     }
 
+    /// <summary>
+    /// Populates the window controls from a verification report.
+    /// </summary>
+    /// <param name="report">Report text.</param>
+    /// <param name="status">Short status summary shown above the report.</param>
     public void SetReport(string report, string status)
     {
         txtReport.Text = report ?? "";
@@ -96,6 +116,9 @@ public partial class ChdVerifyWindow : Window
         await writer.WriteAsync(txtReport.Text ?? "");
     }
 
+    /// <summary>
+    /// Parses flat report lines into table rows for member hash display.
+    /// </summary>
     private static System.Collections.Generic.List<Entry> ParseEntries(string? report)
     {
         var items = new System.Collections.Generic.List<Entry>();
@@ -119,6 +142,9 @@ public partial class ChdVerifyWindow : Window
         return items;
     }
 
+    /// <summary>
+    /// Parses the "mapping:" section into mapping rows.
+    /// </summary>
     private static System.Collections.Generic.List<MapEntry> ParseMapping(string? report)
     {
         var items = new System.Collections.Generic.List<MapEntry>();

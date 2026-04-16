@@ -6,13 +6,45 @@ using RomVaultCore.Utils;
 
 namespace RomVaultCore.Scanner;
 
+/// <summary>
+/// Abstraction over CHD tooling used by RomVault when it must materialize CHD contents on disk.
+/// </summary>
+/// <remarks>
+/// This is used by the scanning and fixing pipelines as a fallback when streaming is unavailable
+/// (or when exact byte-for-byte fidelity is required).
+/// </remarks>
 public interface IChdExtractor
 {
+    /// <summary>
+    /// Extracts the logical DVD/ISO stream from a CHD into a single ISO file.
+    /// </summary>
+    /// <param name="chdPath">Input CHD path.</param>
+    /// <param name="outIsoPath">Output ISO path.</param>
+    /// <param name="error">Tool output or error message.</param>
+    /// <returns>True on success; otherwise false.</returns>
     bool ExtractDvd(string chdPath, string outIsoPath, out string error);
+
+    /// <summary>
+    /// Extracts a CD/GDI descriptor (and referenced track files) from a CHD into the working directory.
+    /// </summary>
+    /// <param name="chdPath">Input CHD path.</param>
+    /// <param name="outDescriptorPath">Output descriptor path (typically .cue or .gdi).</param>
+    /// <param name="error">Tool output or error message.</param>
+    /// <returns>True on success; otherwise false.</returns>
     bool ExtractCd(string chdPath, string outDescriptorPath, out string error);
+
+    /// <summary>
+    /// Returns CHD metadata as reported by the underlying tool (typically <c>chdman info</c>).
+    /// </summary>
+    /// <param name="chdPath">Input CHD path.</param>
+    /// <param name="infoText">Text output from the tool.</param>
+    /// <returns>True on success; otherwise false.</returns>
     bool Info(string chdPath, out string infoText);
 }
 
+/// <summary>
+/// <see cref="IChdExtractor"/> implementation backed by <c>chdman.exe</c>.
+/// </summary>
 public sealed class ChdmanChdExtractor : IChdExtractor
 {
     private readonly string _chdman;
@@ -24,6 +56,7 @@ public sealed class ChdmanChdExtractor : IChdExtractor
         _workingDir = workingDir;
     }
 
+    /// <inheritdoc />
     public bool ExtractDvd(string chdPath, string outIsoPath, out string error)
     {
         string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));
@@ -31,6 +64,7 @@ public sealed class ChdmanChdExtractor : IChdExtractor
         return Run($"{_chdman}", $"extractdvd -i \"{absChd}\" -o \"{absOut}\" -f", out error);
     }
 
+    /// <inheritdoc />
     public bool ExtractCd(string chdPath, string outDescriptorPath, out string error)
     {
         string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));
@@ -38,6 +72,7 @@ public sealed class ChdmanChdExtractor : IChdExtractor
         return Run($"{_chdman}", $"extractcd -i \"{absChd}\" -o \"{absOut}\" -f", out error);
     }
 
+    /// <inheritdoc />
     public bool Info(string chdPath, out string infoText)
     {
         string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));

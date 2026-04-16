@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -9,6 +9,9 @@ using RomVaultCore.Utils;
 
 namespace RomVaultCore
 {
+    /// <summary>
+    /// Centralized error reporting and crash handler integration (UI dialogs, logging, and optional remote reporting).
+    /// </summary>
     public static class ReportError
     {
         public delegate void ShowError(string message);

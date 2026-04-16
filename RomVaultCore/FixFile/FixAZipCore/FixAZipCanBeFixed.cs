@@ -9,6 +9,18 @@ using static RomVaultCore.FixFile.FixAZipCore.FindSourceFile;
 
 namespace RomVaultCore.FixFile.FixAZipCore
 {
+    /// <summary>
+    /// Implements the "can be fixed" pathway for a missing member inside an archive container.
+    /// </summary>
+    /// <remarks>
+    /// This selects the best available source (raw file, other archive member, cache extraction, or CHD member)
+    /// and copies it into the output archive being built.
+    ///
+    /// CHD note:
+    /// When the chosen source is a <see cref="FileType.FileCHD"/> member, the fix pipeline must first
+    /// materialize the CHD contents to ToSortCache (see <see cref="DecompressChdFile"/>), then re-run
+    /// source selection on the extracted physical files.
+    /// </remarks>
     internal static class FixAZipCanBeFixed
     {
         /// <summary>

@@ -3,6 +3,9 @@ using DATReader.DatStore;
 
 namespace DATReader.DatClean
 {
+    /// <summary>
+    /// Applies container and compression typing rules to DAT trees (directories, archives, CHDs).
+    /// </summary>
     public static class DatSetCompressionType
     {
         public static bool ChdStrictCueGdi = false;

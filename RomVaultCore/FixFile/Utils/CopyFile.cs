@@ -22,6 +22,9 @@ using FileStream = RVIO.FileStream;
 
 namespace RomVaultCore.FixFile.Utils
 {
+    /// <summary>
+    /// Result codes returned by fix/copy operations.
+    /// </summary>
     public enum ReturnCode
     {
         Good,
@@ -40,6 +43,9 @@ namespace RomVaultCore.FixFile.Utils
     }
 
 
+    /// <summary>
+    /// Shared helper methods for Fix workflows (copy/move/extract/hash) across file and archive targets.
+    /// </summary>
     public static partial class FixFileUtils
     {
         private const int BufferSize = 32 * 1024 * 1024;
@@ -697,6 +703,13 @@ namespace RomVaultCore.FixFile.Utils
             return ReturnCode.Good;
         }
 
+        /// <summary>
+        /// Validates and finalizes destination DB state after a copy/move operation.
+        /// </summary>
+        /// <remarks>
+        /// This enforces DAT checksum requirements when present and updates file status flags to reflect
+        /// verified hashes and header-derived metadata.
+        /// </remarks>
         private static ReturnCode ValidateFileOut(RvFile fileIn, RvFile fileOut, bool rawCopy, byte[] bCRC, byte[] bSHA1, byte[] bMD5, out string error)
         {
             if (fileOut.FileType == FileType.FileZip || fileOut.FileType == FileType.FileSevenZip)
@@ -787,6 +800,13 @@ namespace RomVaultCore.FixFile.Utils
             return ReturnCode.Good;
         }
 
+        /// <summary>
+        /// Validates and finalizes destination DB state after a copy/move operation without enforcing DAT checksums.
+        /// </summary>
+        /// <remarks>
+        /// This is used when correctness has been established outside of "file-by-file DAT hash match", such as
+        /// CHD parity moves where container hashes are not intended to match DAT track hashes.
+        /// </remarks>
         private static ReturnCode ValidateFileOutSkipDatCheck(RvFile fileIn, RvFile fileOut, bool rawCopy, byte[] bCRC, byte[] bSHA1, byte[] bMD5, out string error)
         {
             if (fileOut.FileType == FileType.FileZip || fileOut.FileType == FileType.FileSevenZip)

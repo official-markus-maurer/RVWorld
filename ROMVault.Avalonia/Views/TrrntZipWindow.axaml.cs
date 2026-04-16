@@ -34,6 +34,9 @@ namespace ROMVault.Avalonia.Views;
 
         private BlockingCollection<cFile>? bccFile;
 
+        /// <summary>
+        /// Per-worker-thread state used to update thread labels and progress indicators.
+        /// </summary>
         private class ThreadProcess
         {
             public TextBlock? threadLabel;

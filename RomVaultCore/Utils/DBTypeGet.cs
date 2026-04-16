@@ -8,6 +8,9 @@ using RomVaultCore.RvDB;
 
 namespace RomVaultCore.Utils
 {
+    /// <summary>
+    /// Helper methods for mapping between directory/container types and their file-on-disk representations.
+    /// </summary>
     public class DBTypeGet
     {
         public static FileType DirFromFile(FileType ft)

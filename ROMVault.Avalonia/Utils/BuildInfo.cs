@@ -5,8 +5,14 @@ using System.Reflection;
 
 namespace ROMVault.Avalonia.Utils;
 
+/// <summary>
+/// Build and version metadata helpers for the Avalonia UI application.
+/// </summary>
 public static class BuildInfo
 {
+    /// <summary>
+    /// Gets the application version string derived from the entry assembly version.
+    /// </summary>
     public static string VersionString
     {
         get
@@ -20,6 +26,9 @@ public static class BuildInfo
         }
     }
 
+    /// <summary>
+    /// Gets a build timestamp string derived from the executable file write time, when available.
+    /// </summary>
     public static string BuildTimestampString
     {
         get
@@ -37,6 +46,9 @@ public static class BuildInfo
         }
     }
 
+    /// <summary>
+    /// Gets a compact display string combining version and timestamp when available.
+    /// </summary>
     public static string DisplayString
     {
         get
@@ -48,4 +60,3 @@ public static class BuildInfo
         }
     }
 }
-

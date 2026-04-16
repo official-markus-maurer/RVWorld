@@ -9,9 +9,24 @@ using static RomVaultCore.FixFile.FixAZipCore.FindSourceFile;
 
 namespace RomVaultCore.FixFile
 {
+    /// <summary>
+    /// Executes fix actions for regular file nodes based on <see cref="RepStatus"/>.
+    /// </summary>
+    /// <remarks>
+    /// This handles delete/move/rename and "can be fixed" cases for non-container files, while delegating
+    /// CHD-container-specific workflows to dedicated CHD fix helpers.
+    /// </remarks>
     public static class FixAFile
     {
 
+        /// <summary>
+        /// Applies the appropriate fix action for a single file node.
+        /// </summary>
+        /// <param name="fixFile">File to process.</param>
+        /// <param name="fileProcessQueue">Queue of files involved in follow-up cleanup/state updates.</param>
+        /// <param name="totalFixed">Running count of successfully fixed files.</param>
+        /// <param name="errorMessage">Error message on failure.</param>
+        /// <returns>Result code indicating success/failure class.</returns>
         public static ReturnCode FixFile(RvFile fixFile, List<RvFile> fileProcessQueue, ref int totalFixed, out string errorMessage)
         {
             errorMessage = "";
@@ -107,6 +122,9 @@ namespace RomVaultCore.FixFile
             }
         }
 
+        /// <summary>
+        /// Deletes a file node after running safety checks, then updates DB state.
+        /// </summary>
         private static ReturnCode FixFileDelete(RvFile fixFile, out string errorMessage)
         {
             ReturnCode retCode = FixFileUtils.DoubleCheckDelete(fixFile, out errorMessage);
@@ -135,6 +153,9 @@ namespace RomVaultCore.FixFile
             return ReturnCode.Good;
         }
 
+        /// <summary>
+        /// Moves a file to ToSort and creates/updates the corresponding ToSort DB entry.
+        /// </summary>
         private static ReturnCode FixFileMoveToSort(RvFile fixFile, out string errorMessage)
         {
             ReturnCode returnCode;

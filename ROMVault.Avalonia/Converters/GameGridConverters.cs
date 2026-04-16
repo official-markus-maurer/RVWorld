@@ -237,10 +237,17 @@ public class GameGridForegroundConverter : IValueConverter
     }
 }
 
+/// <summary>
+/// Produces an extras badge for a game directory.
+/// </summary>
+/// <remarks>
+/// Returns small labels like ART or TXT based on detected sidecar content.
+/// </remarks>
 public class GameExtrasBadgeConverter : IValueConverter
 {
     private static readonly Dictionary<RvFile, string?> Cache = new();
 
+    /// <inheritdoc />
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not RvFile dir)
@@ -284,6 +291,7 @@ public class GameExtrasBadgeConverter : IValueConverter
         return result;
     }
 
+    /// <inheritdoc />
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();

@@ -12,8 +12,23 @@ using Directory = RVIO.Directory;
 
 namespace RomVaultCore.FixFile.Utils
 {
+    /// <summary>
+    /// Extracts CHD contents into the ToSort cache so individual members can be used as physical sources during fixing.
+    /// </summary>
+    /// <remarks>
+    /// RomVault represents CHD members as <see cref="FileType.FileCHD"/> nodes, which are virtual.
+    /// When a fix routine needs real files (e.g., to build a zip/7z, or to copy a track), this helper
+    /// materializes them to disk and wires them into the member file groups.
+    /// </remarks>
     public static class DecompressChdFile
     {
+        /// <summary>
+        /// Decompresses a CHD into a uniquely named cache directory and registers extracted files into the DB.
+        /// </summary>
+        /// <param name="dbChdFile">CHD container node.</param>
+        /// <param name="filesUsedForFix">Optional set of files that should be considered "used" for fix cleanup.</param>
+        /// <param name="error">Error message on failure.</param>
+        /// <returns>A <see cref="ReturnCode"/> indicating success or failure.</returns>
         public static ReturnCode DecompressSourceChdFile(RvFile dbChdFile, Dictionary<string, RvFile> filesUsedForFix, out string error)
         {
             error = "";

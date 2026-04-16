@@ -231,6 +231,13 @@ public partial class MainWindow : Window
         Closing += (_, _) => SaveUiState();
     }
 
+    /// <summary>
+    /// Menu action: verify a CHD and show the report window.
+    /// </summary>
+    /// <remarks>
+    /// This is a standalone file-picker workflow (not tied to a DAT node) and uses
+    /// <see cref="RomVaultCore.Utils.ChdVerify.TryGenerateReport(string,out string)"/> to generate output.
+    /// </remarks>
     private async void OnVerifyChdClick(object? sender, RoutedEventArgs e)
     {
         var topLevel = TopLevel.GetTopLevel(this);
@@ -1311,10 +1318,24 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Parsed representation of the game-filter query string used by the Avalonia main window.
+    /// </summary>
     private sealed class GameFilter
     {
+        /// <summary>
+        /// Free-text query applied against game name and related fields.
+        /// </summary>
         public string? FreeText { get; set; }
+
+        /// <summary>
+        /// Free-text query restricted to description fields.
+        /// </summary>
         public string? DescText { get; set; }
+
+        /// <summary>
+        /// Status filters parsed from "status:" clauses.
+        /// </summary>
         public HashSet<string> Statuses { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -1772,11 +1793,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Loads MAME Software List style artwork panels.
-    /// </summary>
-    /// <param name="tGame">The game file.</param>
-    /// <param name="extraPath">The path to the artwork assets.</param>
     /// <summary>
     /// Loads MAME Software List style artwork panels.
     /// </summary>

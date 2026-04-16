@@ -19,6 +19,14 @@ namespace RomVaultCore.RvDB
         Delete
     }
 
+    /// <summary>
+    /// Shared DB helper methods used by scanning, find-fixes, and fix execution flows.
+    /// </summary>
+    /// <remarks>
+    /// CHD-specific responsibilities include:
+    /// - validating whether a set is eligible for CHD creation
+    /// - name-based CHD/disc-source compatibility shortcuts used during fix discovery
+    /// </remarks>
     public static class DBHelper
     {
         private static readonly byte[] ZeroByteMD5;
@@ -172,8 +180,13 @@ namespace RomVaultCore.RvDB
         }
 
 
-        // find fix files, if the gotFile has been fully scanned check the SHA1/MD5, if not then just return true as the CRC/Size is all we have to go on.
-        // this means that if the gotfile has not been fully scanned this will return true even with the source and destination SHA1/MD5 possibly different.
+        /// <summary>
+        /// Returns whether a collected file can be considered a valid source for a missing DAT file.
+        /// </summary>
+        /// <remarks>
+        /// If the source has not been deep-scanned, this may rely on weaker evidence (CRC/size) and allow
+        /// potential SHA1/MD5 uncertainty until deeper verification occurs.
+        /// </remarks>
         public static bool CheckIfMissingFileCanBeFixedByGotFile(RvFile missingFile, RvFile gotFile)
         {
             if (IsDiscChdNameMatch(missingFile, gotFile))
@@ -209,6 +222,16 @@ namespace RomVaultCore.RvDB
             return IsChdCreationAllowedForSet(missingChdFile, out _);
         }
 
+        /// <summary>
+        /// Determines whether a set is eligible for CHD creation during fixing.
+        /// </summary>
+        /// <remarks>
+        /// CHD creation is blocked for sets containing unresolved MIA entries, because generating a CHD from
+        /// partial content would produce misleading results.
+        /// </remarks>
+        /// <param name="missingChdFile">Missing CHD file node or CHD container node.</param>
+        /// <param name="reason">Human-readable reason when creation is not allowed.</param>
+        /// <returns>True when CHD creation is allowed; otherwise false.</returns>
         public static bool IsChdCreationAllowedForSet(RvFile missingChdFile, out string reason)
         {
             reason = "";

@@ -4,6 +4,9 @@ using Avalonia.Media;
 
 namespace ROMVault.Avalonia.Views;
 
+/// <summary>
+/// Thin decorative control used by the tree header to draw a vertical guide line matching the tree indent.
+/// </summary>
 public class TreeGuideHeader : Control
 {
     public override void Render(DrawingContext context)

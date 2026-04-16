@@ -6,8 +6,21 @@ using RomVaultCore.RvDB;
 
 namespace RomVaultCore.Utils;
 
+/// <summary>
+/// Generates synthetic CUE/GDI descriptors from CHD track metadata.
+/// </summary>
+/// <remarks>
+/// These descriptors are used to satisfy DAT entries that expect a descriptor file when strict
+/// byte-for-byte matching is not required (or when the descriptor is verified against DAT hashes).
+/// </remarks>
 public static class ChdDescriptorGenerator
 {
+    /// <summary>
+    /// Builds a synthetic CUE file using CHD track metadata.
+    /// </summary>
+    /// <param name="tracks">Track layout as reported by CHD metadata.</param>
+    /// <param name="expectedByTrack">Optional mapping of DAT track numbers to expected file names.</param>
+    /// <returns>CUE text.</returns>
     public static string BuildCue(List<ChdCdTrackInfo> tracks, Dictionary<int, RvFile> expectedByTrack)
     {
         StringBuilder sb = new StringBuilder();
@@ -34,6 +47,12 @@ public static class ChdDescriptorGenerator
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Builds a synthetic GDI file using CHD track metadata.
+    /// </summary>
+    /// <param name="tracks">Track layout as reported by CHD metadata.</param>
+    /// <param name="expectedByTrack">Optional mapping of DAT track numbers to expected file names.</param>
+    /// <returns>GDI text.</returns>
     public static string BuildGdi(List<ChdCdTrackInfo> tracks, Dictionary<int, RvFile> expectedByTrack)
     {
         StringBuilder sb = new StringBuilder();
@@ -97,4 +116,3 @@ public static class ChdDescriptorGenerator
         ff = (int)(frames - ss * 75);
     }
 }
-

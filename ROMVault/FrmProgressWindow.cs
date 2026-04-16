@@ -14,6 +14,9 @@ namespace ROMVault
 {
     public delegate void Finished();
 
+    /// <summary>
+    /// Modal progress window for long-running operations with cancel support and optional error list.
+    /// </summary>
     public partial class FrmProgressWindow : Form
     {
         private readonly string _titleRoot;

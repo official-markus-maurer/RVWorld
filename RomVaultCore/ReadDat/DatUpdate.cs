@@ -14,6 +14,9 @@ using RVIO;
 
 namespace RomVaultCore.ReadDat
 {
+    /// <summary>
+    /// Updates the in-memory and cached database status based on the current set of DAT files on disk.
+    /// </summary>
     public static partial class DatUpdate
     {
         private static int _datCount;

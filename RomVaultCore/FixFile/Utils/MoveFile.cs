@@ -11,6 +11,20 @@ namespace RomVaultCore.FixFile.Utils
 
     public static partial class FixFileUtils
     {
+        /// <summary>
+        /// Moves a source file into its destination location and updates DB state.
+        /// </summary>
+        /// <remarks>
+        /// This is used by the fix pipeline for rename/move operations, including CHD parity moves.
+        ///
+        /// When <paramref name="forceMove"/> is true, the move is attempted even if the usual
+        /// <see cref="TestFileMove(RvFile,RvFile)"/> heuristic would skip it.
+        ///
+        /// When <paramref name="skipDatValidation"/> is true, destination checksum validation against DAT values
+        /// is bypassed and the output file inherits the input file's verified hashes. This is used when we have
+        /// already proven equivalence via an alternate mechanism (e.g., CHD track parity) and container hashes
+        /// are not comparable or not intended to match.
+        /// </remarks>
         public static ReturnCode MoveFile(RvFile fileIn, RvFile fileOut, string outFilename, out bool fileMoved, out string error, bool forceMove = false, bool skipDatValidation = false)
         {
             error = "";
@@ -90,6 +104,9 @@ namespace RomVaultCore.FixFile.Utils
             return ReturnCode.Good;
         }
 
+        /// <summary>
+        /// Determines whether the current DB state indicates a file should be moved/renamed.
+        /// </summary>
         public static bool TestFileMove(RvFile fileIn, RvFile fileOut)
         {
             if (fileIn == null)

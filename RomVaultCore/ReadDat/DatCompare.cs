@@ -1,4 +1,4 @@
-﻿/******************************************************
+/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
  *     Copyright 2025                                 *
@@ -13,6 +13,9 @@ namespace RomVaultCore.ReadDat
 {
     public static partial class DatUpdate
     {
+        /// <summary>
+        /// Compares database files against DAT entries, including alternate-hash matching rules.
+        /// </summary>
         private static class DatCompare
         {
             internal static bool DatMergeCompare(RvFile dbFile, DatBase testFile, int indexCase, out bool altMatch)

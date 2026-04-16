@@ -10,8 +10,23 @@ using System.Text.RegularExpressions;
 
 namespace RomVaultCore.Utils;
 
+/// <summary>
+/// Exports CHD contents to regular files (ISO, CUE/GDI, tracks) in a target directory.
+/// </summary>
+/// <remarks>
+/// Export is used as an explicit workflow and, optionally, as a fix fallback when a DAT expects disc source files.
+/// Depending on settings and metadata availability, export may use streaming (no temp files) or chdman extraction.
+/// </remarks>
 public static class ChdExport
 {
+    /// <summary>
+    /// Exports CHD contents into <paramref name="outputDir"/> using a list of expected member names.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="outputDir">Destination directory for exported files.</param>
+    /// <param name="expectedMemberNames">Expected member filenames (used for naming and optional verification).</param>
+    /// <param name="report">Text report.</param>
+    /// <returns>0 on success; non-zero on failure.</returns>
     public static int Export(string chdPath, string outputDir, IReadOnlyList<string> expectedMemberNames, out string report)
     {
         List<RvFile> expected = new List<RvFile>();
@@ -20,6 +35,14 @@ public static class ChdExport
         return Export(chdPath, outputDir, expected, out report);
     }
 
+    /// <summary>
+    /// Exports CHD contents into <paramref name="outputDir"/> using expected member metadata.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="outputDir">Destination directory for exported files.</param>
+    /// <param name="expectedMembers">Expected members (used for naming and optional verification).</param>
+    /// <param name="report">Text report.</param>
+    /// <returns>0 on success; non-zero on failure.</returns>
     public static int Export(string chdPath, string outputDir, IReadOnlyList<RvFile> expectedMembers, out string report)
     {
         report = "";
@@ -710,6 +733,9 @@ public static class ChdExport
         }
     }
 
+    /// <summary>
+    /// Intermediate CD track layout record used while writing CUE/GDI index points and synthesized gaps.
+    /// </summary>
     private sealed class CueIndexTrack
     {
         public int TrackNo;

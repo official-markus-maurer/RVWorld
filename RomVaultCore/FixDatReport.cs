@@ -1,4 +1,4 @@
-﻿using DATReader.DatStore;
+using DATReader.DatStore;
 using DATReader.DatWriter;
 using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
@@ -9,6 +9,9 @@ using System.IO;
 
 namespace RomVaultCore
 {
+    /// <summary>
+    /// Generates "fixdat" reports (DATs containing missing/fixable entries) for a selected subtree.
+    /// </summary>
     public static class FixDatReport
     {
 

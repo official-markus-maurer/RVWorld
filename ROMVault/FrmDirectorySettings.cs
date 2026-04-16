@@ -13,6 +13,9 @@ using RomVaultCore.Utils;
 
 namespace ROMVault
 {
+    /// <summary>
+    /// UI for editing per-directory scan and archive behavior rules (merge/split, compression type, CHD options).
+    /// </summary>
     public partial class FrmDirectorySettings : Form
     {
         private Color _cMagenta = Color.FromArgb(255, 214, 255);

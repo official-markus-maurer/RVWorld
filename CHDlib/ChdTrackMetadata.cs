@@ -7,19 +7,63 @@ using System.Text.RegularExpressions;
 
 namespace CHDSharpLib;
 
+/// <summary>
+/// Normalized description of a CD track as derived from CHD metadata.
+/// </summary>
+/// <remarks>
+/// Frames are 75 Hz CD frames. <see cref="StartFrame"/> is computed as a running cursor over the track list,
+/// with pregaps/postgaps taken into account, and is suitable for deriving byte offsets into the logical stream.
+/// </remarks>
 public sealed class ChdCdTrackInfo
 {
+    /// <summary>
+    /// 1-based track number.
+    /// </summary>
     public int TrackNo { get; set; }
+
+    /// <summary>
+    /// Track type as described by CHD metadata (for example: AUDIO, MODE1/2048, MODE1/2352).
+    /// </summary>
     public string TrackType { get; set; }
+
+    /// <summary>
+    /// Start frame (75 Hz) of the track's INDEX 01 region within the logical stream.
+    /// </summary>
     public long StartFrame { get; set; }
+
+    /// <summary>
+    /// Track length in frames (75 Hz).
+    /// </summary>
     public long Frames { get; set; }
+
+    /// <summary>
+    /// Pregap length in frames (75 Hz).
+    /// </summary>
     public long PreGapFrames { get; set; }
+
+    /// <summary>
+    /// Postgap length in frames (75 Hz).
+    /// </summary>
     public long PostGapFrames { get; set; }
+
+    /// <summary>
+    /// Sector size in bytes (for example: 2048 for data tracks or 2352 for audio/raw sectors).
+    /// </summary>
     public int SectorSize { get; set; }
 }
 
+/// <summary>
+/// Reads and parses CHD metadata into higher-level track layout information.
+/// </summary>
 public static class ChdMetadata
 {
+    /// <summary>
+    /// Attempts to read the CD track layout from CHD metadata.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="tracks">Parsed track layout.</param>
+    /// <param name="error">Error message on failure.</param>
+    /// <returns>True when track metadata is available and parsed; otherwise false.</returns>
     public static bool TryReadCdTrackLayout(string chdPath, out List<ChdCdTrackInfo> tracks, out string error)
     {
         tracks = new List<ChdCdTrackInfo>();
@@ -102,6 +146,12 @@ public static class ChdMetadata
         }
     }
 
+    /// <summary>
+    /// Reads the CHD metadata linked list into raw tag/data tuples.
+    /// </summary>
+    /// <param name="file">Readable CHD stream.</param>
+    /// <param name="chd">Parsed CHD header containing metadata offsets.</param>
+    /// <returns>List of metadata entries.</returns>
     private static List<(uint tag, byte[] data)> ReadMetadataEntries(Stream file, CHDHeader chd)
     {
         using BinaryReader br = new BinaryReader(file, Encoding.UTF8, true);
@@ -126,6 +176,11 @@ public static class ChdMetadata
         return list;
     }
 
+    /// <summary>
+    /// Filters and parses CD track metadata entries into normalized track info records.
+    /// </summary>
+    /// <param name="metas">Raw metadata entries.</param>
+    /// <returns>Parsed track info list (may be empty).</returns>
     private static List<ChdCdTrackInfo> ParseCdTracks(List<(uint tag, byte[] data)> metas)
     {
         List<ChdCdTrackInfo> tracks = new List<ChdCdTrackInfo>();
@@ -146,6 +201,11 @@ public static class ChdMetadata
         return tracks;
     }
 
+    /// <summary>
+    /// Determines whether a metadata tag string represents a CD track entry.
+    /// </summary>
+    /// <param name="tag">FourCC tag text.</param>
+    /// <returns>True when the tag is recognized as a CD track tag; otherwise false.</returns>
     private static bool IsCdTrackTag(string tag)
     {
         if (string.IsNullOrWhiteSpace(tag))
@@ -153,6 +213,11 @@ public static class ChdMetadata
         return tag.StartsWith("CHT", StringComparison.OrdinalIgnoreCase) || tag.StartsWith("CHG", StringComparison.OrdinalIgnoreCase) || tag.StartsWith("CDR", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Converts a FourCC tag value to its 4-character string form.
+    /// </summary>
+    /// <param name="tag">FourCC tag encoded as a 32-bit integer.</param>
+    /// <returns>4-character tag string.</returns>
     private static string TagToString(uint tag)
     {
         char a = (char)((tag >> 24) & 0xFF);
@@ -162,6 +227,11 @@ public static class ChdMetadata
         return new string(new[] { a, b, c, d });
     }
 
+    /// <summary>
+    /// Attempts to parse a CD track metadata record from textual key/value content.
+    /// </summary>
+    /// <param name="text">Metadata text block.</param>
+    /// <returns>Parsed track info or null when parsing fails.</returns>
     private static ChdCdTrackInfo TryParseCdTrackText(string text)
     {
         try
@@ -198,6 +268,11 @@ public static class ChdMetadata
         }
     }
 
+    /// <summary>
+    /// Resolves sector size from a track type string.
+    /// </summary>
+    /// <param name="trackType">Track type string.</param>
+    /// <returns>Sector size in bytes.</returns>
     private static int ResolveSectorSize(string trackType)
     {
         if (string.IsNullOrWhiteSpace(trackType))
@@ -214,18 +289,36 @@ public static class ChdMetadata
         return 2352;
     }
 
+    /// <summary>
+    /// Reads an integer field from a key/value metadata record.
+    /// </summary>
+    /// <param name="text">Metadata text block.</param>
+    /// <param name="key">Key name.</param>
+    /// <returns>Parsed integer value, or 0 on failure.</returns>
     private static int TryGetInt(string text, string key)
     {
         string s = TryGetString(text, key);
         return int.TryParse(s, out int v) ? v : 0;
     }
 
+    /// <summary>
+    /// Reads an integer field from a key/value metadata record as a 64-bit value.
+    /// </summary>
+    /// <param name="text">Metadata text block.</param>
+    /// <param name="key">Key name.</param>
+    /// <returns>Parsed value, or 0 on failure.</returns>
     private static long TryGetLong(string text, string key)
     {
         string s = TryGetString(text, key);
         return long.TryParse(s, out long v) ? v : 0;
     }
 
+    /// <summary>
+    /// Extracts a string field from a key/value metadata record.
+    /// </summary>
+    /// <param name="text">Metadata text block.</param>
+    /// <param name="key">Key name.</param>
+    /// <returns>Extracted string, or an empty string when not present.</returns>
     private static string TryGetString(string text, string key)
     {
         Match m = Regex.Match(text, key + @":\s*""([^""]+)""", RegexOptions.IgnoreCase);

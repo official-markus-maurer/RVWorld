@@ -11,6 +11,20 @@ using StorageList;
 
 namespace RomVaultCore.FindFix
 {
+    /// <summary>
+    /// Builds fix candidate groups by merging selected "got" files with selected missing DAT entries.
+    /// </summary>
+    /// <remarks>
+    /// This pipeline:
+    /// - resets repair status
+    /// - gathers selected got/missing files
+    /// - groups got files by hashes (CRC + secondary SHA1/MD5/alt indexes)
+    /// - merges missing files into candidate groups
+    /// - runs fixability checks and partial-set cleanup
+    ///
+    /// CHD-specific behavior is integrated during merge-in:
+    /// missing CHD members may be associated by disc-source naming or hash family matches.
+    /// </remarks>
     public static class FindFixes
     {
         private static ThreadWorker _thWrk;
@@ -31,6 +45,10 @@ namespace RomVaultCore.FindFix
             return false;
         }
 
+        /// <summary>
+        /// Executes the full "Find Fixes" pass for the current selected tree.
+        /// </summary>
+        /// <param name="thWrk">Progress/cancellation worker.</param>
         public static void ScanFiles(ThreadWorker thWrk)
         {
             try
@@ -154,6 +172,9 @@ namespace RomVaultCore.FindFix
             }
         }
 
+        /// <summary>
+        /// Collects selected got and missing leaf files from the DB tree.
+        /// </summary>
         internal static void GetSelectedFiles(RvFile val, bool selected, List<RvFile> gotFiles, List<RvFile> missingFiles)
         {
             if (selected)
@@ -199,6 +220,9 @@ namespace RomVaultCore.FindFix
         //  add the rom to an existing set or make a new set.
 
 
+        /// <summary>
+        /// Groups collected files into CRC families and merges exact duplicates.
+        /// </summary>
         internal static void MergeGotFiles(IEnumerable<RvFile> gotFilesSortedByCRC, out FileGroup[] fileGroups)
         {
             ByteSortedList<FileGroup, RvFile> listFileGroupsOut = new ByteSortedList<FileGroup, RvFile>(getByteFunc, CompareCRC, newFunc, mergeFunc);
@@ -251,6 +275,15 @@ namespace RomVaultCore.FindFix
 
 
 
+        /// <summary>
+        /// Attempts to attach each missing file to a compatible got-file group.
+        /// </summary>
+        /// <remarks>
+        /// Matching priority is:
+        /// - alt hashes (when header-based alt hashes are relevant)
+        /// - primary hashes (CRC/SHA1/MD5)
+        /// - CHD disc-source naming fallback for descriptor/track scenarios
+        /// </remarks>
         public static void MergeInMissingFiles(FileGroup[] mergedCRCFamily, FileGroup[] mergedSHA1Family, FileGroup[] mergedMD5Family,
                                                 FileGroup[] mergedAltCRCFamily, FileGroup[] mergedAltSHA1Family, FileGroup[] mergedAltMD5Family, List<RvFile> missingFiles)
         {

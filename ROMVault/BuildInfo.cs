@@ -5,8 +5,14 @@ using System.Reflection;
 
 namespace ROMVault;
 
+/// <summary>
+/// Build and version metadata helpers for the WinForms application.
+/// </summary>
 internal static class BuildInfo
 {
+    /// <summary>
+    /// Gets a build timestamp string derived from the executable file write time, when available.
+    /// </summary>
     internal static string BuildTimestampString
     {
         get
@@ -24,6 +30,9 @@ internal static class BuildInfo
         }
     }
 
+    /// <summary>
+    /// Gets the application version string derived from the entry assembly version.
+    /// </summary>
     internal static string VersionString
     {
         get
@@ -37,6 +46,9 @@ internal static class BuildInfo
         }
     }
 
+    /// <summary>
+    /// Gets a compact display string combining version and timestamp when available.
+    /// </summary>
     internal static string DisplayString
     {
         get
@@ -48,4 +60,3 @@ internal static class BuildInfo
         }
     }
 }
-

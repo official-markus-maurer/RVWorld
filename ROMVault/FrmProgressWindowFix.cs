@@ -14,6 +14,9 @@ using RomVaultCore.FixFile;
 
 namespace ROMVault
 {
+    /// <summary>
+    /// Progress window specialized for Fix workflows, including paging of the fix report grid.
+    /// </summary>
     public partial class FrmProgressWindowFix : Form
     {
         private readonly Form _parentForm;

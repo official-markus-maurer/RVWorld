@@ -11,8 +11,18 @@ using RomVaultCore.Utils;
 
 namespace RomVaultCore.Utils;
 
+/// <summary>
+/// Produces human-readable verification reports for CHD containers and their expected members.
+/// </summary>
+/// <remarks>
+/// This is used by both UI front-ends to provide a "verify container" workflow and, optionally,
+/// a parity report comparing streaming hashes against extraction hashes.
+/// </remarks>
 public static class ChdVerify
 {
+    /// <summary>
+    /// Describes a mapping decision between an expected member and an extracted/streamed member.
+    /// </summary>
     public sealed class MapRow
     {
         public string Expected { get; set; }
@@ -20,12 +30,26 @@ public static class ChdVerify
         public string Reason { get; set; }
     }
 
+    /// <summary>
+    /// Generates a verification report using a provided expected member list.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="expectedMembers">Expected members (track files and optional descriptors).</param>
+    /// <param name="report">Text report.</param>
+    /// <param name="mapping">Mapping rows describing how expected entries were matched.</param>
+    /// <returns>0 on success; non-zero on failure.</returns>
     public static int TryGenerateReport(string chdPath, System.Collections.Generic.IReadOnlyList<RvFile> expectedMembers, out string report, out System.Collections.Generic.List<MapRow> mapping)
     {
         int rc = TryGenerateReportInternal(chdPath, expectedMembers, null, out report, out mapping, out _, out _);
         return rc;
     }
 
+    /// <summary>
+    /// Generates a verification report without a DAT expectation list.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="report">Text report.</param>
+    /// <returns>0 on success; non-zero on failure.</returns>
     public static int TryGenerateReport(string chdPath, out string report)
     {
         System.Collections.Generic.List<MapRow> dummy;
@@ -33,6 +57,13 @@ public static class ChdVerify
         return rc;
     }
 
+    /// <summary>
+    /// Generates a parity report comparing streaming-hash results against extraction-hash results.
+    /// </summary>
+    /// <param name="chdPath">CHD file path.</param>
+    /// <param name="expectedMembers">Expected members used for mapping and hashing windows.</param>
+    /// <param name="report">Text report.</param>
+    /// <returns>0 when parity matches; non-zero otherwise.</returns>
     public static int TryGenerateParityReport(string chdPath, System.Collections.Generic.IReadOnlyList<RvFile> expectedMembers, out string report)
     {
         report = "";

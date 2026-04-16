@@ -3,6 +3,9 @@ using System.IO;
 
 namespace FileScanner;
 
+/// <summary>
+/// Read-only stream wrapper exposing a seekable slice of an underlying seekable stream.
+/// </summary>
 public sealed class ReadOnlySliceStream : Stream
 {
     private readonly Stream _baseStream;
@@ -10,6 +13,12 @@ public sealed class ReadOnlySliceStream : Stream
     private readonly long _length;
     private long _position;
 
+    /// <summary>
+    /// Creates a stream view over <paramref name="baseStream"/> starting at <paramref name="start"/> and spanning <paramref name="length"/> bytes.
+    /// </summary>
+    /// <param name="baseStream">Underlying stream to read from.</param>
+    /// <param name="start">Start offset within <paramref name="baseStream"/>.</param>
+    /// <param name="length">Length of the exposed slice.</param>
     public ReadOnlySliceStream(Stream baseStream, long start, long length)
     {
         if (baseStream == null)
@@ -28,16 +37,22 @@ public sealed class ReadOnlySliceStream : Stream
         _baseStream.Seek(_start, SeekOrigin.Begin);
     }
 
+    /// <inheritdoc />
     public override bool CanRead => true;
+    /// <inheritdoc />
     public override bool CanSeek => true;
+    /// <inheritdoc />
     public override bool CanWrite => false;
+    /// <inheritdoc />
     public override long Length => _length;
+    /// <inheritdoc />
     public override long Position
     {
         get => _position;
         set => Seek(value, SeekOrigin.Begin);
     }
 
+    /// <inheritdoc />
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (_position >= _length)
@@ -53,6 +68,7 @@ public sealed class ReadOnlySliceStream : Stream
         return read;
     }
 
+    /// <inheritdoc />
     public override long Seek(long offset, SeekOrigin origin)
     {
         long newPos;
@@ -80,15 +96,18 @@ public sealed class ReadOnlySliceStream : Stream
         return _position;
     }
 
+    /// <inheritdoc />
     public override void Flush()
     {
     }
 
+    /// <inheritdoc />
     public override void SetLength(long value)
     {
         throw new NotSupportedException();
     }
 
+    /// <inheritdoc />
     public override void Write(byte[] buffer, int offset, int count)
     {
         throw new NotSupportedException();

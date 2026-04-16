@@ -29,6 +29,21 @@ namespace RomVaultCore.RvDB
 
 
 
+    /// <summary>
+    /// Core node type for RomVault's in-memory database tree.
+    /// </summary>
+    /// <remarks>
+    /// A single <see cref="RvFile"/> can represent:
+    /// - a filesystem directory (<see cref="FileType.Dir"/>)
+    /// - an archive container (<see cref="FileType.Zip"/> / <see cref="FileType.SevenZip"/>)
+    /// - a CHD container (<see cref="FileType.CHD"/>)
+    /// - a regular file (<see cref="FileType.File"/>)
+    /// - a member inside a container (<see cref="FileType.FileZip"/> / <see cref="FileType.FileSevenZip"/> / <see cref="FileType.FileCHD"/>)
+    ///
+    /// CHD containers behave like directories in the UI and merge pipeline:
+    /// the container node (<see cref="FileType.CHD"/>) holds children that represent track blobs and
+    /// optional descriptors, typically as <see cref="FileType.FileCHD"/>.
+    /// </remarks>
     public partial class RvFile
     {
         public string Name { get; set; } // The Name of the File or Directory
@@ -104,10 +119,25 @@ namespace RomVaultCore.RvDB
         public int ZipFileIndex { get; set; } = -1;
         public ulong? ZipFileHeaderPosition;
 
+        /// <summary>
+        /// Parsed CHD version when this node represents a CHD container.
+        /// </summary>
         public uint? CHDVersion;
+        /// <summary>
+        /// Status string describing CHD scan health and match outcome.
+        /// </summary>
         public string ChdStatus { get; set; }
+        /// <summary>
+        /// Scan method used to derive member hashes (e.g. streaming vs extractcd).
+        /// </summary>
         public string ChdScanMethod { get; set; }
+        /// <summary>
+        /// Strategy used to match CHD members to expected DAT entries.
+        /// </summary>
         public string ChdHashMatchMode { get; set; }
+        /// <summary>
+        /// Descriptor match status (external/synthetic/true) when a CUE/GDI is involved.
+        /// </summary>
         public string ChdDescriptorMatch { get; set; }
 
         // Properties for UI Binding

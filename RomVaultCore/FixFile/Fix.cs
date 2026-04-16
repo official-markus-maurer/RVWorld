@@ -15,8 +15,27 @@ using RVIO;
 
 namespace RomVaultCore.FixFile
 {
+    /// <summary>
+    /// Top-level fix orchestrator.
+    /// </summary>
+    /// <remarks>
+    /// Walks the selected DB tree and applies fix operations according to <see cref="RepStatus"/>.
+    ///
+    /// Container-level fixes:
+    /// - Zip/7z containers are handled by <see cref="FixAZip"/>.
+    /// - CHD containers are handled by <see cref="FixAChd"/>.
+    ///
+    /// Leaf file fixes are handled by <see cref="FixAFile"/>.
+    ///
+    /// The fix pass maintains a queue of follow-up operations (<c>fileProcessQueue</c>) so dependent operations
+    /// can be processed deterministically.
+    /// </remarks>
     public static class Fix
     {
+        /// <summary>
+        /// Executes the fix workflow for all selected sets.
+        /// </summary>
+        /// <param name="thWrk">Progress/cancellation worker.</param>
         public static void PerformFixes(ThreadWorker thWrk)
         {
             try
@@ -84,6 +103,9 @@ namespace RomVaultCore.FixFile
             }
         }
 
+        /// <summary>
+        /// Counts fixable leaf operations under a directory for progress range reporting.
+        /// </summary>
         private static int CountFixDir(RvFile dir, bool lastSelected)
         {
             int count = 0;
@@ -147,6 +169,9 @@ namespace RomVaultCore.FixFile
         }
 
 
+        /// <summary>
+        /// Fixes all children under a directory, respecting selection state and processing queued follow-ups.
+        /// </summary>
         private static ReturnCode FixDir(RvFile dir, bool lastSelected, List<RvFile> fileProcessQueue, ref int totalFixed, ref int reportedFixed, Stopwatch cacheSaveTimer)
         {
             //Debug.WriteLine(dir.FullName);
@@ -204,6 +229,9 @@ namespace RomVaultCore.FixFile
         }
 
 
+        /// <summary>
+        /// Dispatches fixing for a single node based on its <see cref="FileType"/> and status.
+        /// </summary>
         private static ReturnCode FixBase(RvFile child, bool thisSelected, List<RvFile> fileProcessQueue, ref int totalFixed, ref int reportedFixed, Stopwatch cacheSaveTimer)
         {
             // skip any files that have already been deleted

@@ -4,19 +4,65 @@ using System.IO;
 
 namespace CHDSharpLib;
 
+/// <summary>
+/// Exposes the logical, decompressed byte stream represented by a CHD file.
+/// </summary>
+/// <remarks>
+/// This stream reads CHD hunks sequentially and is intentionally non-seekable. RomVault uses it to hash
+/// DVD/ISO contents and, when metadata is available, to hash CD tracks without writing temporary files.
+/// </remarks>
 public sealed class ChdLogicalStream : Stream
 {
+    /// <summary>
+    /// Underlying CHD file stream.
+    /// </summary>
     private readonly FileStream _file;
+
+    /// <summary>
+    /// Parsed CHD header and map used for decoding.
+    /// </summary>
     private readonly CHDHeader _chd;
+
+    /// <summary>
+    /// Pool for temporary buffers used during decoding.
+    /// </summary>
     private readonly ArrayPool _arrPool;
+
+    /// <summary>
+    /// Codec state container used across reads.
+    /// </summary>
     private readonly CHDCodec _codec;
+
+    /// <summary>
+    /// Reusable block-sized output buffer.
+    /// </summary>
     private readonly byte[] _blockBuffer;
 
+    /// <summary>
+    /// Current hunk index being streamed.
+    /// </summary>
     private uint _blockIndex;
+
+    /// <summary>
+    /// Current offset into <see cref="_blockBuffer"/>.
+    /// </summary>
     private int _blockPos;
+
+    /// <summary>
+    /// Current logical stream position, in bytes.
+    /// </summary>
     private ulong _position;
+
+    /// <summary>
+    /// Disposal guard.
+    /// </summary>
     private bool _disposed;
 
+    /// <summary>
+    /// Opens a CHD file for logical (decompressed) sequential reading.
+    /// </summary>
+    /// <param name="chdPath">Path to the CHD file.</param>
+    /// <returns>A non-seekable stream of the CHD's logical contents.</returns>
     public static ChdLogicalStream OpenRead(string chdPath)
     {
         if (string.IsNullOrWhiteSpace(chdPath))
@@ -65,16 +111,22 @@ public sealed class ChdLogicalStream : Stream
         _position = 0;
     }
 
+    /// <inheritdoc />
     public override bool CanRead => !_disposed;
+    /// <inheritdoc />
     public override bool CanSeek => false;
+    /// <inheritdoc />
     public override bool CanWrite => false;
+    /// <inheritdoc />
     public override long Length => (long)_chd.totalbytes;
+    /// <inheritdoc />
     public override long Position
     {
         get => (long)_position;
         set => throw new NotSupportedException();
     }
 
+    /// <inheritdoc />
     public override int Read(byte[] buffer, int offset, int count)
     {
         if (_disposed)
@@ -115,6 +167,9 @@ public sealed class ChdLogicalStream : Stream
         return totalRead;
     }
 
+    /// <summary>
+    /// Ensures the current hunk is decoded into <see cref="_blockBuffer"/> when starting a new hunk.
+    /// </summary>
     private void EnsureBlockLoaded()
     {
         if (_blockPos != 0)
@@ -142,25 +197,30 @@ public sealed class ChdLogicalStream : Stream
         }
     }
 
+    /// <inheritdoc />
     public override void Flush()
     {
     }
 
+    /// <inheritdoc />
     public override long Seek(long offset, SeekOrigin origin)
     {
         throw new NotSupportedException();
     }
 
+    /// <inheritdoc />
     public override void SetLength(long value)
     {
         throw new NotSupportedException();
     }
 
+    /// <inheritdoc />
     public override void Write(byte[] buffer, int offset, int count)
     {
         throw new NotSupportedException();
     }
 
+    /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
         if (_disposed)
@@ -173,4 +233,3 @@ public sealed class ChdLogicalStream : Stream
         base.Dispose(disposing);
     }
 }
-

@@ -347,6 +347,9 @@ namespace ROMVault
             catch { }
         }
 
+        /// <summary>
+        /// Sort comparer for the ROM grid.
+        /// </summary>
         private class RomUiCompare : IComparer<RvFile>
         {
             private readonly int _colIndex;

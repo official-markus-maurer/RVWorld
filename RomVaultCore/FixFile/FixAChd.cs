@@ -8,8 +8,29 @@ using SortMethods;
 
 namespace RomVaultCore.FixFile;
 
+/// <summary>
+/// Fix routine for CHD container nodes.
+/// </summary>
+/// <remarks>
+/// This is used when a DAT rule enables <c>DiscArchiveAsCHD</c> and the set is configured to be stored as a single
+/// <c>.chd</c> rather than individual disc source files.
+/// 
+/// Fix strategy:
+/// - Prefer an existing disc source (CHD/CUE/GDI/ISO) that can satisfy the expected CHD.
+/// - If sources are track-only audio sets, optionally synthesize a CUE and build a CHD.
+/// - Do not create CHDs for partial sets (silently skip) to avoid producing misleading results.
+/// </remarks>
 public static class FixAChd
 {
+    /// <summary>
+    /// Attempts to fix a missing CHD container by creating it from available disc sources.
+    /// </summary>
+    /// <param name="chdDir">The expected CHD container node.</param>
+    /// <param name="thisSelected">Whether this node was selected for fixing.</param>
+    /// <param name="fileProcessQueue">Queue of files involved in fix operations for cleanup/state updates.</param>
+    /// <param name="totalFixed">Counter of successful fixes.</param>
+    /// <param name="errorMessage">Error description on failure.</param>
+    /// <returns>A <see cref="ReturnCode"/> indicating success or failure.</returns>
     public static ReturnCode FixChd(RvFile chdDir, bool thisSelected, List<RvFile> fileProcessQueue, ref int totalFixed, out string errorMessage)
     {
         errorMessage = "";
@@ -136,6 +157,19 @@ public static class FixAChd
         return ReturnCode.Good;
     }
 
+    /// <summary>
+    /// Attempts to build an audio CHD from individual audio track sources when no disc descriptor source exists.
+    /// </summary>
+    /// <remarks>
+    /// This is intentionally conservative:
+    /// - If no audio tracks are expected, it skips.
+    /// - If only some expected tracks are available, it skips (partial sets must not generate CHDs).
+    ///
+    /// Sources may come from:
+    /// - normal fix sources for the expected members
+    /// - direct files under the set directory
+    /// - ToSort primary/cache by name or by hash
+    /// </remarks>
     private static bool TryBuildChdFromAudioTracks(RvFile chdDir, List<RvFile> fileProcessQueue, ref int totalFixed, out string errorMessage)
     {
         errorMessage = "";
@@ -252,6 +286,13 @@ public static class FixAChd
         return true;
     }
 
+    /// <summary>
+    /// Finds the best available disc source that can be used to satisfy an expected CHD container.
+    /// </summary>
+    /// <remarks>
+    /// Source selection prefers ToSort matches first (so ToSort can be drained), then file-group sources,
+    /// then DAT-derived sources. Priority ordering is controlled by <see cref="SourcePriority(string)"/>.
+    /// </remarks>
     private static RvFile FindBestDiscSource(RvFile chdDir)
     {
         RvFile best = null;
@@ -326,6 +367,9 @@ public static class FixAChd
         return best;
     }
 
+    /// <summary>
+    /// Returns ToSort search roots relevant to a set, including primary ToSort and ToSortCache.
+    /// </summary>
     private static List<RvFile> GetToSortSearchRoots(RvFile chdDir)
     {
         List<RvFile> dirs = new List<RvFile>();
@@ -469,6 +513,9 @@ public static class FixAChd
         }
     }
 
+    /// <summary>
+    /// Lookup tables for quickly finding candidate files by verified hash value.
+    /// </summary>
     private sealed class HashIndex
     {
         public readonly Dictionary<string, List<RvFile>> Sha1 = new Dictionary<string, List<RvFile>>(StringComparer.OrdinalIgnoreCase);

@@ -18,6 +18,23 @@ namespace RomVaultCore.FixFile.Utils
 {
     public static partial class FixFileUtils
     {
+        /// <summary>
+        /// Attempts to satisfy an expected CHD container from a disc source.
+        /// </summary>
+        /// <remarks>
+        /// This supports multiple pathways:
+        /// - CHD source: if the CHD's member track hashes match the destination set ("track parity"), the CHD can be moved/renamed directly.
+        /// - CUE/GDI/ISO source: invoke <c>chdman createcd/createdvd</c> to create the output CHD.
+        /// - Track-only audio source: a separate helper may synthesize a minimal CUE and create an audio CHD.
+        ///
+        /// When <c>ChdKeepCueGdi</c> is enabled, sidecar descriptors are preserved and moved alongside the CHD where applicable.
+        /// </remarks>
+        /// <param name="sourceFile">Disc source file (CHD/CUE/GDI/ISO, or an archive member).</param>
+        /// <param name="destinationFile">Expected destination CHD node.</param>
+        /// <param name="returnCode">Result code.</param>
+        /// <param name="errorMessage">Error message on failure.</param>
+        /// <param name="usedFiles">Files that should be treated as "used" for fix cleanup.</param>
+        /// <returns>True if CHD handling was triggered; otherwise false.</returns>
         public static bool TryCreateChdFromDiscSource(RvFile sourceFile, RvFile destinationFile, out ReturnCode returnCode, out string errorMessage, out List<RvFile> usedFiles)
         {
             returnCode = ReturnCode.Good;
@@ -351,6 +368,17 @@ namespace RomVaultCore.FixFile.Utils
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Ensures a fix routine has a physical file on disk for a given source entry.
+        /// </summary>
+        /// <remarks>
+        /// Fix pipelines frequently operate on virtual members:
+        /// - <see cref="FileType.FileCHD"/> members (virtual tracks inside a CHD container)
+        /// - archive members (<see cref="FileType.FileZip"/> / <see cref="FileType.FileSevenZip"/>)
+        ///
+        /// This helper materializes those sources into <paramref name="outputPath"/> so downstream tools
+        /// (including <c>chdman</c>) can consume a real file path.
+        /// </remarks>
         private static ReturnCode MaterializeSingleFile(RvFile sourceFile, string outputPath, out string errorMessage)
         {
             errorMessage = "";
@@ -462,6 +490,14 @@ namespace RomVaultCore.FixFile.Utils
             return ExtractArchiveEntryToPath(sourceFile.Parent, sourceFile.ZipFileIndex, outputPath, out errorMessage);
         }
 
+        /// <summary>
+        /// Checks whether two CHD containers represent the same member set by comparing track hashes.
+        /// </summary>
+        /// <remarks>
+        /// This is used for the "move by track parity" optimization: when the source CHD's member track hashes
+        /// match the destination set's expected CHD members, the CHD can be moved/renamed directly instead of
+        /// extracting and rebuilding.
+        /// </remarks>
         private static bool CheckChdTrackParity(RvFile source, RvFile destination)
         {
             if (source == null || destination == null)
@@ -500,6 +536,9 @@ namespace RomVaultCore.FixFile.Utils
             return true;
         }
 
+        /// <summary>
+        /// Returns CHD children that represent track-like members suitable for parity comparison.
+        /// </summary>
         private static List<RvFile> GetChdTrackChildren(RvFile chd)
         {
             List<RvFile> tracks = new List<RvFile>();
@@ -526,6 +565,13 @@ namespace RomVaultCore.FixFile.Utils
             return tracks;
         }
 
+        /// <summary>
+        /// Compares two DB entries by size and best-available hash.
+        /// </summary>
+        /// <remarks>
+        /// Used by CHD parity checks and member marking logic. This intentionally refuses to match when
+        /// there are no comparable hashes.
+        /// </remarks>
         private static bool IsHashMatch(RvFile a, RvFile b)
         {
             if (a == null || b == null)
@@ -548,6 +594,13 @@ namespace RomVaultCore.FixFile.Utils
             return false;
         }
 
+        /// <summary>
+        /// Moves sidecar descriptor files (CUE/GDI) alongside a CHD when "Keep cue / gdi" is enabled.
+        /// </summary>
+        /// <remarks>
+        /// This is intentionally best-effort: missing sidecars are silently ignored and existing destination
+        /// files are not overwritten.
+        /// </remarks>
         private static void MoveChdSidecarDescriptors(string sourceChdPath, string destinationChdPath)
         {
             try
@@ -585,6 +638,9 @@ namespace RomVaultCore.FixFile.Utils
             }
         }
 
+        /// <summary>
+        /// Marks descriptor children (CUE/GDI) as collected when sidecar files exist on disk.
+        /// </summary>
         private static void MarkSidecarDescriptorChildrenGot(RvFile destinationChd, string destinationChdPath)
         {
             try
@@ -628,6 +684,14 @@ namespace RomVaultCore.FixFile.Utils
             }
         }
 
+        /// <summary>
+        /// Applies an already-proven parity result to the destination CHD's member entries.
+        /// </summary>
+        /// <remarks>
+        /// After a CHD is moved into place by parity, the destination set's member entries would otherwise
+        /// remain <c>NotGot</c> until the next scan. This marks matching <see cref="FileType.FileCHD"/> children
+        /// as <see cref="GotStatus.Got"/> immediately so tree status updates in the UI without requiring a rescan.
+        /// </remarks>
         private static void ApplyChdMemberParity(RvFile sourceChd, RvFile destinationChd)
         {
             try

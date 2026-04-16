@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Compress;
 using Compress.SevenZip;
 using Compress.ThreadReaders;
@@ -34,11 +34,30 @@ namespace FileScanner;
  * as we would not have any CRC if we did not.)
  */
 
+/// <summary>
+/// Callback used to emit progress or informational text during scanning operations.
+/// </summary>
+/// <param name="message">Message text.</param>
 public delegate void Message(string message);
 
+/// <summary>
+/// Scans containers (zip/7z/directories) and computes hashes for members.
+/// </summary>
 public class FileScan
 {
 
+    /// <summary>
+    /// Scans an archive file on disk and returns a <see cref="ScannedFile"/> containing its members.
+    /// </summary>
+    /// <param name="archiveType">Archive/container type.</param>
+    /// <param name="filename">Path to the archive file.</param>
+    /// <param name="timeStamp">Expected timestamp used to validate the archive.</param>
+    /// <param name="deepScan">If true, computes full hashes by reading member data streams.</param>
+    /// <param name="scannedArchive">Resulting scanned archive on success.</param>
+    /// <param name="useDosDateTime">If true, uses DOS timestamps when available.</param>
+    /// <param name="scanSHA256">If true, computes SHA256 as well.</param>
+    /// <param name="progress">Optional progress callback.</param>
+    /// <returns>A <see cref="ZipReturn"/> indicating success or failure.</returns>
     public ZipReturn ScanArchiveFile(FileType archiveType, string filename, long timeStamp, bool deepScan, out ScannedFile scannedArchive, bool useDosDateTime = false, bool scanSHA256 = false,  Message progress = null)
     {
         ICompress file;
@@ -77,6 +96,16 @@ public class FileScan
     }
 
 
+    /// <summary>
+    /// Scans a ZIP archive stream and returns a <see cref="ScannedFile"/> containing its members.
+    /// </summary>
+    /// <param name="inStream">ZIP stream.</param>
+    /// <param name="deepScan">If true, computes full hashes by reading member data streams.</param>
+    /// <param name="scannedArchive">Resulting scanned archive on success.</param>
+    /// <param name="useDosDateTime">If true, uses DOS timestamps when available.</param>
+    /// <param name="scanSHA256">If true, computes SHA256 as well.</param>
+    /// <param name="progress">Optional progress callback.</param>
+    /// <returns>A <see cref="ZipReturn"/> indicating success or failure.</returns>
     public ZipReturn ScanZipStream(Stream inStream, bool deepScan, out ScannedFile scannedArchive, bool useDosDateTime = false, bool scanSHA256 = false, Message progress = null)
     {
         ICompress file = new Zip();

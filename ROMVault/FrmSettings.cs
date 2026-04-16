@@ -14,6 +14,9 @@ using RomVaultCore.RvDB;
 
 namespace ROMVault
 {
+    /// <summary>
+    /// Application settings dialog (scan, fix, compression, CHD, UI, and performance options).
+    /// </summary>
     public partial class FrmSettings : Form
     {
         private CheckBox chkChdCache;

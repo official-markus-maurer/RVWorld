@@ -1,4 +1,4 @@
-﻿using RomVaultCore.ReadDat;
+using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
 using RomVaultCore.Utils;
 using RVIO;
@@ -7,6 +7,9 @@ using Path = RVIO.Path;
 
 namespace RomVaultCore.Storage.Dat
 {
+    /// <summary>
+    /// Directory-level DAT import node representing the DatRoot tree discovered on disk.
+    /// </summary>
     public class DatImportDir
     {
         public readonly string Name;
