@@ -54,7 +54,7 @@
                                 <TextBlock Text="DAT Rule Settings" FontWeight="Bold" FontSize="12"/>
 
                                 <Grid ColumnDefinitions="160,*,160,*"
-                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                                       ColumnSpacing="12"
                                       RowSpacing="10">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Archive Type:" VerticalAlignment="Center" FontSize="12"/>
@@ -86,6 +86,14 @@
                                     <ComboBox Grid.Row="3" Grid.Column="3" Name="cboDirType" FontSize="12" Height="28" Padding="8,0"/>
 
                                     <CheckBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4" Name="chkUseDescription" Content="Use description (instead of name) for auto added paths" FontSize="12"/>
+                                    <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4" Name="chkChdStrict" Content="Strict CHD (Keep cue/gdi required)" FontSize="12"/>
+                                    <CheckBox Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="4" Name="chkChdKeepCueGdi" Content="Keep .cue / .gdi alongside CHDs" FontSize="12"/>
+                                    
+                                    <Label Grid.Row="7" Grid.Column="0" Content="Audio Transform:" VerticalAlignment="Center" FontSize="12"/>
+                                    <ComboBox Grid.Row="7" Grid.Column="1" Name="cboChdAudioTransform" HorizontalAlignment="Stretch" FontSize="12"/>
+                                    
+                                    <Label Grid.Row="7" Grid.Column="2" Content="Layout Strictness:" VerticalAlignment="Center" FontSize="12" Margin="10,0,0,0"/>
+                                    <ComboBox Grid.Row="7" Grid.Column="3" Name="cboChdLayoutStrictness" HorizontalAlignment="Stretch" FontSize="12"/>
                                 </Grid>
                             </StackPanel>
                         </Border>

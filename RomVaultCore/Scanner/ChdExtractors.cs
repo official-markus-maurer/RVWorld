@@ -26,17 +26,22 @@ public sealed class ChdmanChdExtractor : IChdExtractor
 
     public bool ExtractDvd(string chdPath, string outIsoPath, out string error)
     {
-        return Run($"{_chdman}", $"extractdvd -i \"{NormalizePossiblyConcatenatedPath(chdPath)}\" -o \"{outIsoPath}\" -f", out error);
+        string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));
+        string absOut = Path.GetFullPath(outIsoPath);
+        return Run($"{_chdman}", $"extractdvd -i \"{absChd}\" -o \"{absOut}\" -f", out error);
     }
 
     public bool ExtractCd(string chdPath, string outDescriptorPath, out string error)
     {
-        return Run($"{_chdman}", $"extractcd -i \"{NormalizePossiblyConcatenatedPath(chdPath)}\" -o \"{outDescriptorPath}\" -f", out error);
+        string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));
+        string absOut = Path.GetFullPath(outDescriptorPath);
+        return Run($"{_chdman}", $"extractcd -i \"{absChd}\" -o \"{absOut}\" -f", out error);
     }
 
     public bool Info(string chdPath, out string infoText)
     {
-        return Run($"{_chdman}", $"info -i \"{NormalizePossiblyConcatenatedPath(chdPath)}\" ", out infoText);
+        string absChd = Path.GetFullPath(NormalizePossiblyConcatenatedPath(chdPath));
+        return Run($"{_chdman}", $"info -i \"{absChd}\" ", out infoText);
     }
 
     private static string NormalizePossiblyConcatenatedPath(string path)

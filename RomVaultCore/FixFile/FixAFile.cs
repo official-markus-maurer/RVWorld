@@ -445,22 +445,28 @@ namespace RomVaultCore.FixFile
 
             if (fixStyle == FixStyle.ExtractToCache)
             {
-                //Dictionary<string, RvFile> filesUsedForFix = new Dictionary<string, RvFile>();
-                ReturnCode returnCode1 = Decompress7ZipFile.DecompressSource7ZipFile(fixingFile.Parent, false, null, out errorMessage);
+                ReturnCode returnCode1;
+                if (fixingFile.FileType == FileType.FileCHD)
+                {
+                    returnCode1 = DecompressChdFile.DecompressSourceChdFile(fixingFile.Parent, null, out errorMessage);
+                }
+                else
+                {
+                    returnCode1 = Decompress7ZipFile.DecompressSource7ZipFile(fixingFile.Parent, false, null, out errorMessage);
+                }
+
                 if (returnCode1 != ReturnCode.Good)
                 {
-                    ReportError.LogOut($"DecompressSource7Zip: {fixingFile.Parent.FileName} return {returnCode1}");
+                    ReportError.LogOut($"DecompressSource: {fixingFile.Parent.FileName} return {returnCode1}");
                     return returnCode1;
                 }
                 fixFiles = GetFixFileList(fixFile);
                 fixingFile = FindSourceToUseForFix(null, fixFile, fixFiles, out fixStyle).FirstOrDefault();
                 if (fixStyle == FixStyle.ExtractToCache)
                 {
-                    ReportError.LogOut($"DecompressSource7Zip: {fixingFile.Parent.FileName}");
+                    ReportError.LogOut($"DecompressSource: {fixingFile.Parent.FileName}");
                     return ReturnCode.LogicError;
                 }
-                //List<RvFile> usedFiles = filesUsedForFix.Values.ToList();
-                //fixFiles.AddRange(usedFiles);
             }
 
             // this needs expanded up to see if there is any file in the returned list of files from FindSourcetoUseForFixNew that can be moved to the correct location.

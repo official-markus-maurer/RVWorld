@@ -81,7 +81,7 @@ public static class ChdExport
                 string destIsoName = string.IsNullOrWhiteSpace(expectedIsoName) ? "image.iso" : expectedIsoName;
                 string destIso = System.IO.Path.Combine(outputDir, destIsoName);
 
-                if (Settings.rvSettings != null && Settings.rvSettings.ChdStreamingEnabled)
+                if (Settings.rvSettings?.ChdStreaming == true || Settings.rvSettings?.ChdDebug == true)
                 {
                     try
                     {
@@ -124,7 +124,7 @@ public static class ChdExport
             }
 
             bool wantsDescriptor = !string.IsNullOrWhiteSpace(expectedCueName) || !string.IsNullOrWhiteSpace(expectedGdiName);
-            if (!wantsDescriptor && Settings.rvSettings != null && Settings.rvSettings.ChdStreamingEnabled)
+            if (!wantsDescriptor && Settings.rvSettings != null && Settings.rvSettings.ChdStreaming)
             {
                 if (CHDSharpLib.ChdMetadata.TryReadCdTrackLayout(chdPath, out List<CHDSharpLib.ChdCdTrackInfo> cdTracks, out string metaErr) && cdTracks.Count > 0)
                 {
@@ -254,7 +254,7 @@ public static class ChdExport
             }
 
             string outDescriptor = System.IO.Path.Combine(tempDir, expectsGdi ? "disc.gdi" : "disc.cue");
-            if (Settings.rvSettings != null && Settings.rvSettings.ChdStreamingEnabled)
+            if (Settings.rvSettings != null && Settings.rvSettings.ChdStreaming)
             {
                 if (CHDSharpLib.ChdMetadata.TryReadCdTrackLayout(chdPath, out var cdTracks, out string metaErr))
                 {

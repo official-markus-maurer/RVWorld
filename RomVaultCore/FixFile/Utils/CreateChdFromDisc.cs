@@ -30,7 +30,7 @@ namespace RomVaultCore.FixFile.Utils
                 return false;
             if (!destinationFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
                 return false;
-            if (!sourceFile.IsFile)
+            if (!sourceFile.IsFile && sourceFile.FileType != FileType.CHD)
                 return false;
 
             RomVaultCore.DatRule rule = DatReader.FindDatRule(destinationFile.Parent?.DatTreeFullName + "\\");
@@ -48,8 +48,43 @@ namespace RomVaultCore.FixFile.Utils
             }
 
             string sourceExt = Path.GetExtension(sourceFile.NameCase);
-            if (!IsDiscSourceExtension(sourceExt))
+            if (!IsDiscSourceExtension(sourceExt) && sourceFile.FileType != FileType.CHD)
                 return false;
+
+            if (sourceFile.FileType == FileType.CHD)
+            {
+                if (CheckChdTrackParity(sourceFile, destinationFile))
+                {
+                    string sourcePathChd = ResolveExistingFilePath(sourceFile.FullNameCase);
+                    string destinationPathChd = ResolveOutputFilePath(destinationFile.FullName);
+                    try
+                    {
+                        string destDirPhysical = System.IO.Path.GetDirectoryName(destinationPathChd);
+                        if (!string.IsNullOrEmpty(destDirPhysical) && !System.IO.Directory.Exists(destDirPhysical))
+                            System.IO.Directory.CreateDirectory(destDirPhysical);
+                    }
+                    catch
+                    {
+                    }
+
+                    Report.ReportProgress(new bgwShowFix(Path.GetDirectoryName(destinationPathChd), "", Path.GetFileName(destinationPathChd), sourceFile.Size, "<--Move (Track Parity)", Path.GetDirectoryName(sourcePathChd), "", Path.GetFileName(sourcePathChd)));
+
+                    returnCode = MoveFile(sourceFile, destinationFile, destinationPathChd, out bool moved, out errorMessage, forceMove: true, skipDatValidation: true);
+                    if (returnCode == ReturnCode.Good && moved)
+                    {
+                        ApplyChdMemberParity(sourceFile, destinationFile);
+                        if (rule.ChdKeepCueGdi)
+                        {
+                            MoveChdSidecarDescriptors(sourcePathChd, destinationPathChd);
+                            MarkSidecarDescriptorChildrenGot(destinationFile, destinationPathChd);
+                        }
+                        usedFiles.Add(sourceFile);
+                        return true;
+                    }
+                }
+                // If tracks don't match, we can't use this CHD as a direct source for another CHD
+                return false;
+            }
 
             string sourcePath = null;
             if (sourceFile.FileType == FileType.File)
@@ -141,6 +176,10 @@ namespace RomVaultCore.FixFile.Utils
             }
 
             string chdmanExe = FindChdmanExePath();
+
+            inputPath = System.IO.Path.GetFullPath(inputPath);
+            destinationPath = System.IO.Path.GetFullPath(destinationPath);
+            workingDir = string.IsNullOrWhiteSpace(workingDir) ? Environment.CurrentDirectory : System.IO.Path.GetFullPath(workingDir);
 
             string args = BuildChdmanArguments(command, inputPath, destinationPath, destinationFile, rule.ChdCompressionType);
 
@@ -336,6 +375,78 @@ namespace RomVaultCore.FixFile.Utils
                 }
             }
 
+            if (sourceFile.FileType == FileType.FileCHD)
+            {
+                try
+                {
+                    RvFile extracted = null;
+                    if (sourceFile.FileGroup?.Files != null)
+                    {
+                        for (int i = 0; i < sourceFile.FileGroup.Files.Count; i++)
+                        {
+                            RvFile f = sourceFile.FileGroup.Files[i];
+                            if (f == null || f.FileType != FileType.File || f.GotStatus != GotStatus.Got)
+                                continue;
+                            if (!string.Equals(f.Name, sourceFile.Name, StringComparison.OrdinalIgnoreCase))
+                                continue;
+                            if (RVIO.File.Exists(f.FullNameCase))
+                            {
+                                extracted = f;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (extracted == null)
+                    {
+                        if (sourceFile.Parent == null || sourceFile.Parent.FileType != FileType.CHD)
+                        {
+                            errorMessage = "CHD track source is missing its parent CHD container.";
+                            return ReturnCode.LogicError;
+                        }
+
+                        ReturnCode rc = DecompressChdFile.DecompressSourceChdFile(sourceFile.Parent, null, out string err);
+                        if (rc != ReturnCode.Good)
+                        {
+                            errorMessage = err;
+                            return rc;
+                        }
+
+                        if (sourceFile.FileGroup?.Files != null)
+                        {
+                            for (int i = 0; i < sourceFile.FileGroup.Files.Count; i++)
+                            {
+                                RvFile f = sourceFile.FileGroup.Files[i];
+                                if (f == null || f.FileType != FileType.File || f.GotStatus != GotStatus.Got)
+                                    continue;
+                                if (!string.Equals(f.Name, sourceFile.Name, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                if (RVIO.File.Exists(f.FullNameCase))
+                                {
+                                    extracted = f;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (extracted == null)
+                    {
+                        errorMessage = "Unable to materialize CHD track source.";
+                        return ReturnCode.FileSystemError;
+                    }
+
+                    Directory.CreateDirectory(System.IO.Path.GetDirectoryName(outputPath));
+                    System.IO.File.Copy(extracted.FullNameCase, outputPath, true);
+                    return ReturnCode.Good;
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = ex.Message;
+                    return ReturnCode.FileSystemError;
+                }
+            }
+
             if (sourceFile.FileType != FileType.FileZip && sourceFile.FileType != FileType.FileSevenZip)
             {
                 errorMessage = "Source track file is not a supported file type.";
@@ -349,6 +460,218 @@ namespace RomVaultCore.FixFile.Utils
             }
 
             return ExtractArchiveEntryToPath(sourceFile.Parent, sourceFile.ZipFileIndex, outputPath, out errorMessage);
+        }
+
+        private static bool CheckChdTrackParity(RvFile source, RvFile destination)
+        {
+            if (source == null || destination == null)
+                return false;
+
+            List<RvFile> srcTracks = GetChdTrackChildren(source);
+            List<RvFile> dstTracks = GetChdTrackChildren(destination);
+
+            if (srcTracks.Count == 0 || dstTracks.Count == 0)
+                return false;
+            if (srcTracks.Count != dstTracks.Count)
+                return false;
+
+            bool[] used = new bool[dstTracks.Count];
+            for (int i = 0; i < srcTracks.Count; i++)
+            {
+                RvFile s = srcTracks[i];
+                bool found = false;
+                for (int j = 0; j < dstTracks.Count; j++)
+                {
+                    if (used[j])
+                        continue;
+                    RvFile d = dstTracks[j];
+
+                    if (IsHashMatch(s, d))
+                    {
+                        used[j] = true;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static List<RvFile> GetChdTrackChildren(RvFile chd)
+        {
+            List<RvFile> tracks = new List<RvFile>();
+            if (chd == null)
+                return tracks;
+
+            for (int i = 0; i < chd.ChildCount; i++)
+            {
+                RvFile c = chd.Child(i);
+                if (c == null || !c.IsFile)
+                    continue;
+
+                string ext = System.IO.Path.GetExtension(c.Name ?? "");
+                if (!string.Equals(ext, ".bin", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(ext, ".raw", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(ext, ".iso", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                tracks.Add(c);
+            }
+
+            return tracks;
+        }
+
+        private static bool IsHashMatch(RvFile a, RvFile b)
+        {
+            if (a == null || b == null)
+                return false;
+
+            if (a.Size != b.Size)
+                return false;
+
+            // Prefer SHA1 if present, then MD5, then CRC (with size)
+            if (a.SHA1 != null && a.SHA1.Length > 0 && b.SHA1 != null && b.SHA1.Length > 0)
+                return ArrByte.BCompare(a.SHA1, b.SHA1);
+
+            if (a.MD5 != null && a.MD5.Length > 0 && b.MD5 != null && b.MD5.Length > 0)
+                return ArrByte.BCompare(a.MD5, b.MD5);
+
+            if (a.CRC != null && a.CRC.Length > 0 && b.CRC != null && b.CRC.Length > 0)
+                return ArrByte.BCompare(a.CRC, b.CRC);
+
+            // If we don't have comparable hashes, do not claim parity.
+            return false;
+        }
+
+        private static void MoveChdSidecarDescriptors(string sourceChdPath, string destinationChdPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourceChdPath) || string.IsNullOrWhiteSpace(destinationChdPath))
+                    return;
+
+                string srcDir = System.IO.Path.GetDirectoryName(sourceChdPath) ?? "";
+                string dstDir = System.IO.Path.GetDirectoryName(destinationChdPath) ?? "";
+                if (string.IsNullOrWhiteSpace(srcDir) || string.IsNullOrWhiteSpace(dstDir))
+                    return;
+
+                string srcBase = System.IO.Path.GetFileNameWithoutExtension(sourceChdPath) ?? "";
+                string dstBase = System.IO.Path.GetFileNameWithoutExtension(destinationChdPath) ?? srcBase;
+                if (string.IsNullOrWhiteSpace(srcBase) || string.IsNullOrWhiteSpace(dstBase))
+                    return;
+
+                string[] exts = new[] { ".cue", ".gdi" };
+                for (int i = 0; i < exts.Length; i++)
+                {
+                    string ext = exts[i];
+                    string src = System.IO.Path.Combine(srcDir, srcBase + ext);
+                    string dst = System.IO.Path.Combine(dstDir, dstBase + ext);
+
+                    if (!System.IO.File.Exists(src))
+                        continue;
+                    if (System.IO.File.Exists(dst))
+                        continue;
+
+                    System.IO.File.Move(src, dst);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void MarkSidecarDescriptorChildrenGot(RvFile destinationChd, string destinationChdPath)
+        {
+            try
+            {
+                if (destinationChd == null || destinationChd.FileType != FileType.CHD)
+                    return;
+                if (string.IsNullOrWhiteSpace(destinationChdPath))
+                    return;
+
+                string dstDir = System.IO.Path.GetDirectoryName(destinationChdPath) ?? "";
+                if (string.IsNullOrWhiteSpace(dstDir))
+                    return;
+
+                for (int i = 0; i < destinationChd.ChildCount; i++)
+                {
+                    RvFile c = destinationChd.Child(i);
+                    if (c == null || !c.IsFile || c.FileType != FileType.FileCHD)
+                        continue;
+                    string n = c.Name ?? "";
+                    if (!n.EndsWith(".cue", StringComparison.OrdinalIgnoreCase) && !n.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string phys = System.IO.Path.Combine(dstDir, n);
+                    if (!System.IO.File.Exists(phys))
+                        continue;
+
+                    try
+                    {
+                        var fi = new System.IO.FileInfo(phys);
+                        c.FileModTimeStamp = fi.LastWriteTime.Ticks;
+                        c.GotStatus = GotStatus.Got;
+                    }
+                    catch
+                    {
+                        c.GotStatus = GotStatus.Got;
+                    }
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static void ApplyChdMemberParity(RvFile sourceChd, RvFile destinationChd)
+        {
+            try
+            {
+                if (sourceChd == null || destinationChd == null)
+                    return;
+                if (sourceChd.FileType != FileType.CHD || destinationChd.FileType != FileType.CHD)
+                    return;
+
+                List<RvFile> srcTracks = GetChdTrackChildren(sourceChd);
+                if (srcTracks.Count == 0)
+                    return;
+
+                bool[] used = new bool[srcTracks.Count];
+                long ts = destinationChd.FileModTimeStamp;
+
+                for (int i = 0; i < destinationChd.ChildCount; i++)
+                {
+                    RvFile d = destinationChd.Child(i);
+                    if (d == null || !d.IsFile)
+                        continue;
+                    if (d.FileType != FileType.FileCHD)
+                        continue;
+
+                    for (int j = 0; j < srcTracks.Count; j++)
+                    {
+                        if (used[j])
+                            continue;
+                        RvFile s = srcTracks[j];
+                        if (!IsHashMatch(d, s) && !IsHashMatch(s, d))
+                            continue;
+
+                        used[j] = true;
+                        if (d.Size == null || d.Size == 0)
+                            d.Size = s.Size;
+                        d.FileModTimeStamp = ts;
+                        d.GotStatus = GotStatus.Got;
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+            }
         }
 
         private static bool IsDiscSourceExtension(string ext)
@@ -733,7 +1056,7 @@ namespace RomVaultCore.FixFile.Utils
             return $"{datName} | {datDescription} | {datCategory} | {datRootDir} | {gameCategory} | {gameSourceFile}";
         }
 
-        private static string FindChdmanExePath()
+        internal static string FindChdmanExePath()
         {
             string baseDir = "";
             try

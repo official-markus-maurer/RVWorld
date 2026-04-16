@@ -81,6 +81,16 @@ namespace ROMVault.Avalonia.Views;
             cboHeaderType.Items.Add("Headered");
             cboHeaderType.Items.Add("Headerless");
 
+            cboChdAudioTransform.Items.Clear();
+            cboChdAudioTransform.Items.Add("None (Strict)");
+            cboChdAudioTransform.Items.Add("Allow Swap16 (Audio CD)");
+            cboChdAudioTransform.Items.Add("Allow RAW to WAV");
+
+            cboChdLayoutStrictness.Items.Clear();
+            cboChdLayoutStrictness.Items.Add("Normal");
+            cboChdLayoutStrictness.Items.Add("Strict (No fallback)");
+            cboChdLayoutStrictness.Items.Add("Relaxed (Fuzzy)");
+
             cboFileType.SelectionChanged += (s, e) => SetCompressionTypeFromArchive();
             chkSingleArchive.Click += (s, e) => cboDirType.IsEnabled = chkSingleArchive.IsChecked == true;
             chkAddCategorySubDirs.Click += (s, e) => ToggleCategoryList();
@@ -136,7 +146,12 @@ namespace ROMVault.Avalonia.Views;
                     return t;
             }
 
-            return new DatRule { DirKey = dLocation, IgnoreFiles = new List<string>() };
+            return new DatRule
+            {
+                DirKey = dLocation,
+                IgnoreFiles = new List<string>(),
+                ChdStrictCueGdi = Settings.rvSettings?.ChdStrictCueGdi ?? false
+            };
         }
 
         private static string NormalizeDirKey(string? dirKey)
@@ -247,6 +262,10 @@ namespace ROMVault.Avalonia.Views;
             chkMultiDatDirOverride.IsChecked = _rule.MultiDATDirOverride;
             chkUseDescription.IsChecked = _rule.UseDescriptionAsDirName;
             chkUseIdForName.IsChecked = _rule.UseIdForName;
+            chkChdStrict.IsChecked = _rule.ChdStrictCueGdi;
+            chkChdKeepCueGdi.IsChecked = _rule.ChdKeepCueGdi;
+            cboChdAudioTransform.SelectedIndex = (int)_rule.ChdAudioTransform;
+            cboChdLayoutStrictness.SelectedIndex = (int)_rule.ChdLayoutStrictness;
 
             chkSingleArchive.IsChecked = _rule.SingleArchive;
 
@@ -404,6 +423,10 @@ namespace ROMVault.Avalonia.Views;
             _rule.MultiDATDirOverride = chkMultiDatDirOverride.IsChecked == true;
             _rule.UseDescriptionAsDirName = chkUseDescription.IsChecked == true;
             _rule.UseIdForName = chkUseIdForName.IsChecked == true;
+            _rule.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
+            _rule.ChdKeepCueGdi = chkChdKeepCueGdi.IsChecked == true;
+            _rule.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
+            _rule.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
 
             _rule.CompleteOnly = chkCompleteOnly.IsChecked == true;
 

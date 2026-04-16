@@ -53,23 +53,23 @@ public static class FixAChd
 
         if (!FixFileUtils.TryCreateChdFromDiscSource(source, chdDir, out ReturnCode rc, out string chdError, out List<RvFile> usedFiles))
         {
-            RomVaultCore.DatRule rule = null;
+            RomVaultCore.DatRule ruleInner = null;
             try
             {
                 string ruleKey = (chdDir.Parent?.DatTreeFullName ?? "") + "\\";
-                rule = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
+                ruleInner = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
             }
             catch
             {
             }
 
-            if (rule == null)
+            if (ruleInner == null)
             {
                 errorMessage = "CHD creation was not triggered because no matching DAT rule was found for this path.";
                 return ReturnCode.FileSystemError;
             }
 
-            if (!rule.DiscArchiveAsCHD)
+            if (!ruleInner.DiscArchiveAsCHD)
             {
                 errorMessage = "CHD creation was not triggered because DiscArchiveAsCHD is disabled for this DAT rule.";
                 return ReturnCode.FileSystemError;
@@ -100,7 +100,38 @@ public static class FixAChd
             return rc;
         }
 
-        FixFileUtils.CheckFilesUsedForFix(usedFiles, fileProcessQueue, true);
+        RomVaultCore.DatRule rule = null;
+        try
+        {
+            string ruleKey = (chdDir.Parent?.DatTreeFullName ?? "") + "\\";
+            rule = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
+        }
+        catch
+        {
+        }
+
+        if (rule != null && rule.ChdKeepCueGdi)
+        {
+            List<RvFile> filteredUsed = new List<RvFile>();
+            foreach (RvFile used in usedFiles)
+            {
+                string ext = System.IO.Path.GetExtension(used.Name).ToLowerInvariant();
+                if (ext == ".cue" || ext == ".gdi")
+                {
+                    // Keep it: don't add to filteredUsed (which will be marked for delete)
+                    // But we should ensure it's in the same folder as the CHD.
+                    // If it's already there, great. If not, maybe we should move it.
+                    // For now, let's just NOT delete it.
+                    continue;
+                }
+                filteredUsed.Add(used);
+            }
+            FixFileUtils.CheckFilesUsedForFix(filteredUsed, fileProcessQueue, true);
+        }
+        else
+        {
+            FixFileUtils.CheckFilesUsedForFix(usedFiles, fileProcessQueue, true);
+        }
         totalFixed++;
         return ReturnCode.Good;
     }
@@ -240,7 +271,7 @@ public static class FixAChd
                     continue;
                 if (src.GotStatus != GotStatus.Got)
                     continue;
-                if (src.FileType != FileType.File && src.FileType != FileType.FileZip && src.FileType != FileType.FileSevenZip)
+                if (src.FileType != FileType.File && src.FileType != FileType.FileZip && src.FileType != FileType.FileSevenZip && src.FileType != FileType.CHD)
                     continue;
                 int pr = SourcePriority(src.Name);
                 if (pr > bestPriority)
@@ -372,6 +403,12 @@ public static class FixAChd
             if (f != null && f.IsFile && f.GotStatus == GotStatus.Got)
                 return f;
         }
+        if (dir.ChildNameSearch(FileType.CHD, fileName, out int idxChd) == 0)
+        {
+            RvFile f = dir.Child(idxChd);
+            if (f != null && f.FileType == FileType.CHD && f.GotStatus == GotStatus.Got)
+                return f;
+        }
         for (int i = 0; i < dir.ChildCount; i++)
         {
             RvFile c = dir.Child(i);
@@ -385,6 +422,8 @@ public static class FixAChd
             }
             if (c.IsDirectory)
             {
+                if (c.FileType == FileType.CHD && c.GotStatus == GotStatus.Got && string.Equals(c.Name, fileName, StringComparison.OrdinalIgnoreCase))
+                    return c;
                 RvFile hit = FindFileByNameRecursive(c, fileName, depthLeft - 1);
                 if (hit != null)
                     return hit;
@@ -594,6 +633,7 @@ public static class FixAChd
 
         string[] preferred = new[]
         {
+            setName + ".chd",
             setName + ".gdi",
             setName + ".cue",
             setName + ".iso"
@@ -662,6 +702,8 @@ public static class FixAChd
         string ext = System.IO.Path.GetExtension(name).ToLowerInvariant();
         switch (ext)
         {
+            case ".chd":
+                return 4;
             case ".gdi":
                 return 3;
             case ".cue":

@@ -43,6 +43,10 @@ public class ScannedFile
     public byte[] AltSHA256;
 
     public uint? CHDVersion;
+    public string? ChdStatus;
+    public string? ChdScanMethod;
+    public string? ChdHashMatchMode;
+    public string? ChdDescriptorMatch;
 
     public bool SearchFound = false;
 

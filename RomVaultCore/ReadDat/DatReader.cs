@@ -151,7 +151,8 @@ namespace RomVaultCore.ReadDat
                     DatClean.MakeDatSingleLevel(datHeader, datRule.UseDescriptionAsDirName, datRule.SubDirType, ft == FileType.Dir, datRule.AddCategorySubDirs, datRule.CategoryOrder);
 
                 // 9: SetFileTypes / This also sorts the dirs into there type sort orders
-                DatSetCompressionType.ChdStrictCueGdi = Settings.rvSettings?.ChdStrictCueGdi == true;
+                DatSetCompressionType.ChdStrictCueGdi = datRule.ChdStrictCueGdi;
+                DatSetCompressionType.ChdKeepCueGdi = datRule.ChdKeepCueGdi;
                 DatSetCompressionType.SetType(datHeader.BaseDir, ft, zs, datRule.ConvertWhileFixing);
 
                 // 10: Remove unneeded directories from Zip's / 7Z's 

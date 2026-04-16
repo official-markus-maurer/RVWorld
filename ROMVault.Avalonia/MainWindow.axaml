@@ -381,7 +381,16 @@
                                   </DataGridTemplateColumn.CellTemplate>
                               </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Extras" Width="70" Binding="{Binding ., Converter={StaticResource GameExtrasBadgeConverter}}"/>
-                              <DataGridTextColumn Header="Game (Directory / Zip)" Binding="{Binding Name}" Width="200"/>
+                              <DataGridTemplateColumn Header="Game (Directory / Zip)" Width="200">
+                                  <DataGridTemplateColumn.CellTemplate>
+                                      <DataTemplate>
+                                          <TextBlock Text="{Binding GameName}" 
+                                                     VerticalAlignment="Center" 
+                                                     Margin="12,0"
+                                                     ToolTip.Tip="{Binding ChdFullStatus}"/>
+                                      </DataTemplate>
+                                  </DataGridTemplateColumn.CellTemplate>
+                              </DataGridTemplateColumn>
                               <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="200" IsVisible="False"/>
                               <DataGridTextColumn Header="Modified" Binding="{Binding DateTime}"/>
                               <DataGridTemplateColumn Header="ROM Status" Width="300">

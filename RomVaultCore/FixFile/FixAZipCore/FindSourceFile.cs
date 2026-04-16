@@ -41,7 +41,8 @@ namespace RomVaultCore.FixFile.FixAZipCore
             SevenZip_U_MF,
             SevenZip_V_SF,
             SevenZip_U_SF,
-            File_V
+            File_V,
+            FileCHD_V
         }
         public enum DestinationFileFixTypes
         {
@@ -149,6 +150,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -199,6 +201,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -249,6 +252,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -301,6 +305,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -352,6 +357,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -404,6 +410,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -453,6 +460,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -505,6 +513,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -557,6 +566,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -606,6 +616,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -655,6 +666,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
 
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_V_SF,FixStyle.DecompressRecompress),
                     new FixPriorityStyle(SourceFileFixTypes.SevenZip_U_SF,FixStyle.DecompressRecompress),
+                    new FixPriorityStyle(SourceFileFixTypes.FileCHD_V,FixStyle.ExtractToCache),
 
                     /* needs decompressed to cache and then cache files recompressed */
                     new FixPriorityStyle(SourceFileFixTypes.SevenZipSZSTD_V_MF,FixStyle.ExtractToCache),
@@ -827,6 +839,9 @@ namespace RomVaultCore.FixFile.FixAZipCore
             {
                 case FileType.File:
                     return SourceFileFixTypes.File_V;
+
+                case FileType.FileCHD:
+                    return SourceFileFixTypes.FileCHD_V;
 
                 case FileType.FileZip:
                     {

@@ -59,6 +59,16 @@ namespace ROMVault
             cboHeaderType.Items.Add("Headered");
             cboHeaderType.Items.Add("Headerless");
 
+            cboChdAudioTransform.Items.Clear();
+            cboChdAudioTransform.Items.Add("None (Strict)");
+            cboChdAudioTransform.Items.Add("Allow Swap16 (Audio CD)");
+            cboChdAudioTransform.Items.Add("Allow RAW to WAV");
+
+            cboChdLayoutStrictness.Items.Clear();
+            cboChdLayoutStrictness.Items.Add("Normal");
+            cboChdLayoutStrictness.Items.Add("Strict (No fallback)");
+            cboChdLayoutStrictness.Items.Add("Relaxed (Fuzzy)");
+
             tooltip = new ToolTip
             {
                 InitialDelay = 1000,
@@ -119,7 +129,12 @@ namespace ROMVault
                     return t;
             }
 
-            return new DatRule { DirKey = dLocation, IgnoreFiles = new List<string>() };
+            return new DatRule
+            {
+                DirKey = dLocation,
+                IgnoreFiles = new List<string>(),
+                ChdStrictCueGdi = Settings.rvSettings?.ChdStrictCueGdi ?? false
+            };
         }
 
         private void SetCompressionTypeFromArchive()
@@ -219,7 +234,10 @@ namespace ROMVault
             chkMultiDatDirOverride.Checked = _rule.MultiDATDirOverride;
             chkUseDescription.Checked = _rule.UseDescriptionAsDirName;
             chkUseIdForName.Checked = _rule.UseIdForName;
-
+            chkChdStrict.Checked = _rule.ChdStrictCueGdi;
+            chkChdKeepCueGdi.Checked = _rule.ChdKeepCueGdi;
+            cboChdAudioTransform.SelectedIndex = (int)_rule.ChdAudioTransform;
+            cboChdLayoutStrictness.SelectedIndex = (int)_rule.ChdLayoutStrictness;
 
             chkSingleArchive.Checked = _rule.SingleArchive;
 
@@ -339,6 +357,10 @@ namespace ROMVault
             _rule.MultiDATDirOverride = chkMultiDatDirOverride.Checked;
             _rule.UseDescriptionAsDirName = chkUseDescription.Checked;
             _rule.UseIdForName = chkUseIdForName.Checked;
+            _rule.ChdStrictCueGdi = chkChdStrict.Checked;
+            _rule.ChdKeepCueGdi = chkChdKeepCueGdi.Checked;
+            _rule.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
+            _rule.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
 
             _rule.CompleteOnly = chkCompleteOnly.Checked;
 

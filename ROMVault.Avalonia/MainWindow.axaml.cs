@@ -2147,6 +2147,10 @@ public partial class MainWindow : Window
     private void UpdateRomGrid(RvFile tGame)
     {
         var fileList = new List<RvFile>();
+        if (tGame.FileType == FileType.CHD && tGame.SHA1 != null)
+        {
+            AddRom(tGame, "", ref fileList);
+        }
         AddDir(tGame, "", ref fileList);
 
         bool showMergeColumn = false;
@@ -2257,7 +2261,16 @@ public partial class MainWindow : Window
             if (tFile.DatStatus != DatStatus.InDatMerged || tFile.RepStatus != RepStatus.NotCollected ||
                 chkBoxShowMerged.IsChecked == true)
             {
-                tFile.UiDisplayName = pathAdd + tFile.Name;
+                string name = pathAdd + tFile.Name;
+                if (tFile.FileType == FileType.CHD)
+                {
+                    name += " [Container]";
+                }
+                if (tFile.CHDVersion != null)
+                {
+                    name += " (V" + tFile.CHDVersion + ")";
+                }
+                tFile.UiDisplayName = name;
                 fileList.Add(tFile);
             }
         }

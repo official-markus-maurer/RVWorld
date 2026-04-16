@@ -6,6 +6,7 @@ namespace DATReader.DatClean
     public static class DatSetCompressionType
     {
         public static bool ChdStrictCueGdi = false;
+        public static bool ChdKeepCueGdi = false;
 
         private static FileType GetFileTypeFromDir(FileType fileType)
         {
@@ -34,7 +35,7 @@ namespace DATReader.DatClean
                     string ext = System.IO.Path.GetExtension(dFile.Name)?.ToLowerInvariant() ?? "";
                     if (ext == ".cue" || ext == ".gdi")
                     {
-                        if (!ChdStrictCueGdi)
+                        if (!ChdStrictCueGdi && !ChdKeepCueGdi)
                             dFile.DatStatus = DatStatus.InDatMerged;
                     }
                 }

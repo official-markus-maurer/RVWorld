@@ -105,6 +105,10 @@ namespace RomVaultCore.RvDB
         public ulong? ZipFileHeaderPosition;
 
         public uint? CHDVersion;
+        public string ChdStatus { get; set; }
+        public string ChdScanMethod { get; set; }
+        public string ChdHashMatchMode { get; set; }
+        public string ChdDescriptorMatch { get; set; }
 
         // Properties for UI Binding
         public string Description => Game?.GetData(RvGame.GameData.Description) ?? Dat?.GetData(RvDat.DatData.Description);
@@ -117,7 +121,34 @@ namespace RomVaultCore.RvDB
         public string AltSHA1Hex => AltSHA1.ToHexString();
         public string AltMD5Hex => AltMD5.ToHexString();
         public int ZipIndex => ZipFileIndex;
-        public int InstanceCount => 0; 
+        public int InstanceCount => 0;
+
+        public string GameName
+        {
+            get
+            {
+                string res = string.IsNullOrEmpty(FileName) ? Name : Name + " (Found: " + FileName + ")";
+                if (!string.IsNullOrEmpty(ChdStatus))
+                    res += " [" + ChdStatus + "]";
+                return res;
+            }
+        }
+
+        public string ChdFullStatus
+        {
+            get
+            {
+                if (FileType != FileType.CHD) return null;
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                sb.AppendLine("CHD Info:");
+                if (CHDVersion.HasValue) sb.AppendLine($"- Version: V{CHDVersion}");
+                if (!string.IsNullOrEmpty(ChdScanMethod)) sb.AppendLine($"- Scan Method: {ChdScanMethod}");
+                if (!string.IsNullOrEmpty(ChdHashMatchMode)) sb.AppendLine($"- Hash Match: {ChdHashMatchMode}");
+                if (!string.IsNullOrEmpty(ChdDescriptorMatch)) sb.AppendLine($"- Descriptor Match: {ChdDescriptorMatch}");
+                if (!string.IsNullOrEmpty(ChdStatus)) sb.AppendLine($"- Status: {ChdStatus}");
+                return sb.ToString().TrimEnd();
+            }
+        }
 
         /*************************************************/
 

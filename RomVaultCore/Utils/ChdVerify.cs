@@ -172,7 +172,7 @@ public static class ChdVerify
                 }
             }
 
-            bool wantsStreaming = forceStreaming ?? (Settings.rvSettings != null && Settings.rvSettings.ChdStreamingEnabled);
+            bool wantsStreaming = forceStreaming ?? (Settings.rvSettings?.ChdStreaming == true);
 
             if (expectedMembers != null && expectsIso && wantsStreaming)
             {
@@ -382,7 +382,8 @@ public static class ChdVerify
                 }
                 expectedDataFiles.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name));
 
-                var mappingRes = BuildDeterministicMappingLocal(tracks, fileHashCache, expectedByTrack, expectedDataFiles);
+                var mappingRes = BuildDeterministicMappingLocal(tracks, fileHashCache, expectedByTrack, expectedDataFiles, 
+                    Settings.rvSettings?.ChdLayoutStrictness ?? ChdLayoutStrictness.Normal);
                 lines.Add("");
                 lines.Add("mapping:");
                 foreach (var row in mappingRes)
@@ -644,7 +645,8 @@ public static class ChdVerify
         System.Collections.Generic.List<(int trackNo, string fileName, string trackType)> trackFiles,
         System.Collections.Generic.IDictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> fileHashCache,
         System.Collections.Generic.Dictionary<int, RvFile> expectedByTrack,
-        System.Collections.Generic.List<RvFile> expectedDataFiles)
+        System.Collections.Generic.List<RvFile> expectedDataFiles,
+        ChdLayoutStrictness layoutStrictness = ChdLayoutStrictness.Normal)
     {
         var rows = new System.Collections.Generic.List<MapRow>();
         var usedExtracted = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -698,18 +700,21 @@ public static class ChdVerify
             usedExtracted.Add(cands[0]);
         }
 
-        int fb = 0;
-        var remaining = new System.Collections.Generic.List<string>();
-        foreach (var k in fileHashCache.Keys)
-            if (!usedExtracted.Contains(k))
-                remaining.Add(k);
-        remaining.Sort(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < expectedDataFiles.Count && fb < remaining.Count; i++)
+        if (layoutStrictness != ChdLayoutStrictness.Strict)
         {
-            string exp = expectedDataFiles[i].Name;
-            if (usedExpected.Contains(exp)) continue;
-            rows.Add(new MapRow { Expected = exp, Extracted = remaining[fb++], Reason = "by order fallback" });
-            usedExpected.Add(exp);
+            int fb = 0;
+            var remaining = new System.Collections.Generic.List<string>();
+            foreach (var k in fileHashCache.Keys)
+                if (!usedExtracted.Contains(k))
+                    remaining.Add(k);
+            remaining.Sort(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < expectedDataFiles.Count && fb < remaining.Count; i++)
+            {
+                string exp = expectedDataFiles[i].Name;
+                if (usedExpected.Contains(exp)) continue;
+                rows.Add(new MapRow { Expected = exp, Extracted = remaining[fb++], Reason = "by order fallback" });
+                usedExpected.Add(exp);
+            }
         }
         return rows;
     }

@@ -58,6 +58,20 @@ namespace RomVaultCore
         PSP
     }
 
+    public enum ChdAudioTransform
+    {
+        None,
+        AllowSwap16,
+        AllowRawToWav
+    }
+
+    public enum ChdLayoutStrictness
+    {
+        Normal,
+        Strict,
+        Relaxed
+    }
+
     public class Settings
     {
         public static Settings rvSettings;
@@ -107,19 +121,25 @@ namespace RomVaultCore
         public bool ChdScanCacheEnabled = true;
 
         [XmlElement(ElementName = "ChdScanDebugEnabled", DataType = "boolean", IsNullable = false), DefaultValue(false)]
-        public bool ChdScanDebugEnabled = false;
+        public bool ChdDebug = false;
 
         [XmlElement(ElementName = "ChdStrictCueGdi", DataType = "boolean", IsNullable = false), DefaultValue(false)]
         public bool ChdStrictCueGdi = false;
+
+        [XmlElement(ElementName = "ChdKeepCueGdi", DataType = "boolean", IsNullable = false), DefaultValue(false)]
+        public bool ChdKeepCueGdi = false;
+
+        public ChdAudioTransform ChdAudioTransform = ChdAudioTransform.None;
+        public ChdLayoutStrictness ChdLayoutStrictness = ChdLayoutStrictness.Normal;
 
         [XmlElement(ElementName = "ChdExportTracksOnFix", DataType = "boolean", IsNullable = false), DefaultValue(false)]
         public bool ChdExportTracksOnFix = false;
 
         [XmlElement(ElementName = "ChdStreamingEnabled", DataType = "boolean", IsNullable = false), DefaultValue(false)]
-        public bool ChdStreamingEnabled = false;
+        public bool ChdStreaming = false;
 
         [XmlElement(ElementName = "ChdPreferSyntheticDescriptor", DataType = "boolean", IsNullable = false), DefaultValue(false)]
-        public bool ChdPreferSyntheticDescriptor = false;
+        public bool ChdPreferSynthetic = false;
 
         [XmlElement(ElementName = "ChdTrustContainerForTracks", DataType = "boolean", IsNullable = false), DefaultValue(true)]
         public bool ChdTrustContainerForTracks = true;
@@ -423,6 +443,10 @@ namespace RomVaultCore
 
         public bool DiscArchiveAsCHD = false;
         public ChdCompressionType ChdCompressionType = ChdCompressionType.Normal;
+        public bool ChdStrictCueGdi = false;
+        public bool ChdKeepCueGdi = false;
+        public ChdAudioTransform ChdAudioTransform = ChdAudioTransform.None;
+        public ChdLayoutStrictness ChdLayoutStrictness = ChdLayoutStrictness.Normal;
 
 
         // Merge Type

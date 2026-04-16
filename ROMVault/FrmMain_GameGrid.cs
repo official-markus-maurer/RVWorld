@@ -478,6 +478,11 @@ namespace ROMVault
                             e.Value = tRvDir.Name + " (Found: " + tRvDir.FileName + ")";
                         }
 
+                        if (!string.IsNullOrEmpty(tRvDir.ChdStatus))
+                        {
+                            e.Value += " [" + tRvDir.ChdStatus + "]";
+                        }
+
                         break;
 
                     case GameGridColumns.CDescription:
@@ -564,6 +569,27 @@ namespace ROMVault
             catch { e.Value = ""; }
 
         }
+
+        private void GameGridCellToolTipTextNeeded(object sender, DataGridViewCellToolTipTextNeededEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= gameGrid.Length)
+                return;
+
+            RvFile tRvDir = gameGrid[e.RowIndex];
+            if (tRvDir.FileType != FileType.CHD)
+                return;
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine("CHD Info:");
+            if (tRvDir.CHDVersion.HasValue) sb.AppendLine($"- Version: V{tRvDir.CHDVersion}");
+            if (!string.IsNullOrEmpty(tRvDir.ChdScanMethod)) sb.AppendLine($"- Scan Method: {tRvDir.ChdScanMethod}");
+            if (!string.IsNullOrEmpty(tRvDir.ChdHashMatchMode)) sb.AppendLine($"- Hash Match: {tRvDir.ChdHashMatchMode}");
+            if (!string.IsNullOrEmpty(tRvDir.ChdDescriptorMatch)) sb.AppendLine($"- Descriptor Match: {tRvDir.ChdDescriptorMatch}");
+            if (!string.IsNullOrEmpty(tRvDir.ChdStatus)) sb.AppendLine($"- Status: {tRvDir.ChdStatus}");
+
+            e.ToolTipText = sb.ToString();
+        }
+
         private void GameGridCellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
         {
             try
