@@ -21,15 +21,12 @@ namespace ROMVault
     {
         private CheckBox chkChdCache;
         private CheckBox chkChdDebug;
-        private CheckBox chkChdStrictCueGdi;
         private CheckBox chkChdKeepCueGdi;
         private CheckBox chkChdExportOnFix;
         private CheckBox chkChdStreaming;
         private CheckBox chkChdPreferSynthetic;
-        private CheckBox chkChdTrustContainer;
-        private ComboBox cboChdAudioTransform;
-        private ComboBox cboChdLayoutStrictness;
         private NumericUpDown upChdDvdHunk;
+        private ComboBox cboChdNumProcessors;
         private Button btnPurgeChdCache;
         private bool _loadingSettings;
         public FrmSettings()
@@ -82,43 +79,17 @@ namespace ROMVault
             };
             grpScanning.Controls.Add(chkChdStreaming);
 
-            chkChdTrustContainer = new CheckBox { Text = "Treat CHD as satisfying track files", Left = 15, Top = 100, AutoSize = true };
-            grpScanning.Controls.Add(chkChdTrustContainer);
-
-            chkChdPreferSynthetic = new CheckBox { Text = "Prefer synthetic CUE/GDI when possible", Left = 15, Top = 125, AutoSize = true };
-            chkChdPreferSynthetic.CheckedChanged += (s, e) =>
-            {
-                if (_loadingSettings)
-                    return;
-                if (chkChdPreferSynthetic.Checked)
-                    MessageBox.Show("When a DAT expects CUE/GDI but metadata-only descriptors are acceptable (no strict hashes), prefer synthetic descriptors generated from CHD metadata.", "RomVault", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            };
-            grpScanning.Controls.Add(chkChdPreferSynthetic);
-
             // --- Fixing Group ---
             GroupBox grpFixing = new GroupBox();
             grpFixing.Text = "Fixing & Policy";
             grpFixing.Left = padding;
             grpFixing.Top = grpScanning.Bottom + padding;
             grpFixing.Width = groupWidth;
-            grpFixing.Height = 200;
+            grpFixing.Height = 230;
             grpFixing.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             tabCHD.Controls.Add(grpFixing);
 
-            chkChdStrictCueGdi = new CheckBox { Text = "Strict: require CUE/GDI in CHD mode", Left = 15, Top = 25, AutoSize = true };
-            chkChdStrictCueGdi.CheckedChanged += (s, e) =>
-            {
-                if (_loadingSettings)
-                    return;
-                if (chkChdStrictCueGdi.Checked)
-                    MessageBox.Show("CHD cannot faithfully reproduce original CUE/GDI contents. Strict mode will often keep sets incomplete.", "RomVault", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            };
-            grpFixing.Controls.Add(chkChdStrictCueGdi);
-
-            chkChdKeepCueGdi = new CheckBox { Text = "Default: Keep .cue / .gdi alongside CHDs", Left = 15, Top = 50, AutoSize = true };
-            grpFixing.Controls.Add(chkChdKeepCueGdi);
-
-            chkChdExportOnFix = new CheckBox { Text = "Allow exporting tracks during Fix", Left = 15, Top = 75, AutoSize = true };
+            chkChdExportOnFix = new CheckBox { Text = "Allow exporting tracks during Fix", Left = 15, Top = 25, AutoSize = true };
             chkChdExportOnFix.CheckedChanged += (s, e) =>
             {
                 if (_loadingSettings)
@@ -128,22 +99,28 @@ namespace ROMVault
             };
             grpFixing.Controls.Add(chkChdExportOnFix);
 
-            Label lblChdAudio = new Label { Text = "Audio Transform", Left = 15, Top = 105, AutoSize = true };
-            grpFixing.Controls.Add(lblChdAudio);
-            cboChdAudioTransform = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Left = 130, Top = 102, Width = 120 };
-            cboChdAudioTransform.Items.AddRange(new object[] { "None", "Swap16", "RawToWav" });
-            grpFixing.Controls.Add(cboChdAudioTransform);
+            chkChdKeepCueGdi = new CheckBox { Text = "Default: Keep .cue / .gdi alongside CHDs", Left = 15, Top = 50, AutoSize = true };
+            chkChdKeepCueGdi.CheckedChanged += (s, e) =>
+            {
+                if (_loadingSettings)
+                    return;
+                if (chkChdKeepCueGdi.Checked)
+                    MessageBox.Show("When enabled, CHD sets are modeled as a folder containing:\r\n- <set>.chd\r\n- <set>.cue/.gdi (sidecar)\r\nThis takes effect after Refresh All DATs.", "RomVault", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            };
+            grpFixing.Controls.Add(chkChdKeepCueGdi);
 
-            Label lblChdLayout = new Label { Text = "Layout Strictness", Left = 15, Top = 135, AutoSize = true };
-            grpFixing.Controls.Add(lblChdLayout);
-            cboChdLayoutStrictness = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Left = 130, Top = 132, Width = 120 };
-            cboChdLayoutStrictness.Items.AddRange(new object[] { "Normal", "Strict", "Relaxed" });
-            grpFixing.Controls.Add(cboChdLayoutStrictness);
-
-            Label lblDvdHunk = new Label { Text = "DVD hunk size (KiB)", Left = 15, Top = 165, AutoSize = true };
+            Label lblDvdHunk = new Label { Text = "DVD hunk size (KiB)", Left = 15, Top = 80, AutoSize = true };
             grpFixing.Controls.Add(lblDvdHunk);
-            upChdDvdHunk = new NumericUpDown { Left = 130, Top = 162, Minimum = 0, Maximum = 1024, Increment = 32, Width = 90 };
+            upChdDvdHunk = new NumericUpDown { Left = 130, Top = 77, Minimum = 0, Maximum = 1024, Increment = 32, Width = 90 };
             grpFixing.Controls.Add(upChdDvdHunk);
+
+            Label lblChdNp = new Label { Text = "chdman processors (-np)", Left = 15, Top = 110, AutoSize = true };
+            grpFixing.Controls.Add(lblChdNp);
+            cboChdNumProcessors = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Left = 165, Top = 107, Width = 85 };
+            cboChdNumProcessors.Items.Add("Auto");
+            for (int i = 1; i <= 64; i++)
+                cboChdNumProcessors.Items.Add(i.ToString());
+            grpFixing.Controls.Add(cboChdNumProcessors);
 
             // --- Maintenance Group ---
             GroupBox grpMaint = new GroupBox();
@@ -197,15 +174,14 @@ namespace ROMVault
 
             chkChdCache.Checked = Settings.rvSettings.ChdScanCacheEnabled;
             chkChdDebug.Checked = Settings.rvSettings.ChdDebug;
-            chkChdStrictCueGdi.Checked = Settings.rvSettings.ChdStrictCueGdi;
-            chkChdKeepCueGdi.Checked = Settings.rvSettings.ChdKeepCueGdi;
             chkChdExportOnFix.Checked = Settings.rvSettings.ChdExportTracksOnFix;
             chkChdStreaming.Checked = Settings.rvSettings.ChdStreaming;
-            chkChdPreferSynthetic.Checked = Settings.rvSettings.ChdPreferSynthetic;
-            chkChdTrustContainer.Checked = Settings.rvSettings.ChdTrustContainerForTracks;
-            cboChdAudioTransform.SelectedIndex = (int)Settings.rvSettings.ChdAudioTransform;
-            cboChdLayoutStrictness.SelectedIndex = (int)Settings.rvSettings.ChdLayoutStrictness;
+            chkChdKeepCueGdi.Checked = Settings.rvSettings.ChdKeepCueGdi;
             upChdDvdHunk.Value = Settings.rvSettings.ChdDvdHunkSizeKiB;
+            int np = Settings.rvSettings.ChdNumProcessors;
+            if (np < 0) np = 0;
+            if (np > 64) np = 0;
+            cboChdNumProcessors.SelectedIndex = np;
             _loadingSettings = false;
         }
 
@@ -253,15 +229,11 @@ namespace ROMVault
 
             Settings.rvSettings.ChdScanCacheEnabled = chkChdCache.Checked;
             Settings.rvSettings.ChdDebug = chkChdDebug.Checked;
-            Settings.rvSettings.ChdStrictCueGdi = chkChdStrictCueGdi.Checked;
-            Settings.rvSettings.ChdKeepCueGdi = chkChdKeepCueGdi.Checked;
             Settings.rvSettings.ChdExportTracksOnFix = chkChdExportOnFix.Checked;
             Settings.rvSettings.ChdStreaming = chkChdStreaming.Checked;
-            Settings.rvSettings.ChdPreferSynthetic = chkChdPreferSynthetic.Checked;
-            Settings.rvSettings.ChdTrustContainerForTracks = chkChdTrustContainer.Checked;
-            Settings.rvSettings.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
-            Settings.rvSettings.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
+            Settings.rvSettings.ChdKeepCueGdi = chkChdKeepCueGdi.Checked;
             Settings.rvSettings.ChdDvdHunkSizeKiB = (int)upChdDvdHunk.Value;
+            Settings.rvSettings.ChdNumProcessors = cboChdNumProcessors.SelectedIndex;
 
             Settings.WriteConfig(Settings.rvSettings);
             Close();

@@ -36,6 +36,13 @@ namespace RomVaultCmd
                 Environment.ExitCode = ChdVerify.Verify(chdPath, outPath);
                 return;
             }
+            if (args.Length >= 2 && string.Equals(args[0], "-chdhealth", StringComparison.OrdinalIgnoreCase))
+            {
+                string chdPath = args[1];
+                string outPath = args.Length >= 3 ? args[2] : null;
+                Environment.ExitCode = ChdVerify.Health(chdPath, outPath);
+                return;
+            }
 
             foreach (string arg in args)
             {
@@ -115,6 +122,8 @@ namespace RomVaultCmd
             Console.WriteLine("-scanfix -sf : Scan ROMs / FindFixes / FixROMs");
             Console.WriteLine("-verifychd   : Verify CHD by extracting and hashing contents");
             Console.WriteLine("              RomVaultCmd -verifychd <path-to-chd> [optional-output-file]");
+            Console.WriteLine("-chdhealth   : Unified CHD health report (container + scan + parity summary)");
+            Console.WriteLine("              RomVaultCmd -chdhealth <path-to-chd> [optional-output-file]");
         }
 
         private static void DoWork()

@@ -158,11 +158,17 @@ namespace RomVaultCore.RvDB
             get
             {
                 string res = string.IsNullOrEmpty(FileName) ? Name : Name + " (Found: " + FileName + ")";
+                if (IsChdTrustSatisfied)
+                    res += " [Trusted Container]";
                 if (!string.IsNullOrEmpty(ChdStatus))
                     res += " [" + ChdStatus + "]";
                 return res;
             }
         }
+
+        public bool IsChdTrustSatisfied =>
+            FileType == FileType.CHD &&
+            string.Equals(ChdHashMatchMode, "TrustContainer", StringComparison.OrdinalIgnoreCase);
 
         public string ChdFullStatus
         {
@@ -174,6 +180,7 @@ namespace RomVaultCore.RvDB
                 if (CHDVersion.HasValue) sb.AppendLine($"- Version: V{CHDVersion}");
                 if (!string.IsNullOrEmpty(ChdScanMethod)) sb.AppendLine($"- Scan Method: {ChdScanMethod}");
                 if (!string.IsNullOrEmpty(ChdHashMatchMode)) sb.AppendLine($"- Hash Match: {ChdHashMatchMode}");
+                if (IsChdTrustSatisfied) sb.AppendLine("- Trust Indicator: Satisfied by container trust");
                 if (!string.IsNullOrEmpty(ChdDescriptorMatch)) sb.AppendLine($"- Descriptor Match: {ChdDescriptorMatch}");
                 if (!string.IsNullOrEmpty(ChdStatus)) sb.AppendLine($"- Status: {ChdStatus}");
                 return sb.ToString().TrimEnd();

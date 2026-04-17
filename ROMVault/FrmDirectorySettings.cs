@@ -147,12 +147,14 @@ namespace ROMVault
             {
                 case 0:
                     chkFileTypeOverride.Enabled = true;
+                    chkSingleArchive.Enabled = true;
                     cboCompression.Enabled = false;
                     chkConvertWhenFixing.Enabled = false;
                     cboFilterType.Enabled = true;
                     break;
                 case 1:
                     chkFileTypeOverride.Enabled = true;
+                    chkSingleArchive.Enabled = true;
                     cboCompression.Items.Add("Deflate - Trrntzip");
                     cboCompression.Items.Add("ZSTD");
                     cboCompression.Enabled = true;
@@ -167,6 +169,7 @@ namespace ROMVault
                     break;
                 case 2:
                     chkFileTypeOverride.Enabled = true;
+                    chkSingleArchive.Enabled = true;
                     cboCompression.Items.Add("LZMA Solid - rv7z");
                     cboCompression.Items.Add("LZMA Non-Solid");
                     cboCompression.Items.Add("ZSTD Solid");
@@ -187,6 +190,7 @@ namespace ROMVault
                     break;
                 case 3:
                     chkFileTypeOverride.Enabled = true;
+                    chkSingleArchive.Enabled = false;
                     cboCompression.Items.Add("Auto (CD/DVD/PSP)");
                     cboCompression.Items.Add("Normal (zstd)");
                     cboCompression.Items.Add("CD (cdzs,cdzl,cdfl)");
@@ -204,6 +208,7 @@ namespace ROMVault
                     break;
                 case 4:
                     chkFileTypeOverride.Enabled = false;
+                    chkSingleArchive.Enabled = true;
                     cboCompression.Enabled = false;
                     chkConvertWhenFixing.Enabled = false;
                     cboFilterType.Enabled = true;
@@ -238,7 +243,6 @@ namespace ROMVault
             chkUseDescription.Checked = _rule.UseDescriptionAsDirName;
             chkUseIdForName.Checked = _rule.UseIdForName;
             chkChdStrict.Checked = _rule.ChdStrictCueGdi;
-            chkChdKeepCueGdi.Checked = _rule.ChdKeepCueGdi;
             cboChdAudioTransform.SelectedIndex = (int)_rule.ChdAudioTransform;
             cboChdLayoutStrictness.SelectedIndex = (int)_rule.ChdLayoutStrictness;
 
@@ -260,6 +264,15 @@ namespace ROMVault
             chkAddCategorySubDirs.Checked = _rule.AddCategorySubDirs;
             if (_rule.AddCategorySubDirs)
                 SetCategoryList();
+
+            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+            chkUseDescription.Visible = isGlobalDatRule;
+            chkChdStrict.Visible = isGlobalDatRule;
+
+            lblChdAudioTransform.Visible = false;
+            cboChdAudioTransform.Visible = false;
+            lblChdLayoutStrictness.Visible = false;
+            cboChdLayoutStrictness.Visible = false;
         }
 
 
@@ -358,12 +371,15 @@ namespace ROMVault
             _rule.SingleArchive = chkSingleArchive.Checked;
             _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
             _rule.MultiDATDirOverride = chkMultiDatDirOverride.Checked;
-            _rule.UseDescriptionAsDirName = chkUseDescription.Checked;
+            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+            if (isGlobalDatRule)
+                _rule.UseDescriptionAsDirName = chkUseDescription.Checked;
             _rule.UseIdForName = chkUseIdForName.Checked;
-            _rule.ChdStrictCueGdi = chkChdStrict.Checked;
-            _rule.ChdKeepCueGdi = chkChdKeepCueGdi.Checked;
-            _rule.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
-            _rule.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
+            if (isGlobalDatRule)
+            {
+                _rule.ChdStrictCueGdi = chkChdStrict.Checked;
+                Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.Checked;
+            }
 
             _rule.CompleteOnly = chkCompleteOnly.Checked;
 

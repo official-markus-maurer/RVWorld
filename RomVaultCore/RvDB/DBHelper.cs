@@ -189,6 +189,9 @@ namespace RomVaultCore.RvDB
         /// </remarks>
         public static bool CheckIfMissingFileCanBeFixedByGotFile(RvFile missingFile, RvFile gotFile)
         {
+            if (IsChdContainerMoveMatch(missingFile, gotFile))
+                return true;
+
             if (IsDiscChdNameMatch(missingFile, gotFile))
                 return true;
 
@@ -215,6 +218,26 @@ namespace RomVaultCore.RvDB
             }
 
             return true;
+        }
+
+        private static bool IsChdContainerMoveMatch(RvFile missingFile, RvFile gotFile)
+        {
+            if (missingFile == null || gotFile == null)
+                return false;
+
+            bool missingIsChdContainer = missingFile.FileType == FileType.CHD && missingFile.Name != null && missingFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+            if (!missingIsChdContainer)
+                return false;
+
+            if (gotFile.GotStatus != GotStatus.Got)
+                return false;
+
+            bool gotIsChdContainer = gotFile.FileType == FileType.CHD && gotFile.Name != null && gotFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+            bool gotIsChdFile = gotFile.IsFile && gotFile.Name != null && gotFile.Name.EndsWith(".chd", StringComparison.OrdinalIgnoreCase);
+            if (!gotIsChdContainer && !gotIsChdFile)
+                return false;
+
+            return string.Equals(missingFile.Name, gotFile.Name, StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool IsChdCreationAllowedForSet(RvFile missingChdFile)

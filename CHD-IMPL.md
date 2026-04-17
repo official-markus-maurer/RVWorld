@@ -1,5 +1,7 @@
 # CHD (V5 + zstd)
 
+See also: [CHD-STANDARD.md](CHD-STANDARD.md) for policy-level standards per media type.
+
 ## Goal
 
 Support creating V5 CHDs with zstd for disc-based Redump media during fixing, with correct command selection based on source type:
@@ -59,7 +61,15 @@ This is implemented by treating CHD as an archive type:
 
 When streaming is not available (disabled or metadata not present), this uses **extract-to-cache** (`extractcd`/`extractdvd`) for correctness.
 
-To avoid repeated extraction and hashing on rescans, scan results are cached (keyed by CHD path + size + timestamp) as a small JSON sidecar under the cache directory.
+To avoid repeated extraction and hashing on rescans, scan results are cached as a small JSON sidecar under the cache directory.
+
+Cache validity is keyed by:
+
+- CHD path + size + timestamp
+- expected descriptor type (`dvd` / `cue` / `gdi` / `trust`)
+- mapping fingerprint (hashing/mapping algorithm version)
+- settings fingerprint (CHD-relevant settings and applicable per-DAT CHD rule fields)
+- tool fingerprint (when available: `chdman` version + CHD library version)
 
 Track mapping:
 
@@ -86,16 +96,21 @@ Diagnostics:
 - WinForms UI provides `Verify CHD Container...` on the right-click context menu of a `.chd` in the game list.
 - Avalonia UI provides `Verify CHD Container...` on the right-click context menu of a `.chd` in the ROM list.
 - UI provides `Verify CHD Parity (Stream vs Extract)...` on a `.chd` to compare streaming hashes against extract-based hashes.
+- If `chdman` is upgraded/downgraded, cached CHD scan results are invalidated when the tool version can be detected.
 
 Streaming mode:
 
 - DVD hashing runs in streaming mode (no extraction to ISO) using CHDSharpLib’s logical stream reader. Toggle: `Settings.ChdStreamingEnabled`.
 - CD/GDI hashing can also run in streaming mode when CHD metadata provides a track layout; otherwise it falls back to `chdman extractcd`.
 - When a `.cue/.gdi` descriptor is expected, a synthetic descriptor is generated from metadata and verified; mismatches fall back to `extractcd` for fidelity.
+- For CHDs scanned without a DAT expectation list (e.g. `ToSort`), RomVault auto-detects disc type:
+  - If CD track metadata is present, scan as CD.
+  - Otherwise scan as DVD and treat the logical stream as an ISO (2048-byte / `0x800` sectors).
 
 Commandline verification:
 
 - `RomVaultCmd -verifychd <path-to-chd> [optional-output-file]` extracts and hashes the CHD contents and prints a summary.
+- `RomVaultCmd -chdhealth <path-to-chd> [optional-output-file]` produces a unified health report (container info, scan mode, expected hash outcome, and parity when applicable).
 
 ### Alternative Implementation (nkit track hashing)
 
@@ -265,7 +280,7 @@ Some configurations use virtual roots like `RomRoot\...` and `ToSort\...`. Any C
 - Surface CHD actions in both views where users expect them:
   - WinForms: CHD verify/export should appear in the game list context menu.
   - Settings: keep CHD options grouped in a dedicated section to avoid layout overlap.
-- Add a status indicator when a set is considered satisfied “by container trust” rather than by per-track hash match.
+- When a set is considered satisfied “by container trust” rather than by per-track hash match, the UI shows `[Trusted Container]` and the CHD tooltip/status includes a trust indicator.
 
 ### CHDs Outside DAT Context (ToSort / Unknown CHDs)
 
@@ -308,7 +323,7 @@ Similarly, incomplete disc sets may benefit from a policy (e.g. keep incomplete 
 
 ### Tooling / Diagnostics
 
-- Provide a single “CHD health” report that includes:
+- A single “CHD health” report is available (CLI: `RomVaultCmd -chdhealth`) that includes:
   - container info (version/compression)
   - whether scanning used streaming or extraction
   - whether track hashes match DAT or fell back to “trust container”

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using CHDSharpLib;
 using FileScanner;
@@ -133,6 +134,139 @@ public static class ChdVerify
         return diffs.Count == 0 ? 0 : 5;
     }
 
+    /// <summary>
+    /// Generates a unified CHD health report that summarizes container metadata, scan mode,
+    /// expected-hash outcomes, and optional stream-vs-extract parity.
+    /// </summary>
+    public static int TryGenerateHealthReport(string chdPath, System.Collections.Generic.IReadOnlyList<RvFile> expectedMembers, out string report)
+    {
+        report = "";
+        int rcVerify = TryGenerateReportInternal(chdPath, expectedMembers, null, out string verifyReport, out _, out Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> expectedHashes, out string modeUsed);
+
+        uint? ver = null;
+        byte[] chdSha1 = null;
+        byte[] chdMd5 = null;
+        try
+        {
+            using (FileStream fs = System.IO.File.OpenRead(chdPath))
+            {
+                CHD.CheckFile(fs, chdPath, false, out ver, out chdSha1, out chdMd5);
+            }
+        }
+        catch
+        {
+        }
+
+        string chdmanVersion = "";
+        string chdmanInfoCompression = "";
+        string chdmanInfoHunkBytes = "";
+        string chdmanInfoUnitBytes = "";
+        string chdmanInfoLogicalBytes = "";
+        string chdmanDumpMeta = "";
+        try
+        {
+            string chdmanExe = FindChdmanExePath();
+            if (!RunProcess(chdmanExe, "--version", Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory, out chdmanVersion) ||
+                string.IsNullOrWhiteSpace(chdmanVersion))
+            {
+                RunProcess(chdmanExe, "-version", Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory, out chdmanVersion);
+            }
+            chdmanVersion = (chdmanVersion ?? "").Replace("\r", "").Split('\n')[0].Trim();
+
+            if (RunProcess(chdmanExe, $"info -i \"{chdPath}\"", Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory, out string infoOut))
+            {
+                ParseInfoField(infoOut, "Compression", out chdmanInfoCompression);
+                ParseInfoBytesField(infoOut, "Hunk Size", out chdmanInfoHunkBytes);
+                ParseInfoBytesField(infoOut, "Unit Size", out chdmanInfoUnitBytes);
+                ParseInfoBytesField(infoOut, "Logical size", out chdmanInfoLogicalBytes);
+            }
+
+            if (RunProcess(chdmanExe, $"dumpmeta -i \"{chdPath}\"", Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory, out string metaOut))
+            {
+                chdmanDumpMeta = NormalizeDumpMeta(metaOut, 80);
+            }
+        }
+        catch
+        {
+            chdmanVersion = "";
+        }
+
+        List<string> lines = new List<string>
+        {
+            "CHD health",
+            chdPath,
+            $"containerVersion={(ver.HasValue ? "V" + ver.Value : "unknown")}",
+            $"containerSha1={chdSha1?.ToHexString() ?? ""}",
+            $"containerMd5={chdMd5?.ToHexString() ?? ""}",
+            $"scanMode={modeUsed}",
+            $"chdmanVersion={chdmanVersion}",
+            $"compression={chdmanInfoCompression}",
+            $"hunkBytes={chdmanInfoHunkBytes}",
+            $"unitBytes={chdmanInfoUnitBytes}",
+            $"logicalBytes={chdmanInfoLogicalBytes}",
+            $"verifyRc={rcVerify}"
+        };
+
+        int rcParity = 0;
+        string parityReport = "";
+        bool hasExpected = expectedMembers != null && expectedMembers.Count > 0;
+        if (hasExpected && rcVerify == 0)
+        {
+            (int compared, int matched, int mismatched, int missing) = CompareExpectedHashes(expectedMembers, expectedHashes);
+            bool hashMatch = mismatched == 0 && missing == 0;
+            bool trustSatisfied = !hashMatch && Settings.rvSettings?.ChdTrustContainerForTracks == true;
+
+            lines.Add($"expectedCompared={compared}");
+            lines.Add($"expectedMatched={matched}");
+            lines.Add($"expectedMismatched={mismatched}");
+            lines.Add($"expectedMissing={missing}");
+            lines.Add($"trackHashResult={(hashMatch ? "Match" : "Mismatch")}");
+            lines.Add($"trustContainerSatisfied={(trustSatisfied ? "True" : "False")}");
+
+            rcParity = TryGenerateParityReport(chdPath, expectedMembers, out parityReport);
+            lines.Add($"parityRc={rcParity}");
+        }
+        else
+        {
+            lines.Add("expectedCompared=0");
+            lines.Add("trackHashResult=NotAvailable");
+            lines.Add("trustContainerSatisfied=False");
+            lines.Add("parityRc=NotRun");
+        }
+
+        lines.Add("");
+        lines.Add("verify report:");
+        lines.Add(verifyReport);
+        if (!string.IsNullOrWhiteSpace(parityReport))
+        {
+            lines.Add("");
+            lines.Add("parity report:");
+            lines.Add(parityReport);
+        }
+        if (!string.IsNullOrWhiteSpace(chdmanDumpMeta))
+        {
+            lines.Add("");
+            lines.Add("metadata dump (truncated):");
+            lines.Add(chdmanDumpMeta);
+        }
+
+        report = string.Join(Environment.NewLine, lines);
+
+        if (rcVerify != 0)
+            return rcVerify;
+        if (hasExpected && rcParity != 0)
+            return rcParity;
+        return 0;
+    }
+
+    /// <summary>
+    /// Generates a unified CHD health report without DAT expectations.
+    /// </summary>
+    public static int TryGenerateHealthReport(string chdPath, out string report)
+    {
+        return TryGenerateHealthReport(chdPath, null, out report);
+    }
+
     private static bool ByteEq(byte[] a, byte[] b)
     {
         if (a == null && b == null) return true;
@@ -141,6 +275,66 @@ public static class ChdVerify
         for (int i = 0; i < a.Length; i++)
             if (a[i] != b[i]) return false;
         return true;
+    }
+
+    private static void ParseInfoField(string infoText, string fieldName, out string value)
+    {
+        value = "";
+        if (string.IsNullOrWhiteSpace(infoText) || string.IsNullOrWhiteSpace(fieldName))
+            return;
+        string[] lines = infoText.Replace("\r", "").Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i]?.Trim() ?? "";
+            if (!line.StartsWith(fieldName + ":", StringComparison.OrdinalIgnoreCase))
+                continue;
+            int idx = line.IndexOf(':');
+            if (idx < 0 || idx + 1 >= line.Length)
+                continue;
+            value = line.Substring(idx + 1).Trim();
+            return;
+        }
+    }
+
+    private static void ParseInfoBytesField(string infoText, string fieldName, out string bytesOnly)
+    {
+        bytesOnly = "";
+        ParseInfoField(infoText, fieldName, out string raw);
+        if (string.IsNullOrWhiteSpace(raw))
+            return;
+
+        Match m = Regex.Match(raw, @"([0-9][0-9,]*)\s*bytes", RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            bytesOnly = m.Groups[1].Value.Replace(",", "").Trim();
+            return;
+        }
+
+        Match n = Regex.Match(raw, @"^\s*([0-9][0-9,]*)\s*$");
+        if (n.Success)
+            bytesOnly = n.Groups[1].Value.Replace(",", "").Trim();
+    }
+
+    private static string NormalizeDumpMeta(string text, int maxLines)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return "";
+        string[] lines = text.Replace("\r", "").Split('\n');
+        List<string> kept = new List<string>();
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string l = lines[i]?.TrimEnd() ?? "";
+            if (string.IsNullOrWhiteSpace(l))
+                continue;
+            kept.Add(l);
+            if (kept.Count >= Math.Max(1, maxLines))
+                break;
+        }
+        if (kept.Count == 0)
+            return "";
+        if (kept.Count < lines.Count(l => !string.IsNullOrWhiteSpace(l)))
+            kept.Add("... (truncated)");
+        return string.Join(Environment.NewLine, kept);
     }
 
     private static int TryGenerateReportInternal(string chdPath, System.Collections.Generic.IReadOnlyList<RvFile> expectedMembers, bool? forceStreaming, out string report, out System.Collections.Generic.List<MapRow> mapping, out Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> expectedHashes, out string modeUsed)
@@ -448,6 +642,53 @@ public static class ChdVerify
         int rc = TryGenerateReport(chdPath, out string report);
         Write(outputPath, report);
         return rc;
+    }
+
+    public static int Health(string chdPath, string outputPath = null)
+    {
+        int rc = TryGenerateHealthReport(chdPath, out string report);
+        Write(outputPath, report);
+        return rc;
+    }
+
+    private static (int compared, int matched, int mismatched, int missing) CompareExpectedHashes(
+        System.Collections.Generic.IReadOnlyList<RvFile> expectedMembers,
+        Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> expectedHashes)
+    {
+        int compared = 0;
+        int matched = 0;
+        int mismatched = 0;
+        int missing = 0;
+        if (expectedMembers == null)
+            return (0, 0, 0, 0);
+
+        for (int i = 0; i < expectedMembers.Count; i++)
+        {
+            RvFile exp = expectedMembers[i];
+            if (exp == null || !exp.IsFile || string.IsNullOrWhiteSpace(exp.Name))
+                continue;
+
+            bool hasConstraint = (exp.Size.HasValue && exp.Size.Value != 0) || exp.CRC != null || exp.SHA1 != null || exp.MD5 != null;
+            if (!hasConstraint)
+                continue;
+
+            compared++;
+            if (!expectedHashes.TryGetValue(exp.Name, out var got))
+            {
+                missing++;
+                continue;
+            }
+
+            bool bad = false;
+            if (exp.Size.HasValue && exp.Size.Value != 0 && got.size != exp.Size.Value) bad = true;
+            if (exp.CRC != null && got.crc != null && !ByteEq(exp.CRC, got.crc)) bad = true;
+            if (exp.SHA1 != null && got.sha1 != null && !ByteEq(exp.SHA1, got.sha1)) bad = true;
+            if (exp.MD5 != null && got.md5 != null && !ByteEq(exp.MD5, got.md5)) bad = true;
+            if (bad) mismatched++;
+            else matched++;
+        }
+
+        return (compared, matched, mismatched, missing);
     }
 
     private static void Write(string outputPath, string text)

@@ -246,6 +246,12 @@ namespace RomVaultCore.FixFile
             ReturnCode returnCode = ReturnCode.LogicError;
             switch (child.FileType)
             {
+                case FileType.FileZip:
+                case FileType.FileSevenZip:
+                case FileType.FileCHD:
+                    // Container members are fixed by their owning container (Zip/7z/CHD), not directly.
+                    return ReturnCode.Good;
+
                 case FileType.Zip:
                 case FileType.SevenZip:
                     if (!thisSelected)
@@ -301,7 +307,20 @@ namespace RomVaultCore.FixFile
                     ReportError.Show(errorMessage);
                     break;
                 case ReturnCode.LogicError:
-                    ReportError.UnhandledExceptionHandler(errorMessage);
+                    if (string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        string tn = "";
+                        try { tn = child?.TreeFullName ?? ""; } catch { tn = ""; }
+                        errorMessage =
+                            "LogicError with no errorMessage.\n" +
+                            $"Node: {tn}\n" +
+                            $"FileType: {child?.FileType}\n" +
+                            $"RepStatus: {child?.RepStatus}\n" +
+                            $"DatStatus: {child?.DatStatus}\n" +
+                            $"GotStatus: {child?.GotStatus}";
+                    }
+                    ReportError.Show(errorMessage);
+                    returnCode = ReturnCode.FileSystemError;
                     break;
                 case ReturnCode.FileSystemError:
                     ReportError.Show($"{errorMessage}\n{returnCode}\n");

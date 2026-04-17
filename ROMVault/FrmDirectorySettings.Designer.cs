@@ -73,7 +73,6 @@ namespace ROMVault
             this.chkAddCategorySubDirs = new System.Windows.Forms.CheckBox();
             this.chkCompleteOnly = new System.Windows.Forms.CheckBox();
             this.chkUseIdForName = new System.Windows.Forms.CheckBox();
-            this.chkChdKeepCueGdi = new System.Windows.Forms.CheckBox();
             this.lblChdAudioTransform = new System.Windows.Forms.Label();
             this.cboChdAudioTransform = new System.Windows.Forms.ComboBox();
             this.lblChdLayoutStrictness = new System.Windows.Forms.Label();
@@ -512,7 +511,6 @@ namespace ROMVault
             this.groupBox3.Controls.Add(this.chkAddCategorySubDirs);
             this.groupBox3.Controls.Add(this.chkCompleteOnly);
             this.groupBox3.Controls.Add(this.chkUseIdForName);
-            this.groupBox3.Controls.Add(this.chkChdKeepCueGdi);
             this.groupBox3.Controls.Add(this.lblChdAudioTransform);
             this.groupBox3.Controls.Add(this.cboChdAudioTransform);
             this.groupBox3.Controls.Add(this.lblChdLayoutStrictness);
@@ -610,16 +608,6 @@ namespace ROMVault
             this.chkUseIdForName.TabIndex = 49;
             this.chkUseIdForName.Text = "Use ID for Numbered DAT Names (No-Intro DATs)";
             this.chkUseIdForName.UseVisualStyleBackColor = true;
-            // 
-            // chkChdKeepCueGdi
-            // 
-            this.chkChdKeepCueGdi.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.chkChdKeepCueGdi.Location = new System.Drawing.Point(6, 110);
-            this.chkChdKeepCueGdi.Name = "chkChdKeepCueGdi";
-            this.chkChdKeepCueGdi.Size = new System.Drawing.Size(265, 17);
-            this.chkChdKeepCueGdi.TabIndex = 55;
-            this.chkChdKeepCueGdi.Text = "Keep .cue / .gdi alongside CHDs";
-            this.chkChdKeepCueGdi.UseVisualStyleBackColor = true;
             // 
             // lblChdAudioTransform
             // 
@@ -783,7 +771,6 @@ namespace ROMVault
         private System.Windows.Forms.CheckBox chkCompleteOnly;
         private System.Windows.Forms.CheckBox chkUseIdForName;
         private System.Windows.Forms.CheckBox chkAddCategorySubDirs;
-        private System.Windows.Forms.CheckBox chkChdKeepCueGdi;
         private System.Windows.Forms.Label lblChdAudioTransform;
         private System.Windows.Forms.ComboBox cboChdAudioTransform;
         private System.Windows.Forms.Label lblChdLayoutStrictness;

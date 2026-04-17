@@ -90,7 +90,7 @@ namespace RomVaultCore.FixFile.Utils
                     if (returnCode == ReturnCode.Good && moved)
                     {
                         ApplyChdMemberParity(sourceFile, destinationFile);
-                        if (rule.ChdKeepCueGdi)
+                        if (Settings.rvSettings.ChdKeepCueGdi)
                         {
                             MoveChdSidecarDescriptors(sourcePathChd, destinationPathChd);
                             MarkSidecarDescriptorChildrenGot(destinationFile, destinationPathChd);
@@ -217,7 +217,7 @@ namespace RomVaultCore.FixFile.Utils
                 return true;
             }
 
-            returnCode = VerifyAndMergeCreatedChd(destinationPath, destinationFile, out errorMessage);
+            returnCode = VerifyAndMergeCreatedChd(destinationPath, destinationFile, chdmanExe, out errorMessage);
             if (returnCode != ReturnCode.Good)
             {
                 CleanupFailedChd(destinationPath);
@@ -225,7 +225,56 @@ namespace RomVaultCore.FixFile.Utils
                 return true;
             }
 
-            usedFiles.Add(sourceFile);
+            bool keepSourceDescriptorInPlace = false;
+            if (Settings.rvSettings.ChdKeepCueGdi)
+            {
+                string ext = (inputExt ?? "").ToLowerInvariant();
+                if (ext == ".cue" || ext == ".gdi")
+                {
+                    string dstDir = System.IO.Path.GetDirectoryName(destinationPath) ?? "";
+                    string dstBase = System.IO.Path.GetFileNameWithoutExtension(destinationPath) ?? "";
+                    if (!string.IsNullOrWhiteSpace(dstDir) && !string.IsNullOrWhiteSpace(dstBase))
+                    {
+                        string sidecar = System.IO.Path.Combine(dstDir, dstBase + ext);
+                        try
+                        {
+                            if (!System.IO.File.Exists(sidecar))
+                            {
+                                string copyFrom = null;
+                                if (sourceFile.FileType == FileType.File && !string.IsNullOrWhiteSpace(sourcePath) && System.IO.File.Exists(sourcePath))
+                                    copyFrom = sourcePath;
+                                else if (!string.IsNullOrWhiteSpace(inputPath) && System.IO.File.Exists(inputPath))
+                                    copyFrom = inputPath;
+
+                                if (!string.IsNullOrWhiteSpace(copyFrom))
+                                    System.IO.File.Copy(copyFrom, sidecar, overwrite: false);
+                            }
+                        }
+                        catch
+                        {
+                        }
+
+                        try
+                        {
+                            if (sourceFile.FileType == FileType.File && !string.IsNullOrWhiteSpace(sourcePath))
+                            {
+                                string sp = System.IO.Path.GetFullPath(sourcePath);
+                                string sc = System.IO.Path.GetFullPath(sidecar);
+                                keepSourceDescriptorInPlace = string.Equals(sp, sc, StringComparison.OrdinalIgnoreCase);
+                            }
+                        }
+                        catch
+                        {
+                            keepSourceDescriptorInPlace = false;
+                        }
+                    }
+
+                    MarkSidecarDescriptorChildrenGot(destinationFile, destinationPath);
+                }
+            }
+
+            if (!keepSourceDescriptorInPlace)
+                usedFiles.Add(sourceFile);
             if (sourceFile.Parent != null && !string.IsNullOrWhiteSpace(inputPath))
             {
                 string ext = Path.GetExtension(inputPath).ToLowerInvariant();
@@ -334,12 +383,32 @@ namespace RomVaultCore.FixFile.Utils
                     return true;
                 }
 
-                returnCode = VerifyAndMergeCreatedChd(destinationPath, destinationFile, out errorMessage);
+                returnCode = VerifyAndMergeCreatedChd(destinationPath, destinationFile, chdmanExe, out errorMessage);
                 if (returnCode != ReturnCode.Good)
                 {
                     CleanupFailedChd(destinationPath);
                     CleanupTempPaths(tempPathsToDelete);
                     return true;
+                }
+
+                if (Settings.rvSettings.ChdKeepCueGdi)
+                {
+                    try
+                    {
+                        string dstDir = System.IO.Path.GetDirectoryName(destinationPath) ?? "";
+                        string dstBase = System.IO.Path.GetFileNameWithoutExtension(destinationPath) ?? "";
+                        if (!string.IsNullOrWhiteSpace(dstDir) && !string.IsNullOrWhiteSpace(dstBase))
+                        {
+                            string sidecar = System.IO.Path.Combine(dstDir, dstBase + ".cue");
+                            if (!System.IO.File.Exists(sidecar) && System.IO.File.Exists(cuePath))
+                                System.IO.File.Copy(cuePath, sidecar, overwrite: false);
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    MarkSidecarDescriptorChildrenGot(destinationFile, destinationPath);
                 }
 
                 CleanupTempPaths(tempPathsToDelete);
@@ -654,16 +723,28 @@ namespace RomVaultCore.FixFile.Utils
                 if (string.IsNullOrWhiteSpace(dstDir))
                     return;
 
+                string baseName = System.IO.Path.GetFileNameWithoutExtension(destinationChdPath) ?? "";
+                if (string.IsNullOrWhiteSpace(baseName))
+                    return;
+
+                string cuePhys = System.IO.Path.Combine(dstDir, baseName + ".cue");
+                string gdiPhys = System.IO.Path.Combine(dstDir, baseName + ".gdi");
+                bool haveCue = System.IO.File.Exists(cuePhys);
+                bool haveGdi = System.IO.File.Exists(gdiPhys);
+                if (!haveCue && !haveGdi)
+                    return;
+
                 for (int i = 0; i < destinationChd.ChildCount; i++)
                 {
                     RvFile c = destinationChd.Child(i);
                     if (c == null || !c.IsFile || c.FileType != FileType.FileCHD)
                         continue;
                     string n = c.Name ?? "";
-                    if (!n.EndsWith(".cue", StringComparison.OrdinalIgnoreCase) && !n.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase))
+                    bool isCue = n.EndsWith(".cue", StringComparison.OrdinalIgnoreCase);
+                    bool isGdi = n.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase);
+                    if (!isCue && !isGdi)
                         continue;
-
-                    string phys = System.IO.Path.Combine(dstDir, n);
+                    string phys = isCue ? cuePhys : gdiPhys;
                     if (!System.IO.File.Exists(phys))
                         continue;
 
@@ -831,22 +912,34 @@ namespace RomVaultCore.FixFile.Utils
         private static string BuildChdmanArguments(string command, string inputPath, string outputPath, RvFile destinationFile, RomVaultCore.ChdCompressionType chdCompressionType)
         {
             string compression = BuildChdmanCompressionArgument(command, chdCompressionType);
+            string npArg = BuildChdmanNumProcessorsArgument();
 
             if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase) &&
                 (chdCompressionType == RomVaultCore.ChdCompressionType.PSP || IsPspPlatform(destinationFile)) &&
                 outputPath.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
             {
-                return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} -hs 2048 -f";
+                return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} {npArg} -hs 2048 -f";
             }
 
             if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase))
             {
                 int hs = GetDvdHunkSizeBytes();
                 if (hs > 0)
-                    return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} -hs {hs} -f";
+                    return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} {npArg} -hs {hs} -f";
             }
 
-            return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} -f";
+            return $"{command} -i \"{inputPath}\" -o \"{outputPath}\" {compression} {npArg} -f";
+        }
+
+        private static string BuildChdmanNumProcessorsArgument()
+        {
+            int np = 0;
+            try { np = Settings.rvSettings?.ChdNumProcessors ?? 0; } catch { np = 0; }
+            if (np <= 0)
+                return "";
+            if (np > 256)
+                np = 256;
+            return $"-np {np}";
         }
 
         private static int GetDvdHunkSizeBytes()
@@ -1005,12 +1098,22 @@ namespace RomVaultCore.FixFile.Utils
             return -1;
         }
 
-        private static ReturnCode VerifyAndMergeCreatedChd(string destinationPath, RvFile destinationFile, out string errorMessage)
+        private static ReturnCode VerifyAndMergeCreatedChd(string destinationPath, RvFile destinationFile, string chdmanExe, out string errorMessage)
         {
             errorMessage = "";
 
             FileInfo fi = new FileInfo(destinationPath);
             long ts = fi.LastWriteTime;
+
+            if (!string.IsNullOrWhiteSpace(chdmanExe))
+            {
+                ReturnCode verifyRc = RunChdman(chdmanExe, $"verify -i \"{destinationPath}\"", System.IO.Path.GetDirectoryName(destinationPath) ?? Environment.CurrentDirectory, out string verifyOutput);
+                if (verifyRc != ReturnCode.Good)
+                {
+                    errorMessage = string.IsNullOrWhiteSpace(verifyOutput) ? "chdman verify failed." : ("chdman verify failed: " + verifyOutput);
+                    return ReturnCode.DestinationCheckSumMismatch;
+                }
+            }
 
             uint? chdVersion;
             byte[] chdSha1;

@@ -106,6 +106,7 @@ namespace RomVaultCore.ReadDat
                 ReportError.LogOut($"DatRule {dirNameRule}");
 
                 DatRule datRule = FindDatRule(dirNameRule);
+                DatRule globalRule = FindDatRule("DatRoot" + System.IO.Path.DirectorySeparatorChar);
 
                 // 1
                 DatClean.CleanFilenames(datHeader.BaseDir);
@@ -150,12 +151,14 @@ namespace RomVaultCore.ReadDat
                 }
 
                 // 8
-                if (datRule.SingleArchive)
+                // CHD container mode is per-set; forcing single-archive at DAT level collapses
+                // all sets into one giant CHD container and breaks expected game grouping.
+                if (datRule.SingleArchive && ft != FileType.CHD)
                     DatClean.MakeDatSingleLevel(datHeader, datRule.UseDescriptionAsDirName, datRule.SubDirType, ft == FileType.Dir, datRule.AddCategorySubDirs, datRule.CategoryOrder);
 
                 // 9: SetFileTypes / This also sorts the dirs into there type sort orders
-                DatSetCompressionType.ChdStrictCueGdi = datRule.ChdStrictCueGdi;
-                DatSetCompressionType.ChdKeepCueGdi = datRule.ChdKeepCueGdi;
+                DatSetCompressionType.ChdStrictCueGdi = globalRule?.ChdStrictCueGdi ?? datRule.ChdStrictCueGdi;
+                DatSetCompressionType.ChdKeepCueGdi = Settings.rvSettings.ChdKeepCueGdi;
                 DatSetCompressionType.SetType(datHeader.BaseDir, ft, zs, datRule.ConvertWhileFixing);
 
                 // 10: Remove unneeded directories from Zip's / 7Z's 

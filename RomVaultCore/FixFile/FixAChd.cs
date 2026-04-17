@@ -38,7 +38,10 @@ public static class FixAChd
             return ReturnCode.Good;
 
         if (chdDir == null || chdDir.FileType != FileType.CHD)
+        {
+            errorMessage = "Invalid CHD container node passed to FixChd.";
             return ReturnCode.LogicError;
+        }
 
         if (chdDir.GotStatus == GotStatus.Got)
             return ReturnCode.Good;
@@ -131,7 +134,7 @@ public static class FixAChd
         {
         }
 
-        if (rule != null && rule.ChdKeepCueGdi)
+        if (rule != null && Settings.rvSettings.ChdKeepCueGdi)
         {
             List<RvFile> filteredUsed = new List<RvFile>();
             foreach (RvFile used in usedFiles)
@@ -303,16 +306,20 @@ public static class FixAChd
         if (toSortDisc != null)
             return toSortDisc;
 
+        // Migration assist: when sidecar folder layout is enabled, existing CHDs may still sit one level up
+        // (e.g. "<category>/<set>.chd" while expected is "<category>/<set>/<set>.chd").
+        RvFile siblingDisc = FindSiblingDiscSource(chdDir);
+        if (siblingDisc != null)
+            return siblingDisc;
+
         if (chdDir?.FileGroup?.Files != null)
         {
             for (int i = 0; i < chdDir.FileGroup.Files.Count; i++)
             {
                 RvFile src = chdDir.FileGroup.Files[i];
-                if (src == null || !src.IsFile)
+                if (src == null || !IsUsableDiscSourceNode(src))
                     continue;
                 if (src.GotStatus != GotStatus.Got)
-                    continue;
-                if (src.FileType != FileType.File && src.FileType != FileType.FileZip && src.FileType != FileType.FileSevenZip && src.FileType != FileType.CHD)
                     continue;
                 int pr = SourcePriority(src.Name);
                 if (pr > bestPriority)
@@ -339,9 +346,7 @@ public static class FixAChd
             for (int j = 0; j < sources.Count; j++)
             {
                 RvFile src = sources[j];
-                if (src == null || !src.IsFile)
-                    continue;
-                if (src.FileType != FileType.File && src.FileType != FileType.FileZip && src.FileType != FileType.FileSevenZip)
+                if (src == null || !IsUsableDiscSourceNode(src))
                     continue;
                 if (!string.Equals(System.IO.Path.GetExtension(src.Name), System.IO.Path.GetExtension(expected.Name), StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -365,6 +370,45 @@ public static class FixAChd
         }
 
         return best;
+    }
+
+    private static bool IsUsableDiscSourceNode(RvFile src)
+    {
+        if (src == null)
+            return false;
+        if (src.FileType == FileType.CHD)
+            return true;
+        return src.IsFile && (src.FileType == FileType.File || src.FileType == FileType.FileZip || src.FileType == FileType.FileSevenZip);
+    }
+
+    private static RvFile FindSiblingDiscSource(RvFile chdDir)
+    {
+        if (chdDir == null || chdDir.FileType != FileType.CHD)
+            return null;
+        RvFile setDir = chdDir.Parent;
+        if (setDir == null || !setDir.IsDirectory)
+            return null;
+        RvFile categoryDir = setDir.Parent;
+        if (categoryDir == null || !categoryDir.IsDirectory)
+            return null;
+
+        string want = chdDir.Name ?? "";
+        if (string.IsNullOrWhiteSpace(want))
+            return null;
+
+        if (categoryDir.ChildNameSearch(FileType.CHD, want, out int idxChd) == 0)
+        {
+            RvFile f = categoryDir.Child(idxChd);
+            if (f != null && f.FileType == FileType.CHD && f.GotStatus == GotStatus.Got)
+                return f;
+        }
+        if (categoryDir.ChildNameSearch(FileType.File, want, out int idxFile) == 0)
+        {
+            RvFile f = categoryDir.Child(idxFile);
+            if (f != null && f.IsFile && f.GotStatus == GotStatus.Got)
+                return f;
+        }
+        return null;
     }
 
     /// <summary>

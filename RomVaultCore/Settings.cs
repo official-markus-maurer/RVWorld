@@ -185,6 +185,13 @@ namespace RomVaultCore
         public int ChdDvdHunkSizeKiB = 256;
 
         /// <summary>
+        /// Maximum number of concurrent processors used by chdman (`-np`) during CHD creation.
+        /// Set to 0 to let chdman choose automatically.
+        /// </summary>
+        [XmlElement(ElementName = "ChdNumProcessors", DataType = "int", IsNullable = false), DefaultValue(0)]
+        public int ChdNumProcessors = 0;
+
+        /// <summary>
         /// Enables additional CHD validation checks during scanning and creation flows.
         /// </summary>
         [XmlElement(ElementName = "CheckCHDVersion", DataType = "boolean", IsNullable = false), DefaultValue(false)]

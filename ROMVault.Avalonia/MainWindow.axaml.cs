@@ -2286,6 +2286,10 @@ public partial class MainWindow : Window
                 {
                     name += " (V" + tFile.CHDVersion + ")";
                 }
+                if (tFile.IsChdTrustSatisfied)
+                {
+                    name += " [Trusted Container]";
+                }
                 tFile.UiDisplayName = name;
                 fileList.Add(tFile);
             }

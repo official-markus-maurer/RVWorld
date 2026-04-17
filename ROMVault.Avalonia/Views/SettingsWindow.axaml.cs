@@ -47,30 +47,25 @@ namespace ROMVault.Avalonia.Views;
             cbo7zStruct.Items.Add("ZSTD Solid");
             cbo7zStruct.Items.Add("ZSTD Non-Solid");
 
-            cboChdAudioTransform.Items.Clear();
-            cboChdAudioTransform.Items.Add("None (Strict)");
-            cboChdAudioTransform.Items.Add("Allow Swap16 (Audio CD)");
-            cboChdAudioTransform.Items.Add("Allow RAW to WAV");
-
-            cboChdLayoutStrictness.Items.Clear();
-            cboChdLayoutStrictness.Items.Add("Normal");
-            cboChdLayoutStrictness.Items.Add("Strict (No fallback)");
-            cboChdLayoutStrictness.Items.Add("Relaxed (Fuzzy)");
+            cboChdNumProcessors.Items.Clear();
+            cboChdNumProcessors.Items.Add("Auto");
+            for (int i = 1; i <= 64; i++)
+                cboChdNumProcessors.Items.Add(i.ToString());
 
             chkSendFoundMIA.Click += (s, e) => chkSendFoundMIAAnon.IsEnabled = chkSendFoundMIA.IsChecked == true;
 
-            chkChdStrictCueGdi.Click += async (s, e) =>
-            {
-                if (chkChdStrictCueGdi.IsChecked == true)
-                {
-                    await MessageBoxWindow.ShowInfo(this, "CHD cannot faithfully reproduce original CUE/GDI contents. Strict mode will often keep sets incomplete.", "RomVault");
-                }
-            };
             chkChdExportOnFix.Click += async (s, e) =>
             {
                 if (chkChdExportOnFix.IsChecked == true)
                 {
                     await MessageBoxWindow.ShowInfo(this, "This will extract track files from CHD into your ROM folders during fixing. It is off by default because it defeats CHD container storage.", "RomVault");
+                }
+            };
+            chkChdKeepCueGdi.Click += async (s, e) =>
+            {
+                if (chkChdKeepCueGdi.IsChecked == true)
+                {
+                    await MessageBoxWindow.ShowInfo(this, "When enabled, CHD sets are modeled as a folder containing:\n- <set>.chd\n- <set>.cue/.gdi (sidecar)\nThis takes effect after Update DATs.", "RomVault");
                 }
             };
             chkChdStreaming.Click += async (s, e) =>
@@ -139,15 +134,14 @@ namespace ROMVault.Avalonia.Views;
 
             chkChdCache.IsChecked = Settings.rvSettings.ChdScanCacheEnabled;
             chkChdDebug.IsChecked = Settings.rvSettings.ChdDebug;
-            chkChdStrictCueGdi.IsChecked = Settings.rvSettings.ChdStrictCueGdi;
-            chkChdKeepCueGdi.IsChecked = Settings.rvSettings.ChdKeepCueGdi;
             chkChdExportOnFix.IsChecked = Settings.rvSettings.ChdExportTracksOnFix;
             chkChdStreaming.IsChecked = Settings.rvSettings.ChdStreaming;
-            chkChdPreferSynthetic.IsChecked = Settings.rvSettings.ChdPreferSynthetic;
-            chkChdTrustContainer.IsChecked = Settings.rvSettings.ChdTrustContainerForTracks;
-            cboChdAudioTransform.SelectedIndex = (int)Settings.rvSettings.ChdAudioTransform;
-            cboChdLayoutStrictness.SelectedIndex = (int)Settings.rvSettings.ChdLayoutStrictness;
+            chkChdKeepCueGdi.IsChecked = Settings.rvSettings.ChdKeepCueGdi;
             upChdDvdHunk.Value = Settings.rvSettings.ChdDvdHunkSizeKiB;
+            int np = Settings.rvSettings.ChdNumProcessors;
+            if (np < 0) np = 0;
+            if (np > 64) np = 0;
+            cboChdNumProcessors.SelectedIndex = np;
         }
 
         /// <summary>
@@ -213,15 +207,11 @@ namespace ROMVault.Avalonia.Views;
 
             Settings.rvSettings.ChdScanCacheEnabled = chkChdCache.IsChecked == true;
             Settings.rvSettings.ChdDebug = chkChdDebug.IsChecked == true;
-            Settings.rvSettings.ChdStrictCueGdi = chkChdStrictCueGdi.IsChecked == true;
-            Settings.rvSettings.ChdKeepCueGdi = chkChdKeepCueGdi.IsChecked == true;
             Settings.rvSettings.ChdExportTracksOnFix = chkChdExportOnFix.IsChecked == true;
             Settings.rvSettings.ChdStreaming = chkChdStreaming.IsChecked == true;
-            Settings.rvSettings.ChdPreferSynthetic = chkChdPreferSynthetic.IsChecked == true;
-            Settings.rvSettings.ChdTrustContainerForTracks = chkChdTrustContainer.IsChecked == true;
-            Settings.rvSettings.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
-            Settings.rvSettings.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
+            Settings.rvSettings.ChdKeepCueGdi = chkChdKeepCueGdi.IsChecked == true;
             Settings.rvSettings.ChdDvdHunkSizeKiB = (int)(upChdDvdHunk.Value ?? 0);
+            Settings.rvSettings.ChdNumProcessors = cboChdNumProcessors.SelectedIndex;
 
             Settings.WriteConfig(Settings.rvSettings);
             

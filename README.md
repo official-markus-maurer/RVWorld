@@ -94,4 +94,8 @@ doxygen -u .\Doxyfile
 
 ## Notes
 
-- CHD-specific documentation and behavior notes live in [CHD.md](CHD.md).
+- CHD media-type standards live in [CHD-STANDARD.md](CHD-STANDARD.md).
+- `chdman` feature coverage in RomVault lives in [CHDMAN-ROMVAULT-INTEGRATION.md](CHDMAN-ROMVAULT-INTEGRATION.md).
+- `RomVaultCmd` includes CHD tooling:
+  - `RomVaultCmd -verifychd <path-to-chd> [optional-output-file]`
+  - `RomVaultCmd -chdhealth <path-to-chd> [optional-output-file]`

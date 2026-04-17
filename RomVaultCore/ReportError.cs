@@ -92,7 +92,9 @@ namespace RomVaultCore
                 message += "\r\nEXCEPTION:\r\nMessage:";
                 message += e1 + "\r\n";
 
-                message += $"\r\nSTACK TRACE:\r\n{Environment.StackTrace}";
+                string st = "";
+                try { st = new System.Diagnostics.StackTrace(true).ToString(); } catch { st = ""; }
+                message += $"\r\nSTACK TRACE:\r\n{st}";
 
                 SendErrorMessage(message);
                 ErrorForm?.Invoke(message);

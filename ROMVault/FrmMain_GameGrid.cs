@@ -469,19 +469,7 @@ namespace ROMVault
                         }
 
                     case GameGridColumns.CGame:
-                        if (string.IsNullOrEmpty(tRvDir.FileName))
-                        {
-                            e.Value = tRvDir.Name;
-                        }
-                        else
-                        {
-                            e.Value = tRvDir.Name + " (Found: " + tRvDir.FileName + ")";
-                        }
-
-                        if (!string.IsNullOrEmpty(tRvDir.ChdStatus))
-                        {
-                            e.Value += " [" + tRvDir.ChdStatus + "]";
-                        }
+                        e.Value = tRvDir.GameName;
 
                         break;
 
@@ -584,6 +572,7 @@ namespace ROMVault
             if (tRvDir.CHDVersion.HasValue) sb.AppendLine($"- Version: V{tRvDir.CHDVersion}");
             if (!string.IsNullOrEmpty(tRvDir.ChdScanMethod)) sb.AppendLine($"- Scan Method: {tRvDir.ChdScanMethod}");
             if (!string.IsNullOrEmpty(tRvDir.ChdHashMatchMode)) sb.AppendLine($"- Hash Match: {tRvDir.ChdHashMatchMode}");
+            if (tRvDir.IsChdTrustSatisfied) sb.AppendLine("- Trust Indicator: Satisfied by container trust");
             if (!string.IsNullOrEmpty(tRvDir.ChdDescriptorMatch)) sb.AppendLine($"- Descriptor Match: {tRvDir.ChdDescriptorMatch}");
             if (!string.IsNullOrEmpty(tRvDir.ChdStatus)) sb.AppendLine($"- Status: {tRvDir.ChdStatus}");
 

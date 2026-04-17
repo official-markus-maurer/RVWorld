@@ -175,12 +175,14 @@ namespace ROMVault.Avalonia.Views;
             {
                 case 0:
                     chkFileTypeOverride.IsEnabled = true;
+                    chkSingleArchive.IsEnabled = true;
                     cboCompression.IsEnabled = false;
                     chkConvertWhenFixing.IsEnabled = false;
                     cboFilterType.IsEnabled = true;
                     break;
                 case 1:
                     chkFileTypeOverride.IsEnabled = true;
+                    chkSingleArchive.IsEnabled = true;
                     cboCompression.Items.Add("Deflate - Trrntzip");
                     cboCompression.Items.Add("ZSTD");
                     cboCompression.IsEnabled = true;
@@ -195,6 +197,7 @@ namespace ROMVault.Avalonia.Views;
                     break;
                 case 2:
                     chkFileTypeOverride.IsEnabled = true;
+                    chkSingleArchive.IsEnabled = true;
                     cboCompression.Items.Add("LZMA Solid - rv7z");
                     cboCompression.Items.Add("LZMA Non-Solid");
                     cboCompression.Items.Add("ZSTD Solid");
@@ -215,6 +218,7 @@ namespace ROMVault.Avalonia.Views;
                     break;
                 case 3:
                     chkFileTypeOverride.IsEnabled = true;
+                    chkSingleArchive.IsEnabled = false;
                     cboCompression.Items.Add("Auto (CD/DVD/PSP)");
                     cboCompression.Items.Add("Normal (zstd)");
                     cboCompression.Items.Add("CD (cdzs,cdzl,cdfl)");
@@ -232,6 +236,7 @@ namespace ROMVault.Avalonia.Views;
                     break;
                 case 4:
                     chkFileTypeOverride.IsEnabled = false;
+                    chkSingleArchive.IsEnabled = true;
                     cboCompression.IsEnabled = false;
                     chkConvertWhenFixing.IsEnabled = false;
                     cboFilterType.IsEnabled = true;
@@ -263,7 +268,7 @@ namespace ROMVault.Avalonia.Views;
             chkUseDescription.IsChecked = _rule.UseDescriptionAsDirName;
             chkUseIdForName.IsChecked = _rule.UseIdForName;
             chkChdStrict.IsChecked = _rule.ChdStrictCueGdi;
-            chkChdKeepCueGdi.IsChecked = _rule.ChdKeepCueGdi;
+            chkChdKeepCueGdi.IsVisible = false;
             cboChdAudioTransform.SelectedIndex = (int)_rule.ChdAudioTransform;
             cboChdLayoutStrictness.SelectedIndex = (int)_rule.ChdLayoutStrictness;
 
@@ -287,6 +292,14 @@ namespace ROMVault.Avalonia.Views;
                 SetCategoryList();
             else
                 ToggleCategoryList();
+
+            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+            chkUseDescription.IsVisible = isGlobalDatRule;
+            chkChdStrict.IsVisible = isGlobalDatRule;
+            lblChdAudioTransform.IsVisible = false;
+            cboChdAudioTransform.IsVisible = false;
+            lblChdLayoutStrictness.IsVisible = false;
+            cboChdLayoutStrictness.IsVisible = false;
         }
 
         /// <summary>
@@ -421,12 +434,15 @@ namespace ROMVault.Avalonia.Views;
             _rule.SingleArchive = chkSingleArchive.IsChecked == true;
             _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
             _rule.MultiDATDirOverride = chkMultiDatDirOverride.IsChecked == true;
-            _rule.UseDescriptionAsDirName = chkUseDescription.IsChecked == true;
+            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+            if (isGlobalDatRule)
+                _rule.UseDescriptionAsDirName = chkUseDescription.IsChecked == true;
             _rule.UseIdForName = chkUseIdForName.IsChecked == true;
-            _rule.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
-            _rule.ChdKeepCueGdi = chkChdKeepCueGdi.IsChecked == true;
-            _rule.ChdAudioTransform = (ChdAudioTransform)cboChdAudioTransform.SelectedIndex;
-            _rule.ChdLayoutStrictness = (ChdLayoutStrictness)cboChdLayoutStrictness.SelectedIndex;
+            if (isGlobalDatRule)
+            {
+                _rule.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
+                Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
+            }
 
             _rule.CompleteOnly = chkCompleteOnly.IsChecked == true;
 

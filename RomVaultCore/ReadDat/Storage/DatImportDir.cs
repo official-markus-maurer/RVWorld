@@ -143,9 +143,10 @@ namespace RomVaultCore.Storage.Dat
                 // has a directory separator character added to the end of them,
                 // so they match up to the directory name in this full Directory Name.
                 DatRule datRule = DatReader.FindDatRule(tDat.DatFullName);
+                DatRule globalRule = DatReader.FindDatRule("DatRoot" + System.IO.Path.DirectorySeparatorChar);
 
                 tDat.SetFlag(DatFlags.MultiDatOverride, datRule.MultiDATDirOverride);
-                tDat.SetFlag(DatFlags.UseDescriptionAsDirName, datRule.UseDescriptionAsDirName);
+                tDat.SetFlag(DatFlags.UseDescriptionAsDirName, globalRule?.UseDescriptionAsDirName ?? datRule.UseDescriptionAsDirName);
                 tDat.SetFlag(DatFlags.SingleArchive, datRule.SingleArchive);
                 tDat.SetFlag(DatFlags.UseIdForName, datRule.UseIdForName);
                 tDat.SubDirType = datRule.SubDirType;

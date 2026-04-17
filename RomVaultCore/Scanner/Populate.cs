@@ -267,6 +267,8 @@ namespace RomVaultCore.Scanner
             public string Descriptor { get; set; }
             public string DescriptorSha1 { get; set; }
             public string MappingFingerprint { get; set; }
+            public string SettingsFingerprint { get; set; }
+            public string ToolFingerprint { get; set; }
             public string ChdStatus { get; set; }
             public string ChdScanMethod { get; set; }
             public string ChdHashMatchMode { get; set; }
@@ -277,7 +279,7 @@ namespace RomVaultCore.Scanner
         /// <summary>
         /// Current CHD scan cache schema version.
         /// </summary>
-        private const int ChdScanCacheVersion = 3;
+        private const int ChdScanCacheVersion = 4;
 
         /// <summary>
         /// Fingerprint describing the mapping and hashing behavior used when scanning CHDs.
@@ -286,6 +288,8 @@ namespace RomVaultCore.Scanner
         /// This is used to invalidate old cache entries when mapping logic changes (pregap/index handling, ToSort naming, etc.).
         /// </remarks>
         private const string ChdScanMappingFp = "mapfp4:gaps;idx00;pregap;postgap;health;tosortnaming";
+        private static readonly object ChdToolFingerprintLock = new object();
+        private static readonly Dictionary<string, string> ChdToolFingerprintCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Scans a CHD file as a container and returns a directory-like <see cref="ScannedFile"/> containing member entries.
@@ -342,11 +346,48 @@ namespace RomVaultCore.Scanner
             }
             string expectedDescriptor = expectedIsDvd ? "dvd" : expectedIsGdi ? "gdi" : "cue";
 
+            if (dbDir.ChildCount == 0)
+            {
+                try
+                {
+                    if (CHDSharpLib.ChdMetadata.TryReadCdTrackLayout(filename, out List<CHDSharpLib.ChdCdTrackInfo> cdTracks, out _) &&
+                        cdTracks != null && cdTracks.Count > 0)
+                    {
+                        expectedIsDvd = false;
+                        expectedIsGdi = false;
+                        expectedDescriptor = "cue";
+                    }
+                    else
+                    {
+                        expectedIsDvd = true;
+                        expectedIsGdi = false;
+                        expectedDescriptor = "dvd";
+                    }
+                }
+                catch
+                {
+                    expectedIsDvd = true;
+                    expectedIsGdi = false;
+                    expectedDescriptor = "dvd";
+                }
+            }
+
+            DatRule datRule = null;
+            try
+            {
+                string ruleKey = (dbDir.Parent?.DatTreeFullName ?? "") + "\\";
+                datRule = ReadDat.DatReader.FindDatRule(ruleKey);
+            }
+            catch
+            {
+            }
+
             bool forceScan = (eScanLevel == EScanLevel.Level3);
+            string chdmanExe = FindChdmanExePath();
 
             if (!forceScan &&
                 Settings.rvSettings.ChdScanCacheEnabled &&
-                TryLoadChdScanCache(filename, out ChdCacheFile cache) &&
+                TryLoadChdScanCache(filename, datRule, chdmanExe, out ChdCacheFile cache) &&
                 cache.CacheVersion == ChdScanCacheVersion &&
                 cache.IsDvd == expectedIsDvd &&
                 string.Equals(cache.Descriptor ?? "", expectedDescriptor, StringComparison.OrdinalIgnoreCase) &&
@@ -394,19 +435,8 @@ namespace RomVaultCore.Scanner
             string tempDir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdscan." + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
 
-            DatRule datRule = null;
             try
             {
-                string ruleKey = (dbDir.Parent?.DatTreeFullName ?? "") + "\\";
-                datRule = ReadDat.DatReader.FindDatRule(ruleKey);
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                string chdmanExe = FindChdmanExePath();
                 IChdExtractor extractor = new ChdmanChdExtractor(chdmanExe, tempDir);
                 List<RvFile> expectedChildren = new List<RvFile>();
                 for (int i = 0; i < dbDir.ChildCount; i++)
@@ -419,6 +449,8 @@ namespace RomVaultCore.Scanner
                 bool expectsIso = expectedChildren.Exists(c => c.Name != null && c.Name.EndsWith(".iso", StringComparison.OrdinalIgnoreCase));
                 bool expectsGdi = expectedChildren.Exists(c => c.Name != null && c.Name.EndsWith(".gdi", StringComparison.OrdinalIgnoreCase));
                 string expectedIsoName = expectedChildren.Find(c => c.Name != null && c.Name.EndsWith(".iso", StringComparison.OrdinalIgnoreCase))?.Name;
+                if (!expectsIso && expectedChildren.Count == 0 && string.Equals(expectedDescriptor, "dvd", StringComparison.OrdinalIgnoreCase))
+                    expectsIso = true;
 
                 if (Settings.rvSettings.CheckCHDVersion && extractor.Info(filename, out string infoText))
                 {
@@ -515,7 +547,7 @@ namespace RomVaultCore.Scanner
                     }
 
                     if (Settings.rvSettings.ChdScanCacheEnabled)
-                        SaveChdScanCache(filename, ar, isDvd: true, descriptor: "dvd", descriptorSha1: null);
+                        SaveChdScanCache(filename, datRule, chdmanExe, ar, isDvd: true, descriptor: "dvd", descriptorSha1: null);
                     return ar;
                 }
 
@@ -666,12 +698,13 @@ namespace RomVaultCore.Scanner
                                     Size = 0
                                 };
                                 bool haveDescriptor = false;
-                                bool keepDescriptor = datRule?.ChdKeepCueGdi == true;
+                                bool keepDescriptor = Settings.rvSettings.ChdKeepCueGdi;
                                 if (keepDescriptor && !string.IsNullOrWhiteSpace(descName))
                                 {
                                     try
                                     {
-                                        string externalDesc = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descName);
+                                        string descFileName = System.IO.Path.GetFileName((descName ?? "").Replace('\\', '/'));
+                                        string externalDesc = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descFileName);
                                         if (System.IO.File.Exists(externalDesc))
                                         {
                                             FileInfo fi = new FileInfo(externalDesc);
@@ -738,7 +771,7 @@ namespace RomVaultCore.Scanner
                             if (Settings.rvSettings.ChdScanCacheEnabled)
                             {
                                 string layoutHash = ComputeTrackLayoutSha1Hex(cdTracks);
-                                SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: layoutHash);
+                                SaveChdScanCache(filename, datRule, chdmanExe, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: layoutHash);
                             }
                             WriteChdDebugLog(filename, debug);
                             return ar;
@@ -895,7 +928,7 @@ namespace RomVaultCore.Scanner
                         if (Settings.rvSettings.ChdScanCacheEnabled)
                         {
                             string descHash = ComputeFileSha1Hex(outMain);
-                            SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descHash);
+                            SaveChdScanCache(filename, datRule, chdmanExe, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descHash);
                         }
                         WriteChdDebugLog(filename, debug);
                         return ar;
@@ -960,7 +993,7 @@ namespace RomVaultCore.Scanner
                 {
                     string descName = expectedGdi?.Name ?? expectedCue?.Name;
                     RvFile expDesc = expectedGdi ?? expectedCue;
-                    bool keepDescriptor = datRule?.ChdKeepCueGdi == true;
+                    bool keepDescriptor = Settings.rvSettings.ChdKeepCueGdi;
 
                     ScannedFile dsf = new ScannedFile(FileType.FileCHD)
                     {
@@ -976,7 +1009,8 @@ namespace RomVaultCore.Scanner
                     {
                         try
                         {
-                            string externalDesc = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descName);
+                            string descFileName = System.IO.Path.GetFileName((descName ?? "").Replace('\\', '/'));
+                            string externalDesc = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descFileName);
                             if (System.IO.File.Exists(externalDesc))
                             {
                                 FileInfo fi = new FileInfo(externalDesc);
@@ -1028,7 +1062,8 @@ namespace RomVaultCore.Scanner
 
                         if (ok || (Settings.rvSettings.ChdPreferSynthetic && (expDesc == null || (!expDesc.Size.HasValue || expDesc.Size.Value == 0) && expDesc.CRC == null && expDesc.SHA1 == null && expDesc.MD5 == null)))
                         {
-                            if (keepDescriptor && !string.IsNullOrWhiteSpace(descName) && System.IO.File.Exists(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descName)))
+                            string descFileName = System.IO.Path.GetFileName((descName ?? "").Replace('\\', '/'));
+                            if (keepDescriptor && !string.IsNullOrWhiteSpace(descFileName) && System.IO.File.Exists(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(filename) ?? "", descFileName)))
                                 dsf.ChdDescriptorMatch = "External";
                             else
                                 dsf.ChdDescriptorMatch = ok ? "True" : "Synthetic";
@@ -1097,14 +1132,14 @@ namespace RomVaultCore.Scanner
                     }
                     trust.Sort();
                     if (Settings.rvSettings.ChdScanCacheEnabled)
-                        SaveChdScanCache(filename, trust, isDvd: false, descriptor: "trust", descriptorSha1: descriptorSha1);
+                        SaveChdScanCache(filename, datRule, chdmanExe, trust, isDvd: false, descriptor: "trust", descriptorSha1: descriptorSha1);
                     WriteChdDebugLog(filename, debug);
                     return trust;
                 }
 
                 ar.Sort();
                 if (Settings.rvSettings.ChdScanCacheEnabled)
-                    SaveChdScanCache(filename, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descriptorSha1);
+                    SaveChdScanCache(filename, datRule, chdmanExe, ar, isDvd: false, descriptor: expectsGdi ? "gdi" : "cue", descriptorSha1: descriptorSha1);
                 WriteChdDebugLog(filename, debug);
                 return ar;
                 }
@@ -2073,7 +2108,7 @@ namespace RomVaultCore.Scanner
         /// - same cache version and mapping fingerprint
         /// - same expected descriptor type (dvd/cue/gdi/trust)
         /// </remarks>
-        private static bool TryLoadChdScanCache(string chdPath, out ChdCacheFile cache)
+        private static bool TryLoadChdScanCache(string chdPath, DatRule datRule, string chdmanExe, out ChdCacheFile cache)
         {
             cache = null;
             try
@@ -2096,6 +2131,16 @@ namespace RomVaultCore.Scanner
                     return false;
                 if (loaded.SourceSize != fi.Length)
                     return false;
+                string settingsFingerprint = ComputeChdSettingsFingerprint(datRule);
+                if (!string.Equals(loaded.SettingsFingerprint ?? "", settingsFingerprint ?? "", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                string workingDir = "";
+                try { workingDir = System.IO.Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory; } catch { workingDir = Environment.CurrentDirectory; }
+                string toolFingerprint = ComputeChdToolFingerprint(chdmanExe, workingDir);
+                if (!string.IsNullOrWhiteSpace(toolFingerprint) &&
+                    !string.Equals(loaded.ToolFingerprint ?? "", toolFingerprint, StringComparison.OrdinalIgnoreCase))
+                    return false;
 
                 cache = loaded;
                 return true;
@@ -2112,11 +2157,13 @@ namespace RomVaultCore.Scanner
         /// <remarks>
         /// Only member entries (<see cref="FileType.FileCHD"/>) are persisted.
         /// </remarks>
-        private static void SaveChdScanCache(string chdPath, ScannedFile archive, bool isDvd, string descriptor, string descriptorSha1)
+        private static void SaveChdScanCache(string chdPath, DatRule datRule, string chdmanExe, ScannedFile archive, bool isDvd, string descriptor, string descriptorSha1)
         {
             try
             {
                 FileInfo fi = new FileInfo(chdPath);
+                string workingDir = "";
+                try { workingDir = System.IO.Path.GetDirectoryName(chdPath) ?? Environment.CurrentDirectory; } catch { workingDir = Environment.CurrentDirectory; }
                 ChdCacheFile cache = new ChdCacheFile
                 {
                     CacheVersion = ChdScanCacheVersion,
@@ -2127,6 +2174,8 @@ namespace RomVaultCore.Scanner
                     Descriptor = descriptor,
                     DescriptorSha1 = descriptorSha1,
                     MappingFingerprint = ChdScanMappingFp,
+                    SettingsFingerprint = ComputeChdSettingsFingerprint(datRule),
+                    ToolFingerprint = ComputeChdToolFingerprint(chdmanExe, workingDir),
                     ChdStatus = archive.ChdStatus,
                     ChdScanMethod = archive.ChdScanMethod,
                     ChdHashMatchMode = archive.ChdHashMatchMode,
@@ -2159,6 +2208,59 @@ namespace RomVaultCore.Scanner
             catch
             {
             }
+        }
+
+        private static string ComputeChdSettingsFingerprint(DatRule datRule)
+        {
+            try
+            {
+                var s = Settings.rvSettings;
+                string text =
+                    $"stream={s?.ChdStreaming};trust={s?.ChdTrustContainerForTracks};strict={s?.ChdStrictCueGdi};keep={s?.ChdKeepCueGdi};" +
+                    $"synthetic={s?.ChdPreferSynthetic};audio={s?.ChdAudioTransform};layout={s?.ChdLayoutStrictness};verchk={s?.CheckCHDVersion};" +
+                    $"ruleStrict={datRule?.ChdStrictCueGdi};ruleKeep={datRule?.ChdKeepCueGdi};ruleAudio={datRule?.ChdAudioTransform};ruleLayout={datRule?.ChdLayoutStrictness}";
+                using (SHA1 sha1 = SHA1.Create())
+                {
+                    byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text);
+                    return sha1.ComputeHash(bytes).ToHexString();
+                }
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        private static string ComputeChdToolFingerprint(string chdmanExe, string workingDir)
+        {
+            string key = (chdmanExe ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(key))
+                return "";
+
+            lock (ChdToolFingerprintLock)
+            {
+                if (ChdToolFingerprintCache.TryGetValue(key, out string cached))
+                    return cached;
+            }
+
+            string output = "";
+            bool ok = RunProcess(chdmanExe, "--version", workingDir, out output);
+            if (!ok || string.IsNullOrWhiteSpace(output))
+                ok = RunProcess(chdmanExe, "-version", workingDir, out output);
+            if (!ok || string.IsNullOrWhiteSpace(output))
+            {
+                lock (ChdToolFingerprintLock)
+                    ChdToolFingerprintCache[key] = "";
+                return "";
+            }
+
+            string first = output.Replace("\r", "").Split('\n')[0].Trim();
+            string libVer = "";
+            try { libVer = typeof(CHD).Assembly.GetName().Version?.ToString() ?? ""; } catch { }
+            string fp = $"chdman={first};chdlib={libVer}";
+            lock (ChdToolFingerprintLock)
+                ChdToolFingerprintCache[key] = fp;
+            return fp;
         }
 
         private static string ComputeMd5Hex(string text)
