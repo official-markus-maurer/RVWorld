@@ -106,7 +106,7 @@ namespace DATReader.DatClean
 
                 dDir.Name = baseName;
 
-                DatDir chdContainer = new DatDir(baseName, FileType.CHD) { DGame = dDir.DGame, DatStatus = dDir.DatStatus };
+                DatDir chdContainer = new DatDir(baseName, FileType.CHD) { DatStatus = dDir.DatStatus };
                 for (int i = 0; i < children.Length; i++)
                 {
                     DatBase child = children[i];

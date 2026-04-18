@@ -415,88 +415,97 @@ namespace ROMVault.Avalonia.Views;
         /// </summary>
         private void BtnApplyClick(object? sender, RoutedEventArgs e)
         {
-            ChangesMade = true;
-
-            _rule.DirKey = NormalizeDirKey(_rule.DirKey);
-            _rule.Compression = cboFileType.SelectedIndex == 4 ? FileType.FileOnly : cboFileType.SelectedIndex == 3 ? FileType.CHD : (FileType)cboFileType.SelectedIndex + 1;
-            _rule.CompressionOverrideDAT = chkFileTypeOverride.IsChecked == true;
-            _rule.CompressionSub = ReadFromCheckBoxes();
-            _rule.ConvertWhileFixing = chkConvertWhenFixing.IsChecked == true;
-            _rule.DiscArchiveAsCHD = cboFileType.SelectedIndex == 3;
-            if (_rule.DiscArchiveAsCHD)
-                _rule.ChdCompressionType = (ChdCompressionType)Math.Max(0, cboCompression.SelectedIndex);
-            _rule.Merge = (MergeType)cboMergeType.SelectedIndex;
-            _rule.MergeOverrideDAT = chkMergeTypeOverride.IsChecked == true;
-            _rule.Filter = (FilterType)cboFilterType.SelectedIndex;
-            if (_rule.DiscArchiveAsCHD && _rule.Filter == FilterType.CHDsOnly)
-                _rule.Filter = FilterType.KeepAll;
-            _rule.HeaderType = (HeaderType)cboHeaderType.SelectedIndex;
-            _rule.SingleArchive = chkSingleArchive.IsChecked == true;
-            _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
-            _rule.MultiDATDirOverride = chkMultiDatDirOverride.IsChecked == true;
-            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
-            if (isGlobalDatRule)
-                _rule.UseDescriptionAsDirName = chkUseDescription.IsChecked == true;
-            _rule.UseIdForName = chkUseIdForName.IsChecked == true;
-            if (isGlobalDatRule)
+            try
             {
-                _rule.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
-                Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
-            }
+                ChangesMade = true;
 
-            _rule.CompleteOnly = chkCompleteOnly.IsChecked == true;
-
-            _rule.AddCategorySubDirs = chkAddCategorySubDirs.IsChecked == true;
-            if (_rule.AddCategorySubDirs)
-                SetCategoryList();
-            else
-                ToggleCategoryList();
-
-            string strtxt = textBox1.Text ?? "";
-            strtxt = strtxt.Replace("\r", "");
-            string[] strsplit = strtxt.Split('\n');
-
-            _rule.IgnoreFiles = new List<string>(strsplit);
-            int i;
-            for (i = 0; i < _rule.IgnoreFiles.Count; i++)
-            {
-                _rule.IgnoreFiles[i] = _rule.IgnoreFiles[i].Trim();
-                if (string.IsNullOrEmpty(_rule.IgnoreFiles[i]))
+                _rule.DirKey = NormalizeDirKey(_rule.DirKey);
+                _rule.Compression = cboFileType.SelectedIndex == 4 ? FileType.FileOnly : cboFileType.SelectedIndex == 3 ? FileType.CHD : (FileType)cboFileType.SelectedIndex + 1;
+                _rule.CompressionOverrideDAT = chkFileTypeOverride.IsChecked == true;
+                _rule.CompressionSub = ReadFromCheckBoxes();
+                _rule.ConvertWhileFixing = chkConvertWhenFixing.IsChecked == true;
+                _rule.DiscArchiveAsCHD = cboFileType.SelectedIndex == 3;
+                if (_rule.DiscArchiveAsCHD)
+                    _rule.ChdCompressionType = (ChdCompressionType)Math.Max(0, cboCompression.SelectedIndex);
+                _rule.Merge = (MergeType)cboMergeType.SelectedIndex;
+                _rule.MergeOverrideDAT = chkMergeTypeOverride.IsChecked == true;
+                _rule.Filter = (FilterType)cboFilterType.SelectedIndex;
+                if (_rule.DiscArchiveAsCHD && _rule.Filter == FilterType.CHDsOnly)
+                    _rule.Filter = FilterType.KeepAll;
+                _rule.HeaderType = (HeaderType)cboHeaderType.SelectedIndex;
+                _rule.SingleArchive = chkSingleArchive.IsChecked == true;
+                _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
+                _rule.MultiDATDirOverride = chkMultiDatDirOverride.IsChecked == true;
+                bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+                if (isGlobalDatRule)
+                    _rule.UseDescriptionAsDirName = chkUseDescription.IsChecked == true;
+                _rule.UseIdForName = chkUseIdForName.IsChecked == true;
+                if (isGlobalDatRule)
                 {
-                    _rule.IgnoreFiles.RemoveAt(i);
-                    i--;
-                }
-            }
-
-            bool updatingRule = false;
-            for (i = 0; i < Settings.rvSettings.DatRules.Count; i++)
-            {
-                if (Settings.rvSettings.DatRules[i] == _rule)
-                {
-                    updatingRule = true;
-                    break;
+                    _rule.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
+                    Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.IsChecked == true;
                 }
 
-                string left = NormalizeDirKey(Settings.rvSettings.DatRules[i].DirKey);
-                string right = NormalizeDirKey(_rule.DirKey);
-                if (string.Compare(left, right, StringComparison.OrdinalIgnoreCase) > 0)
+                _rule.CompleteOnly = chkCompleteOnly.IsChecked == true;
+
+                _rule.AddCategorySubDirs = chkAddCategorySubDirs.IsChecked == true;
+                if (_rule.AddCategorySubDirs)
+                    SetCategoryList();
+                else
+                    ToggleCategoryList();
+
+                string strtxt = textBox1.Text ?? "";
+                strtxt = strtxt.Replace("\r", "");
+                string[] strsplit = strtxt.Split('\n');
+
+                _rule.IgnoreFiles = new List<string>(strsplit);
+                int i;
+                for (i = 0; i < _rule.IgnoreFiles.Count; i++)
                 {
-                    break;
+                    _rule.IgnoreFiles[i] = _rule.IgnoreFiles[i].Trim();
+                    if (string.IsNullOrEmpty(_rule.IgnoreFiles[i]))
+                    {
+                        _rule.IgnoreFiles.RemoveAt(i);
+                        i--;
+                    }
                 }
+
+                bool updatingRule = false;
+                for (i = 0; i < Settings.rvSettings.DatRules.Count; i++)
+                {
+                    if (Settings.rvSettings.DatRules[i] == _rule)
+                    {
+                        updatingRule = true;
+                        break;
+                    }
+
+                    string left = NormalizeDirKey(Settings.rvSettings.DatRules[i].DirKey);
+                    string right = NormalizeDirKey(_rule.DirKey);
+                    if (string.Compare(left, right, StringComparison.OrdinalIgnoreCase) > 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (!updatingRule)
+                    Settings.rvSettings.DatRules.Insert(i, _rule);
+
+                Settings.rvSettings.SetRegExRules();
+                Settings.rvSettings.DatRules.Sort();
+
+                UpdateGrid();
+                Settings.WriteConfig(Settings.rvSettings);
+                DatUpdate.CheckAllDats(DB.DirRoot.Child(0), _rule.DirKey);
+
+                if (_displayType)
+                    Close();
             }
-
-            if (!updatingRule)
-                Settings.rvSettings.DatRules.Insert(i, _rule);
-
-            Settings.rvSettings.SetRegExRules();
-            Settings.rvSettings.DatRules.Sort();
-
-            UpdateGrid();
-            Settings.WriteConfig(Settings.rvSettings);
-            DatUpdate.CheckAllDats(DB.DirRoot.Child(0), _rule.DirKey);
-
-            if (_displayType)
-                Close();
+            catch (Exception ex)
+            {
+                ReportError.UnhandledExceptionHandler(ex);
+                string logPath = string.IsNullOrWhiteSpace(ReportError.LastCrashLogPath) ? "(no log written)" : ReportError.LastCrashLogPath;
+                _ = MessageBoxWindow.ShowInfo(this, $"Error applying directory settings.\n\n{ex.Message}\n\nLog:\n{logPath}", "RomVault");
+            }
         }
 
         /// <summary>
@@ -696,7 +705,9 @@ namespace ROMVault.Avalonia.Views;
     {
         public DatRule Rule { get; }
         public string DirKey => Rule.DirKey;
-        public string CompressionSub => Rule.DiscArchiveAsCHD ? $"CHD:{Rule.ChdCompressionType}" : Rule.CompressionSub.ToString();
+        public string CompressionSub => Rule.DiscArchiveAsCHD
+            ? (Settings.rvSettings.ChdKeepCueGdi ? $"CHD:{Rule.ChdCompressionType} (+cue/gdi)" : $"CHD:{Rule.ChdCompressionType}")
+            : Rule.CompressionSub.ToString();
         public MergeType Merge => Rule.Merge;
         public bool SingleArchive => Rule.SingleArchive;
         public IBrush Background { get; set; } = Brushes.Transparent;

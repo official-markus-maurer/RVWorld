@@ -311,13 +311,17 @@ namespace RomVaultCore.RvDB
 
         private static string GetDatTreePath(string rootPath)
         {
-            if (rootPath == "")
-            {
+            if (string.IsNullOrEmpty(rootPath))
                 return "DatRoot";
-            }
-            if (rootPath.StartsWith("RomVault"))
+
+            const string rvRoot = "RomVault";
+            if (rootPath.Equals(rvRoot, StringComparison.OrdinalIgnoreCase))
+                return "DatRoot";
+
+            if (rootPath.StartsWith(rvRoot + "\\", StringComparison.OrdinalIgnoreCase) ||
+                rootPath.StartsWith(rvRoot + "/", StringComparison.OrdinalIgnoreCase))
             {
-                return @"DatRoot" + rootPath.Substring(8);
+                return "DatRoot" + rootPath.Substring(rvRoot.Length);
             }
 
             return "Error";
@@ -332,18 +336,14 @@ namespace RomVaultCore.RvDB
         /// <returns></returns>
         public static string GetDatPhysicalPath(string rootPath)
         {
-            if (rootPath == "")
-            {
+            if (string.IsNullOrEmpty(rootPath))
                 return Settings.rvSettings.DatRoot;
-            }
-            if (rootPath.Substring(0, 6) == "ToSort")
-            {
+
+            if (rootPath.StartsWith("ToSort", StringComparison.OrdinalIgnoreCase))
                 return "Error";
-            }
-            if (rootPath.Substring(0, 7) == "DatRoot")
-            {
-                return Settings.rvSettings.DatRoot + rootPath.Substring(7);
-            }
+
+            if (rootPath.StartsWith("DatRoot", StringComparison.OrdinalIgnoreCase))
+                return Settings.rvSettings.DatRoot + rootPath.Substring("DatRoot".Length);
 
             return Settings.rvSettings.DatRoot;
         }

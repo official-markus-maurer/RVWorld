@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing;
 using RomVaultCore;
@@ -22,6 +23,20 @@ namespace ROMVault
         [STAThread]
         private static void Main()
         {
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                if (e.ExceptionObject is Exception ex)
+                    ReportError.UnhandledExceptionHandler(ex);
+                else
+                    ReportError.UnhandledExceptionHandler(e.ExceptionObject?.ToString() ?? "Unknown unhandled exception");
+            };
+
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                ReportError.UnhandledExceptionHandler(e.Exception);
+                e.SetObserved();
+            };
+
             strVersion = $"{Version.Major}.{Version.Minor}.{Version.Build}";
             if (Version.Revision > 0)
                 strVersion += $" WIP{Version.Revision}";

@@ -240,9 +240,39 @@ namespace RomVaultCore
             if (ret.IgnoreFiles == null)
                 ret.IgnoreFiles = new List<string>();
 
+            if (ret.DatRules == null || ret.DatRules.Count == 0)
+                ret.ResetDatRules();
+
+            bool hasRootRule = false;
+            foreach (DatRule r in ret.DatRules)
+            {
+                if (r.IgnoreFiles == null)
+                    r.IgnoreFiles = new List<string>();
+                if (string.Equals(r.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase))
+                    hasRootRule = true;
+            }
+
+            if (!hasRootRule)
+            {
+                ret.DatRules.Insert(0, new DatRule
+                {
+                    DirKey = "RomVault",
+                    Compression = FileType.Zip,
+                    CompressionOverrideDAT = false,
+                    Merge = MergeType.None,
+                    HeaderType = HeaderType.Optional,
+                    MergeOverrideDAT = false,
+                    SingleArchive = false,
+                    MultiDATDirOverride = false,
+                    IgnoreFiles = new List<string>()
+                });
+            }
+
             // fix old DatRules by adding a dir seprator on the end of the dirpaths
             foreach (DatRule r in ret.DatRules)
             {
+                if (string.IsNullOrEmpty(r.DirKey))
+                    continue;
                 string lastchar = r.DirKey.Substring(r.DirKey.Length - 1);
                 if (lastchar == "\\")
                     r.DirKey = r.DirKey.Substring(0, r.DirKey.Length - 1);

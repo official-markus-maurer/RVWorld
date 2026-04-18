@@ -65,6 +65,173 @@ namespace RomVaultCore.FixFile.Utils
             }
 
             string sourceExt = Path.GetExtension(sourceFile.NameCase);
+            if (string.Equals(sourceExt, ".chd", StringComparison.OrdinalIgnoreCase))
+            {
+                if (sourceFile.FileType != FileType.File &&
+                    sourceFile.FileType != FileType.CHD &&
+                    sourceFile.FileType != FileType.FileZip &&
+                    sourceFile.FileType != FileType.FileSevenZip)
+                {
+                    return false;
+                }
+
+                List<string> chdTempPathsToDelete = new List<string>();
+                string sourcePathChd = null;
+                if (sourceFile.FileType == FileType.File || sourceFile.FileType == FileType.CHD)
+                {
+                    sourcePathChd = ResolveExistingFilePath(sourceFile.FullNameCase);
+                }
+                else
+                {
+                    if (sourceFile.Parent == null || (sourceFile.Parent.FileType != FileType.Zip && sourceFile.Parent.FileType != FileType.SevenZip))
+                        return false;
+
+                    string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
+                    if (string.IsNullOrWhiteSpace(baseTempDir))
+                        baseTempDir = Environment.CurrentDirectory;
+                    string tempDir = System.IO.Path.Combine(baseTempDir, "__RomVault.chdsrc." + Guid.NewGuid().ToString("N"));
+                    Directory.CreateDirectory(tempDir);
+                    chdTempPathsToDelete.Add(tempDir);
+
+                    string fileNameOnly = System.IO.Path.GetFileName((sourceFile.NameCase ?? "").Replace('\\', '/'));
+                    if (string.IsNullOrWhiteSpace(fileNameOnly))
+                        fileNameOnly = "source.chd";
+
+                    string extracted = System.IO.Path.Combine(tempDir, fileNameOnly);
+                    ReturnCode extractRc = ExtractArchiveEntryToPath(sourceFile.Parent, sourceFile.ZipFileIndex, extracted, out string extractError);
+                    if (extractRc != ReturnCode.Good)
+                    {
+                        CleanupTempPaths(chdTempPathsToDelete);
+                        returnCode = extractRc;
+                        errorMessage = extractError;
+                        return true;
+                    }
+                    sourcePathChd = extracted;
+                }
+
+                ReturnCode hashRc = ReadChdInternalHashes(sourcePathChd, false, out uint? chdVersion, out byte[] srcSha1, out byte[] srcMd5, out string hashError);
+                if (hashRc != ReturnCode.Good)
+                {
+                    CleanupTempPaths(chdTempPathsToDelete);
+                    returnCode = hashRc;
+                    errorMessage = hashError;
+                    return true;
+                }
+
+                if (chdVersion != 5)
+                {
+                    CleanupTempPaths(chdTempPathsToDelete);
+                    returnCode = ReturnCode.DestinationCheckSumMismatch;
+                    errorMessage = $"CHD is not V5 (found V{chdVersion ?? 0}).";
+                    return true;
+                }
+
+                bool shaOk = destinationFile.SHA1 == null || (srcSha1 != null && ArrByte.BCompare(destinationFile.SHA1, srcSha1));
+                bool md5Ok = destinationFile.MD5 == null || (srcMd5 != null && ArrByte.BCompare(destinationFile.MD5, srcMd5));
+                if (!shaOk || !md5Ok)
+                {
+                    CleanupTempPaths(chdTempPathsToDelete);
+                    returnCode = ReturnCode.DestinationCheckSumMismatch;
+                    errorMessage = "Source CHD does not match expected CHD (internal hash mismatch).";
+                    return true;
+                }
+
+                string destinationPathChd = ResolveOutputFilePath(destinationFile.FullName);
+                try
+                {
+                    string destDirPhysical = System.IO.Path.GetDirectoryName(destinationPathChd);
+                    if (!string.IsNullOrEmpty(destDirPhysical) && !System.IO.Directory.Exists(destDirPhysical))
+                        System.IO.Directory.CreateDirectory(destDirPhysical);
+                }
+                catch
+                {
+                }
+
+                if (System.IO.File.Exists(destinationPathChd))
+                {
+                    ReturnCode verifyRc = VerifyAndMergeCreatedChd(destinationPathChd, destinationFile, "", out string verifyError);
+                    if (verifyRc != ReturnCode.Good)
+                    {
+                        CleanupTempPaths(chdTempPathsToDelete);
+                        returnCode = verifyRc;
+                        errorMessage = verifyError;
+                        return true;
+                    }
+
+                    CleanupTempPaths(chdTempPathsToDelete);
+
+                    if (sourceFile.FileType != FileType.File && sourceFile.FileType != FileType.CHD)
+                        usedFiles.Add(sourceFile);
+                    else
+                    {
+                        try
+                        {
+                            string sp = System.IO.Path.GetFullPath(ResolveExistingFilePath(sourceFile.FullNameCase));
+                            string dp = System.IO.Path.GetFullPath(destinationPathChd);
+                            if (!string.Equals(sp, dp, StringComparison.OrdinalIgnoreCase))
+                                usedFiles.Add(sourceFile);
+                        }
+                        catch
+                        {
+                            usedFiles.Add(sourceFile);
+                        }
+                    }
+                    return true;
+                }
+
+                if (sourceFile.FileType == FileType.FileZip || sourceFile.FileType == FileType.FileSevenZip)
+                {
+                    CleanupTempPaths(chdTempPathsToDelete);
+
+                    Report.ReportProgress(new bgwShowFix(Path.GetDirectoryName(destinationPathChd), "", Path.GetFileName(destinationPathChd), sourceFile.Size, "<--Extract (CHD Internal Hash)", sourceFile.Parent?.FullName, sourceFile.Parent?.Name ?? "", sourceFile.Name));
+
+                    ReturnCode extractRc = ExtractArchiveEntryToPath(sourceFile.Parent, sourceFile.ZipFileIndex, destinationPathChd, out string extractError);
+                    if (extractRc != ReturnCode.Good)
+                    {
+                        returnCode = extractRc;
+                        errorMessage = extractError;
+                        return true;
+                    }
+
+                    ReturnCode verifyRc = VerifyAndMergeCreatedChd(destinationPathChd, destinationFile, "", out string verifyError);
+                    if (verifyRc != ReturnCode.Good)
+                    {
+                        returnCode = verifyRc;
+                        errorMessage = verifyError;
+                        return true;
+                    }
+
+                    usedFiles.Add(sourceFile);
+                    return true;
+                }
+
+                CleanupTempPaths(chdTempPathsToDelete);
+
+                Report.ReportProgress(new bgwShowFix(Path.GetDirectoryName(destinationPathChd), "", Path.GetFileName(destinationPathChd), sourceFile.Size, "<--Move (CHD Internal Hash)", Path.GetDirectoryName(sourcePathChd), "", Path.GetFileName(sourcePathChd)));
+
+                returnCode = MoveFile(sourceFile, destinationFile, destinationPathChd, out bool moved, out errorMessage, forceMove: true, skipDatValidation: true);
+                if (returnCode == ReturnCode.Good && moved)
+                {
+                    ReturnCode verifyRc = VerifyAndMergeCreatedChd(destinationPathChd, destinationFile, "", out string verifyError);
+                    if (verifyRc != ReturnCode.Good)
+                    {
+                        returnCode = verifyRc;
+                        errorMessage = verifyError;
+                        return true;
+                    }
+
+                    if (Settings.rvSettings.ChdKeepCueGdi)
+                    {
+                        MoveChdSidecarDescriptors(sourcePathChd, destinationPathChd);
+                        MarkSidecarDescriptorChildrenGot(destinationFile, destinationPathChd);
+                    }
+                    usedFiles.Add(sourceFile);
+                    return true;
+                }
+
+                return true;
+            }
+
             if (!IsDiscSourceExtension(sourceExt) && sourceFile.FileType != FileType.CHD)
                 return false;
 
@@ -1173,6 +1340,10 @@ namespace RomVaultCore.FixFile.Utils
                     {
                         RvFile exp = destinationFile.Child(i);
                         if (exp == null || !exp.IsFile)
+                            continue;
+                        string expExt = System.IO.Path.GetExtension(exp.Name ?? "");
+                        if (string.Equals(expExt, ".cue", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(expExt, ".gdi", StringComparison.OrdinalIgnoreCase))
                             continue;
                         trust.Add(new ScannedFile(FileType.FileCHD)
                         {

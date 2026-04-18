@@ -40,15 +40,27 @@ namespace RomVaultCore.ReadDat
             int datNameLength = datName.Length;
             foreach (DatRule s in Settings.rvSettings.DatRules)
             {
-                if (s.DirKey.Length < 8 || s.DirKey.Substring(0, 8) != "RomVault")
+                if (string.IsNullOrWhiteSpace(s.DirKey))
                     continue;
-                string DirKey = "DatRoot" + s.DirKey.Substring(8) + System.IO.Path.DirectorySeparatorChar;
+
+                string ruleKey = s.DirKey.Trim().Replace('/', '\\');
+                while (ruleKey.EndsWith("\\", StringComparison.Ordinal))
+                    ruleKey = ruleKey.Substring(0, ruleKey.Length - 1);
+
+                const string rvRoot = "RomVault";
+                string DirKey;
+                if (ruleKey.Equals(rvRoot, StringComparison.OrdinalIgnoreCase))
+                    DirKey = "DatRoot" + System.IO.Path.DirectorySeparatorChar;
+                else if (ruleKey.StartsWith(rvRoot + "\\", StringComparison.OrdinalIgnoreCase))
+                    DirKey = "DatRoot" + ruleKey.Substring(rvRoot.Length) + System.IO.Path.DirectorySeparatorChar;
+                else
+                    continue;
 
                 int dirKeyLen = DirKey.Length;
                 if (dirKeyLen > datNameLength)
                     continue;
 
-                if (datName.Substring(0, dirKeyLen) != DirKey)
+                if (!string.Equals(datName.Substring(0, dirKeyLen), DirKey, StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (dirKeyLen < longest)

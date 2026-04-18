@@ -20,10 +20,14 @@ namespace RomVaultCore
         public static ShowError ErrorForm;
         public static MessageDialog Dialog;
 
+        public static string LastCrashLogPath;
+
         public static int vMajor;
         public static int vMinor;
         public static int vBuild;
         public static int vRevision;
+
+        private static readonly object _crashLogLock = new object();
 
         public static void UnhandledExceptionHandler(object sender, ThreadExceptionEventArgs e)
         {
@@ -120,9 +124,31 @@ namespace RomVaultCore
 
         private static void SendErrorMessage(string message)
         {
+            WriteLocalCrashLog(message);
             if (Settings.rvSettings.DoNotReportFeedback)
                 return;
+        }
 
+        private static void WriteLocalCrashLog(string message)
+        {
+            try
+            {
+                string dir = Path.Combine(Environment.CurrentDirectory, "Logs");
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                string stamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss_ffff", CultureInfo.InvariantCulture);
+                string filename = Path.Combine(dir, $"Crash_{stamp}.txt");
+
+                lock (_crashLogLock)
+                {
+                    File.WriteAllText(filename, message ?? "");
+                    LastCrashLogPath = filename;
+                }
+            }
+            catch
+            {
+            }
         }
 
         private static string GetLogFilname()

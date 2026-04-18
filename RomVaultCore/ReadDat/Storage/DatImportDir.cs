@@ -39,13 +39,17 @@ namespace RomVaultCore.Storage.Dat
 
         private static string GetDatTreePath(string rootPath)
         {
-            if (rootPath == "")
-            {
+            if (string.IsNullOrEmpty(rootPath))
                 return "DatRoot";
-            }
-            if (rootPath.StartsWith("RomVault"))
+
+            const string rvRoot = "RomVault";
+            if (rootPath.Equals(rvRoot, System.StringComparison.OrdinalIgnoreCase))
+                return "DatRoot";
+
+            if (rootPath.StartsWith(rvRoot + "\\", System.StringComparison.OrdinalIgnoreCase) ||
+                rootPath.StartsWith(rvRoot + "/", System.StringComparison.OrdinalIgnoreCase))
             {
-                return @"DatRoot" + rootPath.Substring(8);
+                return "DatRoot" + rootPath.Substring(rvRoot.Length);
             }
 
             return "Error";

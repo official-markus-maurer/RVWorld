@@ -705,7 +705,40 @@ namespace RomVaultCore.ReadDat
 
         public static void CheckAllDats(RvFile dbFile, string romVaultPath)
         {
-            CheckAllDatsInternal(dbFile, "DatRoot" + romVaultPath.Substring(8));
+            if (string.IsNullOrWhiteSpace(romVaultPath))
+            {
+                CheckAllDatsInternal(dbFile, "DatRoot");
+                return;
+            }
+
+            string path = romVaultPath.Trim().Replace('/', '\\');
+            while (path.EndsWith("\\", StringComparison.Ordinal))
+                path = path.Substring(0, path.Length - 1);
+
+            if (path.Equals("DatRoot", StringComparison.OrdinalIgnoreCase))
+            {
+                CheckAllDatsInternal(dbFile, "DatRoot");
+                return;
+            }
+            if (path.StartsWith("DatRoot\\", StringComparison.OrdinalIgnoreCase))
+            {
+                CheckAllDatsInternal(dbFile, path);
+                return;
+            }
+
+            const string rvRoot = "RomVault";
+            if (path.Equals(rvRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                CheckAllDatsInternal(dbFile, "DatRoot");
+                return;
+            }
+            if (path.StartsWith(rvRoot + "\\", StringComparison.OrdinalIgnoreCase))
+            {
+                CheckAllDatsInternal(dbFile, "DatRoot" + path.Substring(rvRoot.Length));
+                return;
+            }
+
+            CheckAllDatsInternal(dbFile, "DatRoot");
         }
 
         private static void CheckAllDatsInternal(RvFile dbFile, string datPath)

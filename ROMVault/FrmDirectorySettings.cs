@@ -291,7 +291,9 @@ namespace ROMVault
                 int row = DataGridGames.Rows.Count - 1;
                 DataGridGames.Rows[row].Tag = t;
                 DataGridGames.Rows[row].Cells[0].Value = t.DirKey;
-                DataGridGames.Rows[row].Cells[1].Value = t.DiscArchiveAsCHD ? $"CHD:{t.ChdCompressionType}" : t.CompressionSub.ToString();
+                DataGridGames.Rows[row].Cells[1].Value = t.DiscArchiveAsCHD
+                    ? (Settings.rvSettings.ChdKeepCueGdi ? $"CHD:{t.ChdCompressionType} (+cue/gdi)" : $"CHD:{t.ChdCompressionType}")
+                    : t.CompressionSub.ToString();
                 DataGridGames.Rows[row].Cells[2].Value = t.Merge;
                 DataGridGames.Rows[row].Cells[3].Value = t.SingleArchive ? rvImages1.Tick : rvImages1.unTick;
 
@@ -353,81 +355,90 @@ namespace ROMVault
 
         private void BtnApplyClick(object sender, EventArgs e)
         {
-            ChangesMade = true;
-
-            _rule.Compression = cboFileType.SelectedIndex == 4 ? FileType.FileOnly : cboFileType.SelectedIndex == 3 ? FileType.CHD : (FileType)cboFileType.SelectedIndex + 1;
-            _rule.CompressionOverrideDAT = chkFileTypeOverride.Checked;
-            _rule.CompressionSub = ReadFromCheckBoxes();
-            _rule.ConvertWhileFixing = chkConvertWhenFixing.Checked;
-            _rule.DiscArchiveAsCHD = cboFileType.SelectedIndex == 3;
-            if (_rule.DiscArchiveAsCHD)
-                _rule.ChdCompressionType = (ChdCompressionType)Math.Max(0, cboCompression.SelectedIndex);
-            _rule.Merge = (MergeType)cboMergeType.SelectedIndex;
-            _rule.MergeOverrideDAT = chkMergeTypeOverride.Checked;
-            _rule.Filter = (FilterType)cboFilterType.SelectedIndex;
-            if (_rule.DiscArchiveAsCHD && _rule.Filter == FilterType.CHDsOnly)
-                _rule.Filter = FilterType.KeepAll;
-            _rule.HeaderType = (HeaderType)cboHeaderType.SelectedIndex;
-            _rule.SingleArchive = chkSingleArchive.Checked;
-            _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
-            _rule.MultiDATDirOverride = chkMultiDatDirOverride.Checked;
-            bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
-            if (isGlobalDatRule)
-                _rule.UseDescriptionAsDirName = chkUseDescription.Checked;
-            _rule.UseIdForName = chkUseIdForName.Checked;
-            if (isGlobalDatRule)
+            try
             {
-                _rule.ChdStrictCueGdi = chkChdStrict.Checked;
-                Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.Checked;
-            }
+                ChangesMade = true;
 
-            _rule.CompleteOnly = chkCompleteOnly.Checked;
-
-            _rule.AddCategorySubDirs = chkAddCategorySubDirs.Checked;
-
-
-            string strtxt = textBox1.Text;
-            strtxt = strtxt.Replace("\r", "");
-            string[] strsplit = strtxt.Split('\n');
-
-            _rule.IgnoreFiles = new List<string>(strsplit);
-            int i;
-            for (i = 0; i < _rule.IgnoreFiles.Count; i++)
-            {
-                _rule.IgnoreFiles[i] = _rule.IgnoreFiles[i].Trim();
-                if (string.IsNullOrEmpty(_rule.IgnoreFiles[i]))
+                _rule.Compression = cboFileType.SelectedIndex == 4 ? FileType.FileOnly : cboFileType.SelectedIndex == 3 ? FileType.CHD : (FileType)cboFileType.SelectedIndex + 1;
+                _rule.CompressionOverrideDAT = chkFileTypeOverride.Checked;
+                _rule.CompressionSub = ReadFromCheckBoxes();
+                _rule.ConvertWhileFixing = chkConvertWhenFixing.Checked;
+                _rule.DiscArchiveAsCHD = cboFileType.SelectedIndex == 3;
+                if (_rule.DiscArchiveAsCHD)
+                    _rule.ChdCompressionType = (ChdCompressionType)Math.Max(0, cboCompression.SelectedIndex);
+                _rule.Merge = (MergeType)cboMergeType.SelectedIndex;
+                _rule.MergeOverrideDAT = chkMergeTypeOverride.Checked;
+                _rule.Filter = (FilterType)cboFilterType.SelectedIndex;
+                if (_rule.DiscArchiveAsCHD && _rule.Filter == FilterType.CHDsOnly)
+                    _rule.Filter = FilterType.KeepAll;
+                _rule.HeaderType = (HeaderType)cboHeaderType.SelectedIndex;
+                _rule.SingleArchive = chkSingleArchive.Checked;
+                _rule.SubDirType = (RemoveSubType)cboDirType.SelectedIndex;
+                _rule.MultiDATDirOverride = chkMultiDatDirOverride.Checked;
+                bool isGlobalDatRule = string.Equals(_rule.DirKey, "RomVault", StringComparison.OrdinalIgnoreCase);
+                if (isGlobalDatRule)
+                    _rule.UseDescriptionAsDirName = chkUseDescription.Checked;
+                _rule.UseIdForName = chkUseIdForName.Checked;
+                if (isGlobalDatRule)
                 {
-                    _rule.IgnoreFiles.RemoveAt(i);
-                    i--;
-                }
-            }
-
-            bool updatingRule = false;
-            for (i = 0; i < Settings.rvSettings.DatRules.Count; i++)
-            {
-                if (Settings.rvSettings.DatRules[i] == _rule)
-                {
-                    updatingRule = true;
-                    break;
+                    _rule.ChdStrictCueGdi = chkChdStrict.Checked;
+                    Settings.rvSettings.ChdStrictCueGdi = chkChdStrict.Checked;
                 }
 
-                if (string.Compare(Settings.rvSettings.DatRules[i].DirKey, _rule.DirKey, StringComparison.Ordinal) > 0)
+                _rule.CompleteOnly = chkCompleteOnly.Checked;
+
+                _rule.AddCategorySubDirs = chkAddCategorySubDirs.Checked;
+
+
+                string strtxt = textBox1.Text;
+                strtxt = strtxt.Replace("\r", "");
+                string[] strsplit = strtxt.Split('\n');
+
+                _rule.IgnoreFiles = new List<string>(strsplit);
+                int i;
+                for (i = 0; i < _rule.IgnoreFiles.Count; i++)
                 {
-                    break;
+                    _rule.IgnoreFiles[i] = _rule.IgnoreFiles[i].Trim();
+                    if (string.IsNullOrEmpty(_rule.IgnoreFiles[i]))
+                    {
+                        _rule.IgnoreFiles.RemoveAt(i);
+                        i--;
+                    }
                 }
+
+                bool updatingRule = false;
+                for (i = 0; i < Settings.rvSettings.DatRules.Count; i++)
+                {
+                    if (Settings.rvSettings.DatRules[i] == _rule)
+                    {
+                        updatingRule = true;
+                        break;
+                    }
+
+                    if (string.Compare(Settings.rvSettings.DatRules[i].DirKey, _rule.DirKey, StringComparison.Ordinal) > 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (!updatingRule)
+                    Settings.rvSettings.DatRules.Insert(i, _rule);
+
+                Settings.rvSettings.SetRegExRules();
+
+                UpdateGrid();
+                Settings.WriteConfig(Settings.rvSettings);
+                DatUpdate.CheckAllDats(DB.DirRoot.Child(0), _rule.DirKey);
+
+                if (_displayType)
+                    Close();
             }
-
-            if (!updatingRule)
-                Settings.rvSettings.DatRules.Insert(i, _rule);
-
-            Settings.rvSettings.SetRegExRules();
-
-            UpdateGrid();
-            Settings.WriteConfig(Settings.rvSettings);
-            DatUpdate.CheckAllDats(DB.DirRoot.Child(0), _rule.DirKey);
-
-            if (_displayType)
-                Close();
+            catch (Exception ex)
+            {
+                ReportError.UnhandledExceptionHandler(ex);
+                string logPath = string.IsNullOrWhiteSpace(ReportError.LastCrashLogPath) ? "(no log written)" : ReportError.LastCrashLogPath;
+                MessageBox.Show($"Error applying directory settings.\r\n\r\n{ex.Message}\r\n\r\nLog:\r\n{logPath}", "RomVault", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
         }
         private void BtnDeleteClick(object sender, EventArgs e)

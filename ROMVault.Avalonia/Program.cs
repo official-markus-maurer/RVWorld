@@ -1,5 +1,7 @@
 using Avalonia;
 using System;
+using System.Threading.Tasks;
+using RomVaultCore;
 
 namespace ROMVault.Avalonia;
 
@@ -15,8 +17,24 @@ namespace ROMVault.Avalonia;
         /// </summary>
         /// <param name="args">Command line arguments.</param>
         [STAThread]
-        public static void Main(string[] args) => BuildAvaloniaApp()
-            .StartWithClassicDesktopLifetime(args);
+        public static void Main(string[] args)
+        {
+            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+            {
+                if (e.ExceptionObject is Exception ex)
+                    ReportError.UnhandledExceptionHandler(ex);
+                else
+                    ReportError.UnhandledExceptionHandler(e.ExceptionObject?.ToString() ?? "Unknown unhandled exception");
+            };
+
+            TaskScheduler.UnobservedTaskException += (s, e) =>
+            {
+                ReportError.UnhandledExceptionHandler(e.Exception);
+                e.SetObserved();
+            };
+
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        }
 
         /// <summary>
         /// Avalonia configuration, don't remove; also used by visual designer.
