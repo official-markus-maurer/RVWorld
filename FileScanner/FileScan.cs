@@ -251,6 +251,19 @@ public class FileScan
         bytebuffer.Add(buffer);
     }
 
+    private static int ReadFully(Stream s, byte[] buffer, int count)
+    {
+        int total = 0;
+        while (total < count)
+        {
+            int read = s.Read(buffer, total, count - total);
+            if (read <= 0)
+                break;
+            total += read;
+        }
+        return total;
+    }
+
     public int CheckSumRead(Stream inStream, ScannedFile scannedFile, ulong totalSize, bool fullScan, bool scanSHA256, Message progress, ulong sizetotal, ulong sizeSoFar)
     {
         byte[] _buffer0 = getbuffer();
@@ -279,7 +292,7 @@ public class FileScan
             long sizetogo = (long)totalSize;
             int sizenow = maxHeaderSize < sizetogo ? maxHeaderSize : (int)sizetogo;
             if (sizenow > 0)
-                inStream.Read(_buffer0, 0, sizenow);
+                sizenow = ReadFully(inStream, _buffer0, sizenow);
 
             scannedFile.HeaderFileType = FileHeaderReader.GetType(_buffer0, sizenow, out int actualHeaderSize);
 
@@ -389,7 +402,8 @@ public class FileScan
 
                     // now read the rest of the header.
                     sizenow = actualHeaderSize - sizenow;
-                    inStream.Read(_buffer0, 0, sizenow);
+                    if (sizenow > 0)
+                        sizenow = ReadFully(inStream, _buffer0, sizenow);
 
                     // scan the rest of the header
                     tcrc32?.Trigger(_buffer0, sizenow);
@@ -410,10 +424,10 @@ public class FileScan
             // Pre load the first buffer0
             int sizeNext = sizetogo > Buffersize ? Buffersize : (int)sizetogo;
             if (sizeNext > 0)
-                inStream.Read(_buffer0, 0, sizeNext);
+                sizeNext = ReadFully(inStream, _buffer0, sizeNext);
 
             int sizebuffer = sizeNext;
-            sizetogo -= sizeNext;
+            sizetogo -= sizebuffer;
             bool whichBuffer = true;
 
             bool doReporting = progress != null && sizetotal > 0;
@@ -471,8 +485,8 @@ public class FileScan
                 altsha1?.Wait();
                 altsha256?.Wait();
 
-                sizebuffer = sizeNext;
-                sizetogo -= sizeNext;
+                sizebuffer = sizeNext > 0 ? lbuffer.SizeRead : 0;
+                sizetogo -= sizebuffer;
                 whichBuffer = !whichBuffer;
             }
 

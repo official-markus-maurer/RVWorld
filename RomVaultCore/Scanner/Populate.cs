@@ -279,7 +279,7 @@ namespace RomVaultCore.Scanner
         /// <summary>
         /// Current CHD scan cache schema version.
         /// </summary>
-        private const int ChdScanCacheVersion = 4;
+        private const int ChdScanCacheVersion = 5;
 
         /// <summary>
         /// Fingerprint describing the mapping and hashing behavior used when scanning CHDs.
@@ -287,7 +287,7 @@ namespace RomVaultCore.Scanner
         /// <remarks>
         /// This is used to invalidate old cache entries when mapping logic changes (pregap/index handling, ToSort naming, etc.).
         /// </remarks>
-        private const string ChdScanMappingFp = "mapfp4:gaps;idx00;pregap;postgap;health;tosortnaming";
+        private const string ChdScanMappingFp = "mapfp5:gaps;idx00;startframe;postgap;health;tosortnaming";
         private static readonly object ChdToolFingerprintLock = new object();
         private static readonly Dictionary<string, string> ChdToolFingerprintCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
@@ -394,6 +394,39 @@ namespace RomVaultCore.Scanner
                 string.Equals(cache.MappingFingerprint ?? "", ChdScanMappingFp, StringComparison.OrdinalIgnoreCase) &&
                 (expectedDescriptor == "dvd" || !string.IsNullOrWhiteSpace(cache.DescriptorSha1)))
             {
+                bool cacheValid = cache.Entries != null && cache.Entries.Count > 0;
+                if (cacheValid)
+                {
+                    for (int i = 0; i < cache.Entries.Count; i++)
+                    {
+                        ChdCacheEntry e = cache.Entries[i];
+                        string name = e?.Name ?? "";
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            cacheValid = false;
+                            break;
+                        }
+                        string ext = System.IO.Path.GetExtension(name);
+                        if (string.Equals(ext, ".cue", StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(ext, ".gdi", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        if (e.Size == 0)
+                        {
+                            cacheValid = false;
+                            break;
+                        }
+                        if (string.IsNullOrWhiteSpace(e.CRC) && string.IsNullOrWhiteSpace(e.SHA1) && string.IsNullOrWhiteSpace(e.MD5))
+                        {
+                            cacheValid = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (!cacheValid)
+                    goto SkipChdCache;
+
                 ScannedFile cached = new ScannedFile(FileType.CHD)
                 {
                     Name = filename,
@@ -429,6 +462,7 @@ namespace RomVaultCore.Scanner
                 return cached;
             }
 
+        SkipChdCache:
             string baseTempDir = ResolveExistingDirectoryPath(DB.GetToSortCache()?.FullName);
             if (string.IsNullOrWhiteSpace(baseTempDir))
                 baseTempDir = Environment.CurrentDirectory;
@@ -579,8 +613,11 @@ namespace RomVaultCore.Scanner
                                 debug.AppendLine(filename);
                                 debug.AppendLine("descriptor=stream");
                                 debug.AppendLine("expected:");
-                                for (int i = 0; i < expectedDataFiles.Count; i++)
-                                    debug.AppendLine($"  {expectedDataFiles[i].Name} size={(expectedDataFiles[i].Size?.ToString() ?? "")}");
+                                    for (int i = 0; i < expectedDataFiles.Count; i++)
+                                    {
+                                        RvFile ef = expectedDataFiles[i];
+                                        debug.AppendLine($"  {ef.Name} size={(ef.Size?.ToString() ?? "")} crc={ef.CRC.ToHexString()} sha1={ef.SHA1.ToHexString()} md5={ef.MD5.ToHexString()}");
+                                    }
                                 debug.AppendLine("tracks:");
                                 for (int i = 0; i < cdTracks.Count; i++)
                                     debug.AppendLine($"  track={cdTracks[i].TrackNo:D2} type={cdTracks[i].TrackType} frames={cdTracks[i].Frames} pregap={cdTracks[i].PreGapFrames} postgap={cdTracks[i].PostGapFrames} sector={cdTracks[i].SectorSize}");
@@ -596,7 +633,7 @@ namespace RomVaultCore.Scanner
                                 for (int i = 0; i < cdTracks.Count; i++)
                                 {
                                     CHDSharpLib.ChdCdTrackInfo t = cdTracks[i];
-                                    ulong startBytes = (ulong)Math.Max(0, t.StartFrame + t.PreGapFrames) * (ulong)Math.Max(1, t.SectorSize);
+                                    ulong startBytes = (ulong)Math.Max(0, t.StartFrame) * (ulong)Math.Max(1, t.SectorSize);
                                     ulong lenBytes = (ulong)Math.Max(0, t.Frames) * (ulong)Math.Max(1, t.SectorSize);
                                     if (startBytes < cur)
                                         startBytes = cur;
@@ -630,10 +667,49 @@ namespace RomVaultCore.Scanner
                             Dictionary<string, (string extractedName, bool swap16)> mapping = BuildDeterministicMapping(trackFiles, fileHashCache, null, expectedByTrack, expectedDataFiles, debug, 
                                 datRule?.ChdAudioTransform ?? ChdAudioTransform.None, 
                                 datRule?.ChdLayoutStrictness ?? ChdLayoutStrictness.Normal);
+
+                            if (debug != null)
+                            {
+                                debug.AppendLine("hashes:");
+                                foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> kvp in fileHashCache)
+                                {
+                                    debug.AppendLine($"  {kvp.Key} size={kvp.Value.size} crc={kvp.Value.crc.ToHexString()} sha1={kvp.Value.sha1.ToHexString()} md5={kvp.Value.md5.ToHexString()}");
+                                }
+                            }
+
+                            if (expectedDataFiles.Count > 0)
+                            {
+                                for (int i = 0; i < expectedDataFiles.Count; i++)
+                                {
+                                    RvFile exp = expectedDataFiles[i];
+                                    if (exp?.Name == null)
+                                        continue;
+                                    bool hasHash =
+                                        (exp.SHA1 != null && exp.SHA1.Length > 0) ||
+                                        (exp.MD5 != null && exp.MD5.Length > 0) ||
+                                        (exp.CRC != null && exp.CRC.Length > 0);
+                                    if (!hasHash)
+                                        continue;
+                                    if (mapping.ContainsKey(exp.Name))
+                                        continue;
+                                    if (debug != null)
+                                        debug.AppendLine($"streaming could not map hashed expected member: {exp.Name}; will fall back to extractcd");
+                                    WriteChdDebugLog(filename, debug);
+                                    throw new Exception("stream hash mismatch");
+                                }
+                            }
+
                             foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
                             {
                                 if (!fileHashCache.TryGetValue(kvp.Value.extractedName, out var h))
                                     continue;
+                                if (h.size == 0 || h.crc == null || h.sha1 == null || h.md5 == null)
+                                {
+                                    if (debug != null)
+                                        debug.AppendLine($"streaming hash missing for {kvp.Value.extractedName} size={h.size} crc={(h.crc == null ? "null" : "ok")} sha1={(h.sha1 == null ? "null" : "ok")} md5={(h.md5 == null ? "null" : "ok")}; will fall back to extractcd");
+                                    WriteChdDebugLog(filename, debug);
+                                    throw new Exception("stream hash missing");
+                                }
                                 ScannedFile sf = new ScannedFile(FileType.FileCHD)
                                 {
                                     Name = kvp.Key,
@@ -843,7 +919,10 @@ namespace RomVaultCore.Scanner
                     debug.AppendLine("descriptor=" + (expectsGdi ? "gdi" : "cue"));
                     debug.AppendLine("expected:");
                     for (int i = 0; i < expectedDataFiles.Count; i++)
-                        debug.AppendLine($"  {expectedDataFiles[i].Name} size={(expectedDataFiles[i].Size?.ToString() ?? "")}");
+                    {
+                        RvFile ef = expectedDataFiles[i];
+                        debug.AppendLine($"  {ef.Name} size={(ef.Size?.ToString() ?? "")} crc={ef.CRC.ToHexString()} sha1={ef.SHA1.ToHexString()} md5={ef.MD5.ToHexString()}");
+                    }
                     debug.AppendLine("extracted:");
                     for (int i = 0; i < trackFiles.Count; i++)
                         debug.AppendLine($"  track={trackFiles[i].trackNo:D2} file={trackFiles[i].fileName} type={trackFiles[i].trackType}");
@@ -917,6 +996,21 @@ namespace RomVaultCore.Scanner
 
                 HashSet<string> uniqueExtracted = new HashSet<string>(uniqueExtractedSet, StringComparer.OrdinalIgnoreCase);
 
+                if (debug != null)
+                {
+                    debug.AppendLine("hashes:");
+                    for (int i = 0; i < uniqueExtractedArr.Length; i++)
+                    {
+                        string n = uniqueExtractedArr[i];
+                        if (!fileHashCache.TryGetValue(n, out var h))
+                            continue;
+                        string swap = "";
+                        if (fileHashSwap16Cache.TryGetValue(n, out var hs))
+                            swap = $" swap16_sha1={hs.sha1.ToHexString()} swap16_md5={hs.md5.ToHexString()}";
+                        debug.AppendLine($"  {n} size={h.size} crc={h.crc.ToHexString()} sha1={h.sha1.ToHexString()} md5={h.md5.ToHexString()}{swap}");
+                    }
+                }
+
                 if (!expectsGdi && uniqueExtracted.Count == 1 && expectedDataFiles.Count > 1)
                 {
                     if (debug != null)
@@ -938,6 +1032,64 @@ namespace RomVaultCore.Scanner
                 Dictionary<string, (string extractedName, bool swap16)> mapping = BuildDeterministicMapping(trackFiles, fileHashCache, fileHashSwap16Cache, expectedByTrack, expectedDataFiles, debug,
                     datRule?.ChdAudioTransform ?? ChdAudioTransform.None,
                     datRule?.ChdLayoutStrictness ?? ChdLayoutStrictness.Normal);
+
+                HashSet<string> missingHashedExpectedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < expectedDataFiles.Count; i++)
+                {
+                    RvFile exp = expectedDataFiles[i];
+                    if (exp?.Name == null)
+                        continue;
+                    if (!HasExpectedHash(exp))
+                        continue;
+                    if (mapping.ContainsKey(exp.Name))
+                        continue;
+                    missingHashedExpectedNames.Add(exp.Name);
+                }
+
+                bool pregapShiftApplied = false;
+                int pregapShiftMatchedCount = 0;
+                if (!expectsGdi && missingHashedExpectedNames.Count > 0)
+                {
+                    if (TryCuePregapShiftForExtractedBins(tempDir, outMain, trackFiles, expectedByTrack, missingHashedExpectedNames, _fileScans, debug,
+                            out Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5, bool swap16)> fixedHashes))
+                    {
+                        pregapShiftApplied = true;
+                        pregapShiftMatchedCount = fixedHashes.Count;
+                        foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5, bool swap16)> kvp in fixedHashes)
+                        {
+                            ScannedFile sf = new ScannedFile(FileType.FileCHD)
+                            {
+                                Name = kvp.Key,
+                                FileModTimeStamp = dbDir.FileModTimeStamp,
+                                GotStatus = GotStatus.Got,
+                                DeepScanned = true,
+                                Size = kvp.Value.size,
+                                CRC = kvp.Value.crc,
+                                SHA1 = kvp.Value.sha1,
+                                MD5 = kvp.Value.md5,
+                                ChdScanMethod = "Extraction (CD)",
+                                ChdHashMatchMode = kvp.Value.swap16 ? "PregapShiftSwap16" : "PregapShift"
+                            };
+                            sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                            ar.Add(sf);
+                        }
+                    }
+                }
+
+                HashSet<string> usedExtracted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
+                {
+                    if (!string.IsNullOrWhiteSpace(kvp.Value.extractedName))
+                        usedExtracted.Add(kvp.Value.extractedName);
+                }
+                if (pregapShiftApplied)
+                {
+                    for (int i = 0; i < trackFiles.Count; i++)
+                    {
+                        if (!string.IsNullOrWhiteSpace(trackFiles[i].fileName))
+                            usedExtracted.Add(trackFiles[i].fileName);
+                    }
+                }
                 foreach (KeyValuePair<string, (string extractedName, bool swap16)> kvp in mapping)
                 {
                     string expectedName = kvp.Key;
@@ -985,6 +1137,32 @@ namespace RomVaultCore.Scanner
                     };
                     sf.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
                     ar.Add(sf);
+                }
+
+                for (int i = 0; i < trackFiles.Count; i++)
+                {
+                    string extractedName = trackFiles[i].fileName;
+                    if (string.IsNullOrWhiteSpace(extractedName))
+                        continue;
+                    if (usedExtracted.Contains(extractedName))
+                        continue;
+                    if (!fileHashCache.TryGetValue(extractedName, out var h))
+                        continue;
+                    ScannedFile extra = new ScannedFile(FileType.FileCHD)
+                    {
+                        Name = extractedName,
+                        FileModTimeStamp = dbDir.FileModTimeStamp,
+                        GotStatus = GotStatus.Got,
+                        DeepScanned = true,
+                        Size = h.size,
+                        CRC = h.crc,
+                        SHA1 = h.sha1,
+                        MD5 = h.md5,
+                        ChdScanMethod = "Extraction (CD)",
+                        ChdHashMatchMode = "Unmapped"
+                    };
+                    extra.FileStatusSet(FileStatus.SizeVerified | FileStatus.CRCVerified | FileStatus.SHA1Verified | FileStatus.MD5Verified);
+                    ar.Add(extra);
                 }
 
                 RvFile expectedCue = expectedChildren.Find(c => c.Name != null && c.Name.EndsWith(".cue", StringComparison.OrdinalIgnoreCase));
@@ -1087,7 +1265,14 @@ namespace RomVaultCore.Scanner
                         if (exp?.Name == null)
                             continue;
                         if (!byName.TryGetValue(exp.Name, out ScannedFile got))
+                        {
+                            if (HasExpectedHash(exp))
+                            {
+                                hashMismatch = true;
+                                break;
+                            }
                             continue;
+                        }
                         if (exp.Size.HasValue && exp.Size.Value != 0 && got.Size != exp.Size.Value)
                             hashMismatch = true;
                         if (exp.CRC != null && got.CRC != null && !exp.CRC.AsSpan().SequenceEqual(got.CRC))
@@ -1101,7 +1286,20 @@ namespace RomVaultCore.Scanner
                     }
                 }
 
-                if (hashMismatch && Settings.rvSettings.ChdTrustContainerForTracks)
+                bool allowTrust = Settings.rvSettings.ChdTrustContainerForTracks;
+                if (allowTrust)
+                {
+                    for (int i = 0; i < expectedDataFiles.Count; i++)
+                    {
+                        if (HasExpectedHash(expectedDataFiles[i]))
+                        {
+                            allowTrust = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (hashMismatch && allowTrust)
                 {
                     ScannedFile trust = new ScannedFile(FileType.CHD)
                     {
@@ -1136,6 +1334,9 @@ namespace RomVaultCore.Scanner
                     WriteChdDebugLog(filename, debug);
                     return trust;
                 }
+
+                if (pregapShiftApplied)
+                    ar.ChdStatus = $"Pregap-shift applied ({pregapShiftMatchedCount} track(s))";
 
                 ar.Sort();
                 if (Settings.rvSettings.ChdScanCacheEnabled)
@@ -1356,6 +1557,271 @@ namespace RomVaultCore.Scanner
             }
         }
 
+        private sealed class ConcatReadStream : Stream
+        {
+            private readonly Stream _a;
+            private readonly Stream _b;
+            private readonly long _length;
+            private long _position;
+            private bool _readingA;
+
+            public ConcatReadStream(Stream a, Stream b)
+            {
+                _a = a ?? throw new ArgumentNullException(nameof(a));
+                _b = b ?? throw new ArgumentNullException(nameof(b));
+                _readingA = true;
+                long la = 0;
+                long lb = 0;
+                try { la = a.CanSeek ? a.Length - a.Position : 0; } catch { la = 0; }
+                try { lb = b.CanSeek ? b.Length - b.Position : 0; } catch { lb = 0; }
+                _length = la + lb;
+                _position = 0;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _length;
+            public override long Position
+            {
+                get => _position;
+                set => throw new NotSupportedException();
+            }
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (count <= 0)
+                    return 0;
+                int total = 0;
+                while (total < count)
+                {
+                    Stream cur = _readingA ? _a : _b;
+                    int read = cur.Read(buffer, offset + total, count - total);
+                    if (read > 0)
+                    {
+                        total += read;
+                        _position += read;
+                        continue;
+                    }
+                    if (_readingA)
+                    {
+                        _readingA = false;
+                        continue;
+                    }
+                    break;
+                }
+                return total;
+            }
+
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    try { _a.Dispose(); } catch { }
+                    try { _b.Dispose(); } catch { }
+                }
+                base.Dispose(disposing);
+            }
+        }
+
+        private static bool HasExpectedHash(RvFile f)
+        {
+            if (f == null)
+                return false;
+            if (f.SHA1 != null && f.SHA1.Length > 0)
+                return true;
+            if (f.MD5 != null && f.MD5.Length > 0)
+                return true;
+            if (f.CRC != null && f.CRC.Length > 0)
+                return true;
+            return false;
+        }
+
+        private static bool TryCuePregapShiftForExtractedBins(
+            string tempDir,
+            string cuePath,
+            List<(int trackNo, string fileName, string trackType)> trackFiles,
+            Dictionary<int, RvFile> expectedByTrack,
+            HashSet<string> missingHashedExpectedNames,
+            FileScan scanner,
+            System.Text.StringBuilder debug,
+            out Dictionary<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5, bool swap16)> fixedHashes)
+        {
+            fixedHashes = new Dictionary<string, (ulong, byte[], byte[], byte[], bool)>(StringComparer.OrdinalIgnoreCase);
+            if (missingHashedExpectedNames == null || missingHashedExpectedNames.Count == 0)
+                return false;
+            if (string.IsNullOrWhiteSpace(tempDir) || string.IsNullOrWhiteSpace(cuePath) || trackFiles == null || trackFiles.Count < 2)
+                return false;
+            if (scanner == null)
+                return false;
+
+            List<ChdTrack> cueTracks = ParseCueTracksWithIndexes(cuePath);
+            Dictionary<int, ChdTrack> cueByTrack = new Dictionary<int, ChdTrack>();
+            for (int i = 0; i < cueTracks.Count; i++)
+            {
+                if (cueTracks[i] != null && cueTracks[i].TrackNo > 0 && !cueByTrack.ContainsKey(cueTracks[i].TrackNo))
+                    cueByTrack.Add(cueTracks[i].TrackNo, cueTracks[i]);
+            }
+
+            List<(int trackNo, string fileName, string trackType)> ordered = new List<(int, string, string)>(trackFiles);
+            ordered.Sort((a, b) => a.trackNo.CompareTo(b.trackNo));
+            Dictionary<int, (string fileName, string trackType)> tfByNo = new Dictionary<int, (string, string)>();
+            for (int i = 0; i < ordered.Count; i++)
+                tfByNo[ordered[i].trackNo] = (ordered[i].fileName, ordered[i].trackType);
+
+            List<int> missingTrackNos = new List<int>();
+            foreach (KeyValuePair<int, RvFile> kvp in expectedByTrack)
+            {
+                if (kvp.Value?.Name == null)
+                    continue;
+                if (!missingHashedExpectedNames.Contains(kvp.Value.Name))
+                    continue;
+                missingTrackNos.Add(kvp.Key);
+            }
+            if (missingTrackNos.Count == 0)
+                return false;
+
+            missingTrackNos.Sort();
+
+            Func<int, bool, (ulong size, byte[] crc, byte[] sha1, byte[] md5)> compute = (trackNo, swap16) =>
+            {
+                if (!tfByNo.TryGetValue(trackNo, out var curTf))
+                    return (0, null, null, null);
+
+                long skipBytes = 0;
+                if (cueByTrack.TryGetValue(trackNo, out ChdTrack curCue) && curCue != null)
+                {
+                    int sec = ResolveSectorSize(curTf.trackType, 2352);
+                    skipBytes = (long)Math.Max(0, curCue.PreGapFrames) * (long)Math.Max(1, sec);
+                }
+
+                long appendBytes = 0;
+                if (tfByNo.TryGetValue(trackNo + 1, out var nextTf) && cueByTrack.TryGetValue(trackNo + 1, out ChdTrack nextCue) && nextCue != null)
+                {
+                    int sec = ResolveSectorSize(nextTf.trackType, 2352);
+                    appendBytes = (long)Math.Max(0, nextCue.PreGapFrames) * (long)Math.Max(1, sec);
+                    if (appendBytes > 0 && string.Equals(curTf.fileName, nextTf.fileName, StringComparison.OrdinalIgnoreCase))
+                        appendBytes = 0;
+                }
+
+                string curPath = System.IO.Path.Combine(tempDir, curTf.fileName ?? "");
+                if (!System.IO.File.Exists(curPath))
+                    return (0, null, null, null);
+                FileInfo curFi = new FileInfo(curPath);
+                long curLen = curFi.Length;
+                if (skipBytes < 0) skipBytes = 0;
+                if (skipBytes > curLen) skipBytes = curLen;
+                long mainLen = curLen - skipBytes;
+
+                Stream mainStream;
+                FileStream curFs = System.IO.File.OpenRead(curPath);
+                if (skipBytes > 0)
+                    mainStream = new ReadOnlySliceStream(curFs, skipBytes, mainLen);
+                else
+                    mainStream = curFs;
+
+                Stream combined = mainStream;
+                if (appendBytes > 0)
+                {
+                    if (!tfByNo.TryGetValue(trackNo + 1, out var nextTf2))
+                    {
+                        combined.Dispose();
+                        return (0, null, null, null);
+                    }
+                    string nextPath = System.IO.Path.Combine(tempDir, nextTf2.fileName ?? "");
+                    if (!System.IO.File.Exists(nextPath))
+                    {
+                        combined.Dispose();
+                        return (0, null, null, null);
+                    }
+                    FileInfo nextFi = new FileInfo(nextPath);
+                    long nextLen = nextFi.Length;
+                    if (appendBytes > nextLen) appendBytes = nextLen;
+                    FileStream nextFs = System.IO.File.OpenRead(nextPath);
+                    Stream suffix = new ReadOnlySliceStream(nextFs, 0, appendBytes);
+                    combined = new ConcatReadStream(mainStream, suffix);
+                }
+
+                ulong totalLen = (ulong)(mainLen + appendBytes);
+                ScannedFile tmp = new ScannedFile(FileType.FileCHD)
+                {
+                    Name = "pregapshift:" + trackNo.ToString("D2"),
+                    FileModTimeStamp = curFi.LastWriteTime,
+                    GotStatus = GotStatus.Got,
+                    DeepScanned = true,
+                    Size = totalLen
+                };
+
+                try
+                {
+                    Stream hashStream = combined;
+                    if (swap16)
+                        hashStream = new Swap16Stream(hashStream);
+                    using (hashStream)
+                    {
+                        scanner.CheckSumRead(hashStream, tmp, totalLen, true, false, null, 0, 0);
+                    }
+                    return (totalLen, tmp.CRC, tmp.SHA1, tmp.MD5);
+                }
+                catch
+                {
+                    try { combined.Dispose(); } catch { }
+                    return (0, null, null, null);
+                }
+            };
+
+            for (int i = 0; i < missingTrackNos.Count; i++)
+            {
+                int trackNo = missingTrackNos[i];
+                if (!expectedByTrack.TryGetValue(trackNo, out RvFile exp) || exp?.Name == null)
+                    return false;
+
+                bool isAudio = tfByNo.TryGetValue(trackNo, out var tt) && (tt.trackType ?? "").Trim().ToUpperInvariant().Contains("AUDIO");
+                var h = compute(trackNo, false);
+                bool match =
+                    (exp.Size == null || exp.Size == 0 || (ulong)exp.Size == h.size) &&
+                    (exp.CRC == null || (h.crc != null && exp.CRC.AsSpan().SequenceEqual(h.crc))) &&
+                    (exp.SHA1 == null || (h.sha1 != null && exp.SHA1.AsSpan().SequenceEqual(h.sha1))) &&
+                    (exp.MD5 == null || (h.md5 != null && exp.MD5.AsSpan().SequenceEqual(h.md5)));
+
+                bool swap16Used = false;
+                if (!match && isAudio)
+                {
+                    var hs = compute(trackNo, true);
+                    bool matchSwap =
+                        (exp.Size == null || exp.Size == 0 || (ulong)exp.Size == hs.size) &&
+                        (exp.CRC == null || (hs.crc != null && exp.CRC.AsSpan().SequenceEqual(hs.crc))) &&
+                        (exp.SHA1 == null || (hs.sha1 != null && exp.SHA1.AsSpan().SequenceEqual(hs.sha1))) &&
+                        (exp.MD5 == null || (hs.md5 != null && exp.MD5.AsSpan().SequenceEqual(hs.md5)));
+                    if (matchSwap)
+                    {
+                        h = hs;
+                        swap16Used = true;
+                        match = true;
+                    }
+                }
+
+                if (!match)
+                    return false;
+
+                fixedHashes[exp.Name] = (h.size, h.crc, h.sha1, h.md5, swap16Used);
+            }
+
+            if (debug != null)
+            {
+                debug.AppendLine("pregap-shift:");
+                foreach (KeyValuePair<string, (ulong size, byte[] crc, byte[] sha1, byte[] md5, bool swap16)> kvp in fixedHashes)
+                    debug.AppendLine($"  {kvp.Key} size={kvp.Value.size} crc={kvp.Value.crc.ToHexString()} sha1={kvp.Value.sha1.ToHexString()} md5={kvp.Value.md5.ToHexString()}{(kvp.Value.swap16 ? " (swap16)" : "")}");
+            }
+
+            return fixedHashes.Count == missingHashedExpectedNames.Count;
+        }
+
         /// <summary>
         /// Builds a deterministic mapping from expected DAT members to extracted/streamed track blobs.
         /// </summary>
@@ -1382,6 +1848,11 @@ namespace RomVaultCore.Scanner
             Dictionary<string, (string extractedName, bool swap16)> mapping = new Dictionary<string, (string extractedName, bool swap16)>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> usedExtracted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> usedExpected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            Func<RvFile, bool> hasExpectedHash = f =>
+                f != null &&
+                ((f.SHA1 != null && f.SHA1.Length > 0) ||
+                 (f.MD5 != null && f.MD5.Length > 0) ||
+                 (f.CRC != null && f.CRC.Length > 0));
             Action<string, string, bool, string> reason = (exp, ext, swap16, why) =>
             {
                 if (debug != null)
@@ -1394,9 +1865,8 @@ namespace RomVaultCore.Scanner
                 if (exp?.Name == null || usedExpected.Contains(exp.Name))
                     continue;
 
-                // Only allow swap16 if the policy allows it
-                var hit = FindExtractedByHash(fileHashCache, 
-                    audioTransform == ChdAudioTransform.AllowSwap16 ? fileHashSwap16Cache : null, 
+                var hit = FindExtractedByHash(fileHashCache,
+                    fileHashSwap16Cache,
                     usedExtracted, exp.SHA1, exp.MD5, exp.CRC, exp.Size);
 
                 if (string.IsNullOrWhiteSpace(hit.extractedName))
@@ -1436,6 +1906,8 @@ namespace RomVaultCore.Scanner
             {
                 if (kvp.Value?.Name == null)
                     continue;
+                if (hasExpectedHash(kvp.Value))
+                    continue;
                 if (usedExpected.Contains(kvp.Value.Name))
                     continue;
                 if (!extractedByTrackNo.TryGetValue(kvp.Key, out List<string> list) || list.Count == 0)
@@ -1473,10 +1945,13 @@ namespace RomVaultCore.Scanner
 
             for (int i = 0; i < expectedDataFiles.Count; i++)
             {
-                string expectedName = expectedDataFiles[i].Name;
+                RvFile expectedFile = expectedDataFiles[i];
+                string expectedName = expectedFile.Name;
                 if (string.IsNullOrWhiteSpace(expectedName) || usedExpected.Contains(expectedName))
                     continue;
-                ulong expectedSize = expectedDataFiles[i].Size ?? 0;
+                if (hasExpectedHash(expectedFile))
+                    continue;
+                ulong expectedSize = expectedFile.Size ?? 0;
                 if (expectedSize == 0)
                     continue;
                 if (!extractedBySize.TryGetValue(expectedSize, out List<string> candidates))
@@ -1546,7 +2021,7 @@ namespace RomVaultCore.Scanner
                     if (!fileHashCache.ContainsKey(extractedName))
                         continue;
 
-                    while (fallbackIndex < expectedDataFiles.Count && usedExpected.Contains(expectedDataFiles[fallbackIndex].Name))
+                    while (fallbackIndex < expectedDataFiles.Count && (usedExpected.Contains(expectedDataFiles[fallbackIndex].Name) || hasExpectedHash(expectedDataFiles[fallbackIndex])))
                         fallbackIndex++;
                     if (fallbackIndex >= expectedDataFiles.Count)
                         break;
