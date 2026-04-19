@@ -191,11 +191,12 @@ namespace ROMVault
                 case 3:
                     chkFileTypeOverride.Enabled = true;
                     chkSingleArchive.Enabled = false;
-                    cboCompression.Items.Add("Auto (CD/DVD/PSP)");
+                    cboCompression.Items.Add("Auto (DatVault rule)");
                     cboCompression.Items.Add("Normal (zstd)");
                     cboCompression.Items.Add("CD (cdzs,cdzl,cdfl)");
                     cboCompression.Items.Add("DVD (zstd,zlib,huff,flac)");
                     cboCompression.Items.Add("PSP (DVD + -hs 2048)");
+                    cboCompression.Items.Add("Dreamcast (gdi required)");
                     cboCompression.Enabled = true;
                     chkConvertWhenFixing.Enabled = true;
                     if (cboFilterType.SelectedIndex == (int)FilterType.CHDsOnly)

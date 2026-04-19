@@ -182,9 +182,50 @@ public static class FixAChd
             return false;
         }
 
+        bool isDreamcast = false;
+        try
+        {
+            string ruleKey = (chdDir.Parent?.DatTreeFullName ?? "") + "\\";
+            RomVaultCore.DatRule rule = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
+            if (rule != null && rule.DiscArchiveAsCHD && rule.ChdCompressionType == ChdCompressionType.Dreamcast)
+            {
+                isDreamcast = true;
+                if (!Settings.rvSettings.ChdKeepCueGdi)
+                {
+                    errorMessage = "__SKIP_PARTIAL_SET__";
+                    return false;
+                }
+            }
+        }
+        catch
+        {
+        }
+
         List<RvFile> toSortSearchRoots = GetToSortSearchRoots(chdDir);
         Dictionary<string, RvFile> toSortIndex = BuildFileNameIndex(toSortSearchRoots, 6);
         HashIndex toSortHashIndex = BuildHashIndex(toSortSearchRoots, 6);
+        Dictionary<string, RvFile> toSortTrackIndex = null;
+        if (isDreamcast)
+        {
+            string setName = chdDir.Name ?? "";
+            if (setName.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
+                setName = System.IO.Path.GetFileNameWithoutExtension(setName);
+
+            List<RvFile> scopedDirs = new List<RvFile>();
+            if (!string.IsNullOrWhiteSpace(setName))
+            {
+                for (int i = 0; i < toSortSearchRoots.Count; i++)
+                {
+                    RvFile d = toSortSearchRoots[i];
+                    if (d == null || !d.IsDirectory)
+                        continue;
+                    if (string.Equals(d.Name, setName, StringComparison.OrdinalIgnoreCase))
+                        scopedDirs.Add(d);
+                }
+            }
+
+            toSortTrackIndex = BuildTrackNoIndex(scopedDirs.Count > 0 ? scopedDirs : toSortSearchRoots, 4);
+        }
         List<(int trackNo, RvFile expected, RvFile source)> tracks = new List<(int, RvFile, RvFile)>();
         List<string> missingSources = new List<string>();
         int expectedAudioCount = 0;
@@ -206,7 +247,10 @@ public static class FixAChd
                     continue;
                 if (s.GotStatus != GotStatus.Got)
                     continue;
-                if (s.FileType != FileType.File && s.FileType != FileType.FileZip && s.FileType != FileType.FileSevenZip)
+                if (s.FileType != FileType.File &&
+                    s.FileType != FileType.FileZip &&
+                    s.FileType != FileType.FileSevenZip &&
+                    s.FileType != FileType.FileCHD)
                     continue;
                 if (!IsAudioTrackFileName(s.Name))
                     continue;
@@ -234,6 +278,17 @@ public static class FixAChd
             if (best == null)
                 best = FindByHash(toSortHashIndex, expected);
 
+            if (best == null && isDreamcast && toSortTrackIndex != null)
+            {
+                int trackNo = TryParseTrackNo(expected.Name);
+                if (trackNo > 0)
+                {
+                    string ext = System.IO.Path.GetExtension(expected.Name).ToLowerInvariant();
+                    string key = trackNo.ToString("D2") + ext;
+                    toSortTrackIndex.TryGetValue(key, out best);
+                }
+            }
+
             if (best == null)
             {
                 missingSources.Add(expected.Name);
@@ -255,7 +310,7 @@ public static class FixAChd
             return false;
         }
 
-        if (tracks.Count != expectedAudioCount)
+        if (!isDreamcast && tracks.Count != expectedAudioCount)
         {
             errorMessage = "__SKIP_PARTIAL_SET__";
             return false;
@@ -285,7 +340,8 @@ public static class FixAChd
         for (int i = 0; i < tracks.Count; i++)
             used.Add(tracks[i].source);
         FixFileUtils.CheckFilesUsedForFix(used, fileProcessQueue, true);
-        totalFixed++;
+        if (!isDreamcast)
+            totalFixed++;
         return true;
     }
 
@@ -300,15 +356,43 @@ public static class FixAChd
     {
         RvFile best = null;
         int bestPriority = 0;
+        bool requireGdi = false;
+        try
+        {
+            string ruleKey = (chdDir.Parent?.DatTreeFullName ?? "") + "\\";
+            RomVaultCore.DatRule rule = RomVaultCore.ReadDat.DatReader.FindDatRule(ruleKey);
+            requireGdi = rule != null && rule.DiscArchiveAsCHD && rule.ChdCompressionType == ChdCompressionType.Dreamcast;
+        }
+        catch
+        {
+        }
 
         List<RvFile> toSortSearchRoots = GetToSortSearchRoots(chdDir);
         RvFile toSortDisc = FindDiscSourceInDirs(chdDir, toSortSearchRoots);
+        if (toSortDisc != null)
+        {
+            if (requireGdi)
+            {
+                string ext = System.IO.Path.GetExtension(toSortDisc.Name ?? "").ToLowerInvariant();
+                if (ext != ".gdi" && ext != ".chd")
+                    toSortDisc = null;
+            }
+        }
         if (toSortDisc != null)
             return toSortDisc;
 
         // Migration assist: when sidecar folder layout is enabled, existing CHDs may still sit one level up
         // (e.g. "<category>/<set>.chd" while expected is "<category>/<set>/<set>.chd").
         RvFile siblingDisc = FindSiblingDiscSource(chdDir);
+        if (siblingDisc != null)
+        {
+            if (requireGdi)
+            {
+                string ext = System.IO.Path.GetExtension(siblingDisc.Name ?? "").ToLowerInvariant();
+                if (ext != ".gdi" && ext != ".chd")
+                    siblingDisc = null;
+            }
+        }
         if (siblingDisc != null)
             return siblingDisc;
 
@@ -321,6 +405,12 @@ public static class FixAChd
                     continue;
                 if (src.GotStatus != GotStatus.Got)
                     continue;
+                if (requireGdi)
+                {
+                    string ext = System.IO.Path.GetExtension(src.Name ?? "").ToLowerInvariant();
+                    if (ext != ".gdi" && ext != ".chd")
+                        continue;
+                }
                 int pr = SourcePriority(src.Name);
                 if (pr > bestPriority)
                 {
@@ -348,6 +438,12 @@ public static class FixAChd
                 RvFile src = sources[j];
                 if (src == null || !IsUsableDiscSourceNode(src))
                     continue;
+                if (requireGdi)
+                {
+                    string ext = System.IO.Path.GetExtension(src.Name ?? "").ToLowerInvariant();
+                    if (ext != ".gdi" && ext != ".chd")
+                        continue;
+                }
                 if (!string.Equals(System.IO.Path.GetExtension(src.Name), System.IO.Path.GetExtension(expected.Name), StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -533,6 +629,50 @@ public static class FixAChd
             BuildFileNameIndexRecursive(r, maxDepth, index);
         }
         return index;
+    }
+
+    private static Dictionary<string, RvFile> BuildTrackNoIndex(List<RvFile> roots, int maxDepth)
+    {
+        Dictionary<string, RvFile> index = new Dictionary<string, RvFile>(StringComparer.OrdinalIgnoreCase);
+        if (roots == null)
+            return index;
+        for (int i = 0; i < roots.Count; i++)
+        {
+            RvFile r = roots[i];
+            if (r == null || !r.IsDirectory)
+                continue;
+            BuildTrackNoIndexRecursive(r, maxDepth, index);
+        }
+        return index;
+    }
+
+    private static void BuildTrackNoIndexRecursive(RvFile dir, int depthLeft, Dictionary<string, RvFile> index)
+    {
+        if (dir == null || !dir.IsDirectory || depthLeft < 0)
+            return;
+        for (int i = 0; i < dir.ChildCount; i++)
+        {
+            RvFile c = dir.Child(i);
+            if (c == null)
+                continue;
+            if (c.IsFile)
+            {
+                if (c.GotStatus != GotStatus.Got || string.IsNullOrWhiteSpace(c.Name))
+                    continue;
+                string ext = System.IO.Path.GetExtension(c.Name).ToLowerInvariant();
+                if (ext != ".bin" && ext != ".raw" && ext != ".iso")
+                    continue;
+                int trackNo = TryParseTrackNo(c.Name);
+                if (trackNo <= 0)
+                    continue;
+                string key = trackNo.ToString("D2") + ext;
+                if (!index.ContainsKey(key))
+                    index.Add(key, c);
+                continue;
+            }
+            if (c.IsDirectory)
+                BuildTrackNoIndexRecursive(c, depthLeft - 1, index);
+        }
     }
 
     private static void BuildFileNameIndexRecursive(RvFile dir, int depthLeft, Dictionary<string, RvFile> index)

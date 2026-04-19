@@ -219,11 +219,12 @@ namespace ROMVault.Avalonia.Views;
                 case 3:
                     chkFileTypeOverride.IsEnabled = true;
                     chkSingleArchive.IsEnabled = false;
-                    cboCompression.Items.Add("Auto (CD/DVD/PSP)");
+                    cboCompression.Items.Add("Auto (DatVault rule)");
                     cboCompression.Items.Add("Normal (zstd)");
                     cboCompression.Items.Add("CD (cdzs,cdzl,cdfl)");
                     cboCompression.Items.Add("DVD (zstd,zlib,huff,flac)");
                     cboCompression.Items.Add("PSP (DVD + -hs 2048)");
+                    cboCompression.Items.Add("Dreamcast (gdi required)");
                     cboCompression.IsEnabled = true;
                     chkConvertWhenFixing.IsEnabled = true;
                     if (cboFilterType.SelectedIndex == (int)FilterType.CHDsOnly)

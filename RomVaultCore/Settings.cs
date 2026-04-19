@@ -55,7 +55,8 @@ namespace RomVaultCore
         Normal,
         CD,
         DVD,
-        PSP
+        PSP,
+        Dreamcast
     }
 
     public enum ChdAudioTransform

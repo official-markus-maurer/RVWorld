@@ -319,12 +319,42 @@ namespace RomVaultCore.FixFile.Utils
             if (!string.IsNullOrEmpty(destinationDir) && !System.IO.Directory.Exists(destinationDir))
                 System.IO.Directory.CreateDirectory(destinationDir);
 
+            if (RequiresGdiSource(rule.ChdCompressionType))
+            {
+                string srcExt = (sourceExt ?? "").ToLowerInvariant();
+                if (srcExt != ".gdi")
+                {
+                    if (TryStageDescriptorSetToDestination(sourceFile, destinationFile, sourcePath, destinationDir, out string stageError))
+                    {
+                        returnCode = ReturnCode.FileSystemError;
+                        errorMessage = "__SKIP_PARTIAL_SET__";
+                        return true;
+                    }
+
+                    returnCode = ReturnCode.FileSystemError;
+                    errorMessage = "__SKIP_PARTIAL_SET__";
+                    return true;
+                }
+            }
+
             string inputPath;
             string workingDir;
             List<string> tempPathsToDelete;
-            returnCode = MaterializeDiscInput(sourceFile, destinationFile, sourcePath, out inputPath, out workingDir, out tempPathsToDelete, out errorMessage);
+            returnCode = MaterializeDiscInput(sourceFile, destinationFile, rule, sourcePath, out inputPath, out workingDir, out tempPathsToDelete, out errorMessage);
             if (returnCode != ReturnCode.Good)
             {
+                if (RequiresGdiSource(rule.ChdCompressionType) &&
+                    string.Equals(errorMessage, "__SKIP_PARTIAL_SET__", StringComparison.Ordinal))
+                {
+                    if (TryStageDescriptorSetToDestination(sourceFile, destinationFile, sourcePath, destinationDir, out string stageError))
+                    {
+                        CleanupFailedChd(destinationPath);
+                        CleanupTempPaths(tempPathsToDelete);
+                        returnCode = ReturnCode.FileSystemError;
+                        errorMessage = "__SKIP_PARTIAL_SET__";
+                        return true;
+                    }
+                }
                 CleanupFailedChd(destinationPath);
                 CleanupTempPaths(tempPathsToDelete);
                 return true;
@@ -487,6 +517,23 @@ namespace RomVaultCore.FixFile.Utils
             RomVaultCore.DatRule rule = DatReader.FindDatRule(destinationFile.Parent?.DatTreeFullName + "\\");
             if (rule == null || !rule.DiscArchiveAsCHD)
                 return false;
+            if (RequiresGdiSource(rule.ChdCompressionType))
+            {
+                string stageDestinationPath = ResolveOutputFilePath(destinationFile.FullName);
+                string stageDestinationDir = System.IO.Path.GetDirectoryName(stageDestinationPath);
+                RvFile destDirNode = destinationFile.Parent;
+                if (TryStageTrackSourcesToDestination(tracks, destDirNode, stageDestinationDir, out string stageError))
+                {
+                    // Raw tracks staged; CHD creation intentionally deferred until .gdi is present.
+                    returnCode = ReturnCode.Good;
+                    errorMessage = "";
+                    return true;
+                }
+
+                returnCode = ReturnCode.FileSystemError;
+                errorMessage = "__SKIP_PARTIAL_SET__";
+                return true;
+            }
 
             string destinationPath = ResolveOutputFilePath(destinationFile.FullName);
             string destinationDir = System.IO.Path.GetDirectoryName(destinationPath);
@@ -602,6 +649,243 @@ namespace RomVaultCore.FixFile.Utils
                 sb.AppendLine("    INDEX 01 00:00:00");
             }
             return sb.ToString();
+        }
+
+        private static bool TryStageTrackSourcesToDestination(List<(int trackNo, RvFile expected, RvFile source)> tracks, RvFile destDirNode, string destinationDir, out string errorMessage)
+        {
+            errorMessage = "";
+            if (tracks == null || tracks.Count == 0)
+                return false;
+            if (string.IsNullOrWhiteSpace(destinationDir))
+                return false;
+            if (destDirNode == null || !destDirNode.IsDirectory)
+                return false;
+
+            try
+            {
+                if (!System.IO.Directory.Exists(destinationDir))
+                    System.IO.Directory.CreateDirectory(destinationDir);
+            }
+            catch
+            {
+            }
+
+            bool stagedAny = false;
+            Dictionary<string, string> stagedBySource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                RvFile src = tracks[i].source;
+                RvFile exp = tracks[i].expected;
+                if (src == null || exp == null || !src.IsFile)
+                    continue;
+
+                string outName = exp.NameCase ?? exp.Name ?? src.NameCase ?? src.Name;
+                outName = System.IO.Path.GetFileName((outName ?? "").Replace('\\', '/'));
+                if (string.IsNullOrWhiteSpace(outName))
+                    continue;
+
+                string outPath = System.IO.Path.Combine(destinationDir, outName);
+                if (System.IO.File.Exists(outPath))
+                    continue;
+
+                string sourceKey = BuildStageSourceKey(src);
+
+                if (stagedBySource.TryGetValue(sourceKey, out string stagedPath) &&
+                    !string.IsNullOrWhiteSpace(stagedPath) &&
+                    System.IO.File.Exists(stagedPath))
+                {
+                    try
+                    {
+                        System.IO.File.Copy(stagedPath, outPath, overwrite: false);
+                        UpdateOrAddLooseFileToDir(destDirNode, outPath, outName);
+                        stagedAny = true;
+                    }
+                    catch
+                    {
+                    }
+                    continue;
+                }
+
+                if (src.FileType == FileType.File)
+                {
+                    bool inToSort = false;
+                    try
+                    {
+                        inToSort = src.IsInToSort || ((src.TreeFullNameCase ?? "").StartsWith("ToSort", StringComparison.OrdinalIgnoreCase));
+                    }
+                    catch
+                    {
+                        inToSort = false;
+                    }
+
+                    if (!inToSort)
+                    {
+                        ReturnCode rc = MaterializeSingleFile(src, outPath, out string err);
+                        if (rc != ReturnCode.Good)
+                            continue;
+                        UpdateOrAddLooseFileToDir(destDirNode, outPath, outName);
+                        MarkExpectedStagedGot(exp, outPath);
+                        stagedAny = true;
+                        stagedBySource[sourceKey] = outPath;
+                        continue;
+                    }
+
+                    RvFile fileOut = FindExistingDestinationNode(destDirNode, outName) ?? new RvFile(FileType.File) { Name = outName, DatStatus = DatStatus.NotInDat };
+                    SyncLooseFileTimestampAndSize(src);
+                    ReturnCode moveRc = MoveFile(src, fileOut, outPath, out bool moved, out string moveErr, forceMove: true, skipDatValidation: true);
+                    if (moveRc == ReturnCode.RescanNeeded)
+                    {
+                        SyncLooseFileTimestampAndSize(src);
+                        moveRc = MoveFile(src, fileOut, outPath, out moved, out moveErr, forceMove: true, skipDatValidation: true);
+                    }
+
+                    if (moveRc != ReturnCode.Good || !moved)
+                    {
+                        ReturnCode rc = MaterializeSingleFile(src, outPath, out string err);
+                        if (rc != ReturnCode.Good)
+                            continue;
+                        UpdateOrAddLooseFileToDir(destDirNode, outPath, outName);
+                        MarkExpectedStagedGot(exp, outPath);
+                        stagedAny = true;
+                        stagedBySource[sourceKey] = outPath;
+                        continue;
+                    }
+
+                    EnsureInDestinationDir(destDirNode, fileOut);
+                    MarkExpectedStagedGot(exp, outPath);
+                    stagedAny = true;
+                    stagedBySource[sourceKey] = outPath;
+                    continue;
+                }
+
+                if ((src.FileType == FileType.FileZip || src.FileType == FileType.FileSevenZip) &&
+                    src.Parent != null &&
+                    (src.Parent.FileType == FileType.Zip || src.Parent.FileType == FileType.SevenZip))
+                {
+                    ReturnCode rc = ExtractArchiveEntryToPath(src.Parent, src.ZipFileIndex, outPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        continue;
+                    UpdateOrAddLooseFileToDir(destDirNode, outPath, outName);
+                    MarkExpectedStagedGot(exp, outPath);
+                    stagedAny = true;
+                    stagedBySource[sourceKey] = outPath;
+                    continue;
+                }
+
+                if (src.FileType == FileType.FileCHD)
+                {
+                    ReturnCode rc = MaterializeSingleFile(src, outPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        continue;
+                    UpdateOrAddLooseFileToDir(destDirNode, outPath, outName);
+                    MarkExpectedStagedGot(exp, outPath);
+                    stagedAny = true;
+                    stagedBySource[sourceKey] = outPath;
+                }
+            }
+
+            return stagedAny;
+        }
+
+        private static void MarkExpectedStagedGot(RvFile expected, string physicalPath)
+        {
+            try
+            {
+                if (expected == null || string.IsNullOrWhiteSpace(physicalPath))
+                    return;
+                if (!System.IO.File.Exists(physicalPath))
+                    return;
+                System.IO.FileInfo fi = new System.IO.FileInfo(physicalPath);
+                expected.Size = (ulong)fi.Length;
+                expected.FileModTimeStamp = fi.LastWriteTime.Ticks;
+                expected.GotStatus = GotStatus.Got;
+            }
+            catch
+            {
+                try
+                {
+                    if (expected != null)
+                        expected.GotStatus = GotStatus.Got;
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private static void SyncLooseFileTimestampAndSize(RvFile file)
+        {
+            try
+            {
+                if (file == null || file.FileType != FileType.File)
+                    return;
+                string p = file.FullNameCase ?? file.FullName;
+                if (string.IsNullOrWhiteSpace(p))
+                    return;
+                if (!System.IO.File.Exists(p))
+                    return;
+                System.IO.FileInfo fi = new System.IO.FileInfo(p);
+                file.Size = (ulong)fi.Length;
+                file.FileModTimeStamp = fi.LastWriteTime.Ticks;
+            }
+            catch
+            {
+            }
+        }
+
+        private static bool IsSharedFixSource(RvFile src)
+        {
+            try
+            {
+                if (src?.FileGroup?.Files == null)
+                    return false;
+                int canFixCount = 0;
+                for (int i = 0; i < src.FileGroup.Files.Count; i++)
+                {
+                    RvFile f = src.FileGroup.Files[i];
+                    if (f == null)
+                        continue;
+                    if (f.RepStatus == RepStatus.CanBeFixed || f.RepStatus == RepStatus.CanBeFixedMIA || f.RepStatus == RepStatus.CorruptCanBeFixed)
+                    {
+                        canFixCount++;
+                        if (canFixCount > 1)
+                            return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return false;
+        }
+
+        private static string BuildStageSourceKey(RvFile src)
+        {
+            if (src == null)
+                return "";
+            try
+            {
+                ulong size = src.Size ?? 0;
+                if (src.SHA1 != null && src.SHA1.Length > 0)
+                    return "sha1|" + size.ToString() + "|" + src.SHA1.ToHexString();
+                if (src.MD5 != null && src.MD5.Length > 0)
+                    return "md5|" + size.ToString() + "|" + src.MD5.ToHexString();
+                if (src.CRC != null && src.CRC.Length > 0)
+                    return "crc|" + size.ToString() + "|" + src.CRC.ToHexString();
+
+                if (src.FileType == FileType.File)
+                    return "file|" + (src.FullNameCase ?? src.FullName ?? "");
+                if ((src.FileType == FileType.FileZip || src.FileType == FileType.FileSevenZip) && src.Parent != null)
+                    return "arc|" + (src.Parent.FullNameCase ?? src.Parent.FullName ?? "") + "|" + src.ZipFileIndex.ToString();
+                if (src.FileType == FileType.FileCHD && src.Parent != null)
+                    return "chd|" + (src.Parent.FullNameCase ?? src.Parent.FullName ?? "") + "|" + (src.NameCase ?? src.Name ?? "");
+
+                return (src.FileType.ToString() ?? "") + "|" + (src.FullNameCase ?? src.FullName ?? "") + "|" + (src.NameCase ?? src.Name ?? "");
+            }
+            catch
+            {
+                return (src.FileType.ToString() ?? "") + "|" + (src.FullNameCase ?? src.FullName ?? "") + "|" + (src.NameCase ?? src.Name ?? "");
+            }
         }
 
         /// <summary>
@@ -1001,20 +1285,345 @@ namespace RomVaultCore.FixFile.Utils
             }
         }
 
-        private static string ResolveDiscInputPath(string sourcePath, string destinationName, RvFile destinationFile)
+        private static bool RequiresGdiSource(RomVaultCore.ChdCompressionType chdCompressionType)
+            => chdCompressionType == RomVaultCore.ChdCompressionType.Dreamcast;
+
+        private static bool TryStageDescriptorSetToDestination(RvFile sourceFile, RvFile destinationFile, string sourcePath, string destinationDir, out string errorMessage)
+        {
+            errorMessage = "";
+            if (sourceFile == null || destinationFile == null)
+                return false;
+            if (string.IsNullOrWhiteSpace(destinationDir))
+                return false;
+
+            RvFile destDirNode = destinationFile.Parent;
+            if (destDirNode == null || !destDirNode.IsDirectory)
+                return false;
+
+            try
+            {
+                if (!System.IO.Directory.Exists(destinationDir))
+                    System.IO.Directory.CreateDirectory(destinationDir);
+            }
+            catch
+            {
+            }
+
+            bool stagedAny = false;
+
+            if (sourceFile.FileType == FileType.File)
+            {
+                string descriptorPath = ResolveExistingFilePath(sourcePath);
+                string ext = System.IO.Path.GetExtension(descriptorPath).ToLowerInvariant();
+                if (ext != ".cue" && ext != ".gdi")
+                    return false;
+
+                List<string> refs = new List<string>(
+                    ext == ".cue"
+                        ? GetReferencedFilesFromCue(descriptorPath)
+                        : GetReferencedFilesFromGdi(descriptorPath));
+                refs.Insert(0, System.IO.Path.GetFileName(descriptorPath));
+
+                for (int i = 0; i < refs.Count; i++)
+                {
+                    string r = refs[i];
+                    if (string.IsNullOrWhiteSpace(r))
+                        continue;
+                    string baseName = System.IO.Path.GetFileName(r.Trim().Trim('"'));
+                    if (string.IsNullOrWhiteSpace(baseName))
+                        continue;
+
+                    string outPath = System.IO.Path.Combine(destinationDir, baseName);
+                    if (System.IO.File.Exists(outPath))
+                        continue;
+
+                    RvFile fileIn = null;
+                    if (string.Equals(baseName, sourceFile.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileIn = sourceFile;
+                    }
+                    else if (sourceFile.Parent != null)
+                    {
+                        if (sourceFile.Parent.ChildNameSearch(FileType.File, baseName, out int idx) == 0)
+                            fileIn = sourceFile.Parent.Child(idx);
+                    }
+
+                    if (fileIn == null)
+                        continue;
+
+                    RvFile fileOut = FindExistingDestinationNode(destDirNode, baseName) ?? new RvFile(FileType.File) { Name = baseName, DatStatus = DatStatus.NotInDat };
+
+                    ReturnCode rc = MoveFile(fileIn, fileOut, outPath, out bool moved, out string err, forceMove: true, skipDatValidation: true);
+                    if (rc != ReturnCode.Good)
+                        continue;
+                    if (!moved)
+                        continue;
+
+                    EnsureInDestinationDir(destDirNode, fileOut);
+                    stagedAny = true;
+                }
+            }
+            else if (sourceFile.FileType == FileType.FileZip || sourceFile.FileType == FileType.FileSevenZip)
+            {
+                if (sourceFile.Parent == null || (sourceFile.Parent.FileType != FileType.Zip && sourceFile.Parent.FileType != FileType.SevenZip))
+                    return false;
+
+                string ext = System.IO.Path.GetExtension(sourceFile.NameCase ?? "").ToLowerInvariant();
+                if (ext != ".cue" && ext != ".gdi")
+                    return false;
+
+                string descriptorName = System.IO.Path.GetFileName((sourceFile.NameCase ?? "").Replace('\\', '/'));
+                if (string.IsNullOrWhiteSpace(descriptorName))
+                    descriptorName = ext == ".gdi" ? "disc.gdi" : "disc.cue";
+
+                string outDescriptorPath = System.IO.Path.Combine(destinationDir, descriptorName);
+                if (!System.IO.File.Exists(outDescriptorPath))
+                {
+                    ReturnCode rc = ExtractArchiveEntryToPath(sourceFile.Parent, sourceFile.ZipFileIndex, outDescriptorPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        return false;
+                    UpdateOrAddLooseFileToDir(destDirNode, outDescriptorPath, descriptorName);
+                    stagedAny = true;
+                }
+
+                Dictionary<string, int> index = BuildArchiveEntryIndex(sourceFile.Parent, out string idxErr);
+                if (index == null)
+                    return stagedAny;
+
+                IEnumerable<string> refs = ext == ".cue"
+                    ? GetReferencedFilesFromCue(outDescriptorPath)
+                    : GetReferencedFilesFromGdi(outDescriptorPath);
+                foreach (string r in refs)
+                {
+                    if (string.IsNullOrWhiteSpace(r))
+                        continue;
+                    string trimmed = r.Trim().Trim('"');
+                    string baseName = System.IO.Path.GetFileName(trimmed);
+                    if (string.IsNullOrWhiteSpace(baseName))
+                        continue;
+
+                    string outPath = System.IO.Path.Combine(destinationDir, baseName);
+                    if (System.IO.File.Exists(outPath))
+                        continue;
+
+                    if (!TryFindArchiveEntryIndex(index, trimmed, out int refIndex))
+                    {
+                        if (!string.IsNullOrWhiteSpace(baseName) && TryFindArchiveEntryIndex(index, baseName, out refIndex))
+                        {
+                        }
+                        else
+                        {
+                            continue;
+                        }
+                    }
+
+                    ReturnCode rc = ExtractArchiveEntryToPath(sourceFile.Parent, refIndex, outPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        continue;
+
+                    UpdateOrAddLooseFileToDir(destDirNode, outPath, baseName);
+                    stagedAny = true;
+                }
+
+            }
+            else
+            {
+                return false;
+            }
+
+            StageExpectedChdMembersToDestination(destinationFile, destDirNode, destinationDir, ref stagedAny);
+            return stagedAny;
+        }
+
+        private static void StageExpectedChdMembersToDestination(RvFile destinationFile, RvFile destDirNode, string destinationDir, ref bool stagedAny)
+        {
+            if (destinationFile == null || destDirNode == null || !destDirNode.IsDirectory)
+                return;
+            if (string.IsNullOrWhiteSpace(destinationDir))
+                return;
+
+            if (destinationFile.ChildCount <= 0)
+                return;
+
+            for (int i = 0; i < destinationFile.ChildCount; i++)
+            {
+                RvFile expected = destinationFile.Child(i);
+                if (expected == null || !expected.IsFile)
+                    continue;
+
+                string name = expected.Name ?? "";
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                string ext = System.IO.Path.GetExtension(name).ToLowerInvariant();
+                if (ext == ".cue" || ext == ".gdi" || ext == ".chd")
+                    continue;
+
+                if (ext != ".bin" && ext != ".raw" && ext != ".iso")
+                    continue;
+
+                string baseName = System.IO.Path.GetFileName(name.Replace('\\', '/'));
+                if (string.IsNullOrWhiteSpace(baseName))
+                    continue;
+
+                string outPath = System.IO.Path.Combine(destinationDir, baseName);
+                if (System.IO.File.Exists(outPath))
+                    continue;
+
+                List<RvFile> sources;
+                try
+                {
+                    sources = RomVaultCore.FixFile.FixAZipCore.FindSourceFile.GetFixFileList(expected);
+                }
+                catch
+                {
+                    sources = null;
+                }
+
+                if (sources == null || sources.Count == 0)
+                    continue;
+
+                RvFile best = null;
+                for (int j = 0; j < sources.Count; j++)
+                {
+                    RvFile s = sources[j];
+                    if (s == null || !s.IsFile)
+                        continue;
+                    if (s.GotStatus != GotStatus.Got)
+                        continue;
+                    if (s.FileType != FileType.File &&
+                        s.FileType != FileType.FileZip &&
+                        s.FileType != FileType.FileSevenZip &&
+                        s.FileType != FileType.FileCHD)
+                        continue;
+                    best = s;
+                    break;
+                }
+
+                if (best == null)
+                    continue;
+
+                if (best.FileType == FileType.File)
+                {
+                    RvFile fileOut = FindExistingDestinationNode(destDirNode, baseName) ?? new RvFile(FileType.File) { Name = baseName, DatStatus = DatStatus.NotInDat };
+                    ReturnCode rc = MoveFile(best, fileOut, outPath, out bool moved, out string err, forceMove: true, skipDatValidation: true);
+                    if (rc != ReturnCode.Good || !moved)
+                        continue;
+                    EnsureInDestinationDir(destDirNode, fileOut);
+                    stagedAny = true;
+                    continue;
+                }
+
+                if (best.FileType == FileType.FileCHD)
+                {
+                    ReturnCode rc = MaterializeSingleFile(best, outPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        continue;
+                    UpdateOrAddLooseFileToDir(destDirNode, outPath, baseName);
+                    stagedAny = true;
+                    continue;
+                }
+
+                if ((best.FileType == FileType.FileZip || best.FileType == FileType.FileSevenZip) &&
+                    best.Parent != null &&
+                    (best.Parent.FileType == FileType.Zip || best.Parent.FileType == FileType.SevenZip))
+                {
+                    ReturnCode rc = ExtractArchiveEntryToPath(best.Parent, best.ZipFileIndex, outPath, out string err);
+                    if (rc != ReturnCode.Good)
+                        continue;
+                    UpdateOrAddLooseFileToDir(destDirNode, outPath, baseName);
+                    stagedAny = true;
+                }
+            }
+        }
+
+        private static RvFile FindExistingDestinationNode(RvFile destDir, string name)
+        {
+            if (destDir == null || !destDir.IsDirectory || string.IsNullOrWhiteSpace(name))
+                return null;
+
+            if (destDir.ChildNameSearch(FileType.File, name, out int idx) != 0)
+                return null;
+
+            RvFile found = destDir.Child(idx);
+            if (found == null || !found.IsFile)
+                return null;
+
+            return found;
+        }
+
+        private static void EnsureInDestinationDir(RvFile destDir, RvFile child)
+        {
+            if (destDir == null || !destDir.IsDirectory || child == null)
+                return;
+
+            if (child.Parent == destDir)
+                return;
+
+            try
+            {
+                if (child.Parent != null && child.Parent.FindChild(child, out int oldIndex))
+                    child.Parent.ChildRemove(oldIndex);
+            }
+            catch
+            {
+            }
+
+            destDir.ChildAdd(child);
+        }
+
+        private static void UpdateOrAddLooseFileToDir(RvFile destDir, string fullPath, string name)
+        {
+            if (destDir == null || !destDir.IsDirectory)
+                return;
+            if (string.IsNullOrWhiteSpace(fullPath) || string.IsNullOrWhiteSpace(name))
+                return;
+            try
+            {
+                if (!System.IO.File.Exists(fullPath))
+                    return;
+                System.IO.FileInfo fi = new System.IO.FileInfo(fullPath);
+                RvFile existing = FindExistingDestinationNode(destDir, name);
+                if (existing != null && existing.IsFile)
+                {
+                    existing.Size = (ulong)fi.Length;
+                    existing.FileModTimeStamp = fi.LastWriteTime.Ticks;
+                    existing.GotStatus = GotStatus.Got;
+                    return;
+                }
+
+                RvFile f = new RvFile(FileType.File)
+                {
+                    Name = name,
+                    DatStatus = DatStatus.NotInDat,
+                    Size = (ulong)fi.Length,
+                    FileModTimeStamp = fi.LastWriteTime.Ticks,
+                    GotStatus = GotStatus.Got
+                };
+                destDir.ChildAdd(f);
+            }
+            catch
+            {
+            }
+        }
+
+        private static string ResolveDiscInputPath(string sourcePath, string destinationName, RvFile destinationFile, RomVaultCore.ChdCompressionType chdCompressionType)
         {
             string dir = Path.GetDirectoryName(sourcePath);
             if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
                 return sourcePath;
 
             string baseName = Path.GetFileNameWithoutExtension(destinationName);
+            bool requireGdi = RequiresGdiSource(chdCompressionType);
             bool preferGdi = IsGdiPreferredPlatform(destinationFile);
 
             string gdi = Path.Combine(dir, baseName + ".gdi");
-            if (preferGdi && File.Exists(gdi))
+            if (File.Exists(gdi) && (preferGdi || requireGdi))
                 return gdi;
 
             string cue = Path.Combine(dir, baseName + ".cue");
+            if (requireGdi)
+                return sourcePath;
             if (File.Exists(cue))
                 return cue;
 
@@ -1155,6 +1764,13 @@ namespace RomVaultCore.FixFile.Utils
                 if (string.Equals(command, "createdvd", StringComparison.OrdinalIgnoreCase))
                     return "-c zstd,zlib,huff,flac";
                 return "-c cdzs,cdzl,cdfl";
+            }
+
+            if (chdCompressionType == RomVaultCore.ChdCompressionType.Dreamcast)
+            {
+                if (string.Equals(command, "createcd", StringComparison.OrdinalIgnoreCase))
+                    return "-c cdzs,cdzl,cdfl";
+                return "-c zstd";
             }
 
             return "-c zstd";
@@ -1452,7 +2068,7 @@ namespace RomVaultCore.FixFile.Utils
             return "";
         }
 
-        private static ReturnCode MaterializeDiscInput(RvFile sourceFile, RvFile destinationFile, string sourcePath, out string inputPath, out string workingDir, out List<string> tempPathsToDelete, out string errorMessage)
+        private static ReturnCode MaterializeDiscInput(RvFile sourceFile, RvFile destinationFile, RomVaultCore.DatRule rule, string sourcePath, out string inputPath, out string workingDir, out List<string> tempPathsToDelete, out string errorMessage)
         {
             inputPath = null;
             workingDir = null;
@@ -1461,9 +2077,9 @@ namespace RomVaultCore.FixFile.Utils
 
             if (sourceFile.FileType == FileType.File)
             {
-                inputPath = ResolveExistingFilePath(ResolveDiscInputPath(sourcePath, destinationFile.Name, destinationFile));
+                inputPath = ResolveExistingFilePath(ResolveDiscInputPath(sourcePath, destinationFile.Name, destinationFile, rule?.ChdCompressionType ?? RomVaultCore.ChdCompressionType.Auto));
                 workingDir = System.IO.Path.GetDirectoryName(inputPath);
-                if (!ValidateDiscInputCompleteness(inputPath, workingDir, out errorMessage))
+                if (!ValidateDiscInputCompleteness(inputPath, workingDir, rule?.ChdCompressionType ?? RomVaultCore.ChdCompressionType.Auto, out errorMessage))
                     return ReturnCode.FileSystemError;
                 return ReturnCode.Good;
             }
@@ -1487,7 +2103,7 @@ namespace RomVaultCore.FixFile.Utils
             Directory.CreateDirectory(tempDir);
             tempPathsToDelete.Add(tempDir);
 
-            ReturnCode rc = ExtractDiscSetFromArchive(sourceFile.Parent, destinationFile.Name, destinationFile, tempDir, out inputPath, out errorMessage);
+            ReturnCode rc = ExtractDiscSetFromArchive(sourceFile.Parent, destinationFile.Name, destinationFile, rule?.ChdCompressionType ?? RomVaultCore.ChdCompressionType.Auto, tempDir, out inputPath, out errorMessage);
             if (rc != ReturnCode.Good)
                 return rc;
 
@@ -1495,13 +2111,18 @@ namespace RomVaultCore.FixFile.Utils
             return ReturnCode.Good;
         }
 
-        private static bool ValidateDiscInputCompleteness(string inputPath, string workingDir, out string errorMessage)
+        private static bool ValidateDiscInputCompleteness(string inputPath, string workingDir, RomVaultCore.ChdCompressionType chdCompressionType, out string errorMessage)
         {
             errorMessage = "";
             if (string.IsNullOrWhiteSpace(inputPath))
                 return true;
 
             string ext = System.IO.Path.GetExtension(inputPath).ToLowerInvariant();
+            if (RequiresGdiSource(chdCompressionType) && ext != ".gdi")
+            {
+                errorMessage = "Dreamcast CHD compression requires a .gdi source descriptor.";
+                return false;
+            }
             if (ext != ".cue" && ext != ".gdi")
                 return true;
 
@@ -1564,7 +2185,7 @@ namespace RomVaultCore.FixFile.Utils
             return true;
         }
 
-        private static ReturnCode ExtractDiscSetFromArchive(RvFile archiveFile, string destinationName, RvFile destinationFile, string tempDir, out string inputPath, out string errorMessage)
+        private static ReturnCode ExtractDiscSetFromArchive(RvFile archiveFile, string destinationName, RvFile destinationFile, RomVaultCore.ChdCompressionType chdCompressionType, string tempDir, out string inputPath, out string errorMessage)
         {
             inputPath = null;
             errorMessage = "";
@@ -1575,13 +2196,16 @@ namespace RomVaultCore.FixFile.Utils
 
             string baseName = Path.GetFileNameWithoutExtension(destinationName);
             string preferExt = IsGdiPreferredPlatform(destinationFile) ? ".gdi" : ".cue";
+            bool requireGdi = RequiresGdiSource(chdCompressionType);
 
-            string[] candidates = new[]
-            {
-                baseName + preferExt,
-                baseName + (preferExt == ".gdi" ? ".cue" : ".gdi"),
-                baseName + ".iso"
-            };
+            string[] candidates = requireGdi
+                ? new[] { baseName + ".gdi" }
+                : new[]
+                {
+                    baseName + preferExt,
+                    baseName + (preferExt == ".gdi" ? ".cue" : ".gdi"),
+                    baseName + ".iso"
+                };
 
             string chosenEntry = null;
             int chosenIndex = -1;
@@ -1597,7 +2221,9 @@ namespace RomVaultCore.FixFile.Utils
 
             if (chosenEntry == null)
             {
-                errorMessage = "Could not find cue/gdi/iso inside archive matching the expected CHD base name.";
+                errorMessage = requireGdi
+                    ? "Dreamcast CHD compression requires a .gdi source descriptor inside the archive."
+                    : "Could not find cue/gdi/iso inside archive matching the expected CHD base name.";
                 return ReturnCode.FileSystemError;
             }
 
@@ -1993,8 +2619,27 @@ namespace RomVaultCore.FixFile.Utils
                 }
 
                 string[] parts = trimmed.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                if (parts.Length >= 3)
+                {
+                    int startIndex = 1;
+                    int endIndex = parts.Length - 1; // last token is the file type (e.g., BINARY/WAVE)
+                    if (endIndex > startIndex)
+                    {
+                        string name = string.Join(" ", parts, startIndex, endIndex - startIndex).Trim();
+                        if (!string.IsNullOrWhiteSpace(name))
+                            yield return name;
+                    }
+                    else
+                    {
+                        string name = parts[1].Trim();
+                        if (!string.IsNullOrWhiteSpace(name))
+                            yield return name;
+                    }
+                }
+                else if (parts.Length >= 2 && !string.IsNullOrWhiteSpace(parts[1]))
+                {
                     yield return parts[1].Trim();
+                }
             }
         }
 
