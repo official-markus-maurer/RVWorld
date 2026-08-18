@@ -11,8 +11,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Compress\Compress.csproj" />
-    <ProjectReference Include="..\RVIO\RVIO.csproj" />
+    <ProjectReference Include="..\..\Compress\Compress.csproj" />
+    <ProjectReference Include="..\..\Libraries\RVIO\RVIO.csproj" />
   </ItemGroup>
 
 </Project>

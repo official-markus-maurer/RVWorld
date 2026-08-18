@@ -22,15 +22,15 @@
   <ItemGroup>
     <ProjectReference Include="..\Dark\Dark.csproj" />
     <ProjectReference Include="..\Compress\Compress.csproj" />
-    <ProjectReference Include="..\RVIO\RVIO.csproj" />
-    <ProjectReference Include="..\ByteSortedList\StorageList.csproj" />
-    <ProjectReference Include="..\CHDlib\CHDSharpLib.csproj" />
-    <ProjectReference Include="..\DATReader\DATReader.csproj" />
+    <ProjectReference Include="..\Libraries\RVIO\RVIO.csproj" />
+    <ProjectReference Include="..\Libraries\StorageList\StorageList.csproj" />
+    <ProjectReference Include="..\CHD\CHDSharplib\CHDSharpLib.csproj" />
+    <ProjectReference Include="..\DAT\DATReader\DATReader.csproj" />
     <ProjectReference Include="..\FileScanner\FileScanner.csproj" />
     <ProjectReference Include="..\SharedEnum\SharedEnum.csproj" />
-    <ProjectReference Include="..\SortMethods\SortMethods.csproj" />
+    <ProjectReference Include="..\Libraries\SortMethods\SortMethods.csproj" />
     <ProjectReference Include="..\RomVaultCore\RomVaultCore.csproj" />
-    <ProjectReference Include="..\TrrntZipUICore\TrrntZipUICore.csproj" />
+    <ProjectReference Include="..\SAM\TrrntZipUICore\TrrntZipUICore.csproj" />
   </ItemGroup>
 
   <ItemGroup>

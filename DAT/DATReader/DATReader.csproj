@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Configurations>Debug;Release</Configurations>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Libraries\StorageList\StorageList.csproj" />
+    <ProjectReference Include="..\..\Compress\Compress.csproj" />
+    <ProjectReference Include="..\..\Libraries\RVIO\RVIO.csproj" />
+    <ProjectReference Include="..\..\Libraries\RVUtils\RVUtils.csproj" />
+    <ProjectReference Include="..\..\SharedEnum\SharedEnum.csproj" />
+    <ProjectReference Include="..\..\Libraries\SortMethods\SortMethods.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -16,10 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CodePage\CodePage.csproj" />
-    <ProjectReference Include="..\RVIO\RVIO.csproj" />
-    <ProjectReference Include="..\RVZstdSharp\RVZstdSharp.csproj" />
-    <ProjectReference Include="..\SortMethods\SortMethods.csproj" />
+    <ProjectReference Include="..\Libraries\CodePage\CodePage.csproj" />
+    <ProjectReference Include="..\Libraries\RVIO\RVIO.csproj" />
+    <ProjectReference Include="..\Libraries\RVZstdSharp\RVZstdSharp.csproj" />
+    <ProjectReference Include="..\Libraries\SortMethods\SortMethods.csproj" />
   </ItemGroup>
 
 </Project>

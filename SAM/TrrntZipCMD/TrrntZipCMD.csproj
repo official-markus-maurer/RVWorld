@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RVIO\RVIO.csproj" />
+    <ProjectReference Include="..\..\Libraries\RVIO\RVIO.csproj" />
     <ProjectReference Include="..\TrrntZip\TrrntZip.csproj" />
   </ItemGroup>
 

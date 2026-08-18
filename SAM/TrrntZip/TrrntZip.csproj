@@ -8,8 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ByteSortedList\StorageList.csproj" />
-    <ProjectReference Include="..\Compress\Compress.csproj" />
+    <ProjectReference Include="..\..\Libraries\StorageList\StorageList.csproj" />
+    <ProjectReference Include="..\..\Compress\Compress.csproj" />
   </ItemGroup>
 
 </Project>

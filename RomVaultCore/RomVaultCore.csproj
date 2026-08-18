@@ -19,10 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ByteSortedList\StorageList.csproj" />
-    <ProjectReference Include="..\CHDlib\CHDSharpLib.csproj" />
+    <ProjectReference Include="..\Libraries\StorageList\StorageList.csproj" />
+    <ProjectReference Include="..\CHD\CHDSharplib\CHDSharpLib.csproj" />
     <ProjectReference Include="..\Compress\Compress.csproj" />
-    <ProjectReference Include="..\DATReader\DATReader.csproj" />
+    <ProjectReference Include="..\DAT\DATReader\DATReader.csproj" />
     <ProjectReference Include="..\FileScanner\FileScanner.csproj" />
     <ProjectReference Include="..\SharedEnum\SharedEnum.csproj" />
   </ItemGroup>
