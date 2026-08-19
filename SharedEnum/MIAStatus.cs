@@ -1,4 +1,7 @@
-﻿public enum MIAStatus
+﻿using System;
+
+[Flags]
+public enum MIAStatus
 {
     None=0,
     New=1,

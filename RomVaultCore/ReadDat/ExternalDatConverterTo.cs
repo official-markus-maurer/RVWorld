@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using DATReader.DatStore;
@@ -112,7 +112,7 @@ namespace RomVaultCore.ReadDat
                     Status = rvfile.Status
                 };
 
-                if (rvfile.MIAStatusIs(MIAStatus.MIAFromDat))
+                if (rvfile.MIAStatusIs(MIAStatus.MIAFromDat) || rvfile.MIAStatusIs(MIAStatus.MIA))
                 {
                     extFile.MIA = "yes";
                 }
@@ -148,16 +148,22 @@ namespace RomVaultCore.ReadDat
             {
                 extDir1.DGame = new DatGame
                 {
+                    Id=rvfile.Game.GetData(RvGame.GameData.Id),
                     Description = rvfile.Game.GetData(RvGame.GameData.Description),
-                    Category = CategoryList(rvfile.Game.GetData(RvGame.GameData.Category)),
                     RomOf = rvfile.Game.GetData(RvGame.GameData.RomOf),
                     IsBios = rvfile.Game.GetData(RvGame.GameData.IsBios),
                     SourceFile = rvfile.Game.GetData(RvGame.GameData.Sourcefile),
                     CloneOf = rvfile.Game.GetData(RvGame.GameData.CloneOf),
+                    CloneOfId = rvfile.Game.GetData(RvGame.GameData.CloneOfId),
                     SampleOf = rvfile.Game.GetData(RvGame.GameData.SampleOf),
                     Board = rvfile.Game.GetData(RvGame.GameData.Board),
                     Year = rvfile.Game.GetData(RvGame.GameData.Year),
-                    Manufacturer = rvfile.Game.GetData(RvGame.GameData.Manufacturer)
+                    Manufacturer = rvfile.Game.GetData(RvGame.GameData.Manufacturer),
+
+                    Category = CategoryList(rvfile.Game.GetData(RvGame.GameData.Category)),
+                    Serial = rvfile.Game.GetData(RvGame.GameData.Serial),
+                    Version = rvfile.Game.GetData(RvGame.GameData.Version),
+                    GameId = rvfile.Game.GetData(RvGame.GameData.GameId)
                 };
                 if (extDir1.DGame.Description != null && extDir1.DGame.Description == "¤")
                     extDir1.DGame.Description = Path.GetFileNameWithoutExtension(rvfile.Name);

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Text;
-using RVIO;
 
 namespace DATReader.Utils
 {
@@ -48,7 +47,7 @@ namespace DATReader.Utils
 
         public string GnNameToSize()
         {
-            int sizePos = _line.ToLower().LastIndexOf(" size ");
+            int sizePos = _line.IndexOf(" size ", StringComparison.OrdinalIgnoreCase);
             string strret = (sizePos == 0) ? "" : _line.Substring(0, sizePos);
             _line = _line.Substring(sizePos + 1);
             Next = strret;

@@ -1,6 +1,5 @@
 ﻿using System.IO;
 using Compress.Support.Compression.Deflate;
-using Compress.Support.Utils;
 
 // UInt16 = ushort
 // UInt32 = uint
@@ -20,7 +19,7 @@ namespace Compress.ZipFile
          if raw is false then compressionMthod must be 0,8 or 93 (zstd)
          */
 
-        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ushort compressionMethod, out Stream stream, long? modTime, int? threadCount = null)
+        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ZipCompression compressionMethod, out Stream stream, long? modTime, int? threadCount = null, byte[] properties = null)
         {
             stream = null;
             if (ZipOpen != ZipOpenType.OpenWrite)

@@ -1,4 +1,4 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 
 namespace TrrntZip
 {
@@ -15,8 +15,8 @@ namespace TrrntZip
     public class Settings
     {
         public bool VerboseLogging = true;
-        public bool ForceReZip = false;
-        public bool CheckOnly = false;
+        public bool Repair = false;
+        public bool DryRun = false;
         public zipType InZip = zipType.zip;
         public ZipStructure OutZip = ZipStructure.ZipTrrnt;
         public object lockObj = new object();

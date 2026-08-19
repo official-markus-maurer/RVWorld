@@ -22,7 +22,12 @@ namespace Compress.SevenZip
             ulong emptyFileCount = 0;
             for (int i = 0; i < fileCount; i++)
             {
-                _header.FileInfo.Names[i] = _localFiles[i].Filename;
+                string fName = _localFiles[i].Filename;
+                //should maybe also check for IsDirectory when removing this trailing slash.
+                if (fName.Substring(fName.Length - 1, 1) == @"/")
+                    fName = fName.Substring(0, fName.Length - 1);
+
+                _header.FileInfo.Names[i] = fName;
 
                 if (_localFiles[i].UncompressedSize != 0)
                 {
@@ -115,9 +120,12 @@ namespace Compress.SevenZip
             }
         }
 
-        private void CloseWriting7Zip()
+
+        public delegate void HeaderFunction();
+
+        internal void CloseWriting7Zip(HeaderFunction addStructuredHeader = null)
         {
-            if (zIsSolid)
+            if (_zIsSolid)
             {
                 if (_packedOutStreams.Count > 0)
                 {
@@ -133,34 +141,32 @@ namespace Compress.SevenZip
                     }
 
                     _packedOutStreams[0].packedSize = (ulong)_zipFs.Position - _packedOutStreams[0].packedStart;
-                }            
+                }
             }
             Create7ZStructure();
 
-            byte[] newHeaderByte;
-            using (Stream headerMem = new MemoryStream())
+            byte[] mainHeaderBytes;
+            using (MemoryStream headerMem = new MemoryStream())
             {
                 using BinaryWriter headerBw = new(headerMem, Encoding.UTF8, true);
                 _header.WriteHeader(headerBw);
 
-                newHeaderByte = new byte[headerMem.Length];
-                headerMem.Position = 0;
-                headerMem.Read(newHeaderByte, 0, newHeaderByte.Length);
+                mainHeaderBytes = headerMem.ToArray();
             }
 
-            uint mainHeaderCRC = CRC.CalculateDigest(newHeaderByte, 0, (uint)newHeaderByte.Length);
+            uint mainHeaderCRC = CRC.CalculateDigest(mainHeaderBytes, 0, (uint)mainHeaderBytes.Length);
 
             #region Header Compression
             long packedHeaderPos = _zipFs.Position;
-            LzmaEncoderProperties ep = new(true, GetDictionarySizeFromUncompressedSize((ulong)newHeaderByte.Length), 64);
+            LzmaEncoderProperties ep = new(true, GetDictionarySizeFromUncompressedSize((ulong)mainHeaderBytes.Length), 64);
             LzmaStream lzs = new(ep, false, _zipFs);
             byte[] lzmaStreamProperties = lzs.Properties;
-            lzs.Write(newHeaderByte, 0, newHeaderByte.Length);
+            lzs.Write(mainHeaderBytes, 0, mainHeaderBytes.Length);
             lzs.Close();
 
             StreamsInfo streamsInfo = new()
             {
-                PackPosition = (ulong)(packedHeaderPos - _baseOffset),
+                PackPosition = (ulong)(packedHeaderPos - _signatureHeader.BaseOffset),
                 Folders = new[] {
                         new Folder {
                             BindPairs = new BindPair[0],
@@ -172,7 +178,7 @@ namespace Compress.SevenZip
                                     Properties = lzmaStreamProperties
                                 }
                             },
-                            UnpackedStreamSizes = new[] {(ulong) newHeaderByte.Length},
+                            UnpackedStreamSizes = new[] {(ulong) mainHeaderBytes.Length},
                             UnpackCRC = mainHeaderCRC
                         }
                     },
@@ -185,30 +191,48 @@ namespace Compress.SevenZip
                     }
             };
 
-            using (Stream headerMem = new MemoryStream())
+            using (MemoryStream headerMem = new MemoryStream())
             {
                 using BinaryWriter bw = new(headerMem, Encoding.UTF8, true);
                 bw.Write((byte)HeaderProperty.kEncodedHeader);
                 streamsInfo.WriteHeader(bw);
-
-                newHeaderByte = new byte[headerMem.Length];
-                headerMem.Position = 0;
-                headerMem.Read(newHeaderByte, 0, newHeaderByte.Length);
+                mainHeaderBytes = headerMem.ToArray();
             }
-            mainHeaderCRC = CRC.CalculateDigest(newHeaderByte, 0, (uint)newHeaderByte.Length);
+            mainHeaderCRC = CRC.CalculateDigest(mainHeaderBytes, 0, (uint)mainHeaderBytes.Length);
             #endregion
 
 
-            using (BinaryWriter bw = new(_zipFs, Encoding.UTF8, true))
-            {
-                ulong headerPosition = (ulong)_zipFs.Position + 32; //tzip header is 32 bytes
-                WriteRomVault7Zip(bw, headerPosition, (ulong)newHeaderByte.Length, mainHeaderCRC);
 
-                _zipFs.Write(newHeaderByte, 0, newHeaderByte.Length);
-                _signatureHeader.WriteFinal(bw, headerPosition, (ulong)newHeaderByte.Length, mainHeaderCRC);
+            long StructuredHeaderPosition = _zipFs.Position;
+
+            // write an empty header for now, we will come back and write the correct one after we know the size and position of the main header.
+            if (addStructuredHeader != null)
+                addStructuredHeader();
+
+            _signatureHeader.NextHeaderLocation = (ulong)_zipFs.Position;
+            _signatureHeader.NextHeaderSize = (ulong)mainHeaderBytes.Length;
+            _signatureHeader.NextHeaderCRC = mainHeaderCRC;
+
+
+            _zipFs.Write(mainHeaderBytes, 0, mainHeaderBytes.Length);
+
+            // goes right back to the start of the file and writes the signature header with the correct values.
+            _signatureHeader.Write(_zipFs);
+
+
+            // go back and write the correct values into the structured header.
+            if (addStructuredHeader!=null)
+            {
+                _zipFs.Seek(StructuredHeaderPosition, SeekOrigin.Begin);
+                addStructuredHeader();
             }
+
             _zipFs.Close();
             _zipFs.Dispose();
+            _zipFs = null;
+            _zipFileInfo = _zipFileInfo == null ? null : new RVIO.FileInfo(_zipFileInfo.FullName);
+
+            ZipOpen = ZipOpenType.Closed;
         }
 
     }

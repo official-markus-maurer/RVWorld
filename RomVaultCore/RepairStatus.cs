@@ -55,6 +55,7 @@ namespace RomVaultCore
         CorrectMIA,
         CanBeFixedMIA,
 
+        MissingNew,
 
         EndValue
     }
@@ -201,6 +202,7 @@ namespace RomVaultCore
                 RepStatus.UnNeeded,
                 RepStatus.Incomplete,
                 RepStatus.Missing,
+                RepStatus.MissingNew,
                 RepStatus.MissingMIA,
                 RepStatus.CorrectMIA,
                 RepStatus.Correct,
@@ -255,6 +257,13 @@ namespace RomVaultCore
                     case RepStatus.Correct: return RepStatus.CorrectMIA;
                 }
             }
+            if (Settings.rvSettings.ShowNewMIA && (mStat & MIAStatus.New) > 0)
+            {
+                switch (rStat)
+                {
+                    case RepStatus.Missing: return RepStatus.MissingNew;
+                }
+            }
 
             if ((mStat & MIAStatus.MIA) > 0)
             {
@@ -262,8 +271,7 @@ namespace RomVaultCore
                 {
                     case RepStatus.Missing: return RepStatus.MissingMIA;
                     case RepStatus.CanBeFixed: return RepStatus.CanBeFixedMIA;
-                    case RepStatus.Correct:
-                        return RepStatus.CorrectMIA;
+                    case RepStatus.Correct: return RepStatus.CorrectMIA;
                 }
             }
             return rStat;
@@ -322,6 +330,7 @@ namespace RomVaultCore
         public int CountMissing(bool includeMIA = false)
         {
             return _arrRepStatus[(int)RepStatus.Missing] +
+                   _arrRepStatus[(int)RepStatus.MissingNew]  +
                    (includeMIA ? _arrRepStatus[(int)RepStatus.MissingMIA] : 0) +
                    _arrRepStatus[(int)RepStatus.DirCorrupt] +
                    _arrRepStatus[(int)RepStatus.Corrupt] +

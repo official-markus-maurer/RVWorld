@@ -190,12 +190,6 @@
   <data name="R_NotInDat_Ignore" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\R_NotInDat_Ignore.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="R_InToSort_MoveToCorrupt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InToSort_MoveToCorrupt.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatCollect_Correct_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_CorrectMIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="G_NeededForFix" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\G_NeededForFix.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -228,9 +222,6 @@
   </data>
   <data name="Tree3" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\Tree3.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatCollect_CanBeFixed_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_CanBeFixedMIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="R_InToSort_InToSort" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\R_InToSort_InToSort.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -301,9 +292,6 @@
   <data name="eye" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\eye.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="R_InDatCollect_Missing_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_MissingMIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="G_Corrupt" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\G_Corrupt.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -312,9 +300,6 @@
   </data>
   <data name="R_InDatCollect_Correct" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\R_InDatCollect_Correct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMerged_Deleted" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMerged_Deleted.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="R_NotInDat_NeededForFix" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\R_NotInDat_NeededForFix.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -424,18 +409,6 @@
   <data name="R_InDatMerged_UnScanned" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\R_InDatMerged_UnScanned.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="R_InDatMIA_Corrupt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_Corrupt.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_CorruptCanBeFixed" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_CorruptCanBeFixed.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_MoveToCorrupt" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_MoveToCorrupt.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_UnScanned" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_UnScanned.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="G_Incomplete" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\G_Incomplete.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -459,15 +432,6 @@
   </data>
   <data name="unTick" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\unTick.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_Delete" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_Delete.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_Incomplete" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_Incomplete.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
-  <data name="R_InDatMIA_MoveToSort" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>Resources\R_InDatMIA_MoveToSort.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="ZipTDC" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\ZipTDC.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -519,5 +483,140 @@
   </data>
   <data name="ZipConvert1" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>Resources\ZipConvert1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="G_MissingNew" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\G_MissingNew.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_CanBeFixed_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_CanBeFixed_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Correct_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Correct_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Corrupt_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Corrupt_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_CorruptCanBeFixed_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_CorruptCanBeFixed_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Delete_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Delete_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Incomplete_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Incomplete_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Missing_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Missing_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_MoveToCorrupt_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_MoveToCorrupt_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_MoveToSort_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_MoveToSort_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_NeededForFix_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_NeededForFix_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_UnScanned_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_UnScanned_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_CanBeFixed_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_CanBeFixed_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Missing_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Missing_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Corrupt_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Corrupt_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_CorruptCanBeFixed_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_CorruptCanBeFixed_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Delete_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Delete_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Incomplete_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Incomplete_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_MoveToCorrupt_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_MoveToCorrupt_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_MoveToSort_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_MoveToSort_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_NeededForFix_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_NeededForFix_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_UnScanned_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_UnScanned_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Corrupt_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Corrupt_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Delete_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Delete_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Delete_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Delete_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Deleted" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Deleted.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_MoveToCorrupt_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_MoveToCorrupt_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_MoveToCorrupt_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_MoveToCorrupt_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_MoveToSort_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_MoveToSort_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_MoveToSort_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_MoveToSort_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_NeededForFix_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_NeededForFix_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_NeededForFix_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_NeededForFix_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_NotCollected_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_NotCollected_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_NotCollected_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_NotCollected_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Rename_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Rename_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Rename_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Rename_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_UnNeeded_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_UnNeeded_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_UnNeeded_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_UnNeeded_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_UnScanned_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_UnScanned_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_UnScanned_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_UnScanned_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatCollect_Correct_NEW" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatCollect_Correct_NEW.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Corrupt_MIA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Corrupt_MIA.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatMerged_Rename" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatMerged_Rename.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatNoDump_Correct" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatNoDump_Correct.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="R_InDatNoDump_NotCollected" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>Resources\R_InDatNoDump_NotCollected.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

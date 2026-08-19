@@ -8,7 +8,7 @@ namespace StorageList
     public delegate bool FindOn<T>(T fileGroup);
     public delegate int SortOn<T>(T fileGroup1, T fileGroup2);
 
-    public class FastArraySort
+    public static class FastArraySort
     {
         public static void SortWithFilter<T>(T[] arrToSort, FindOn<T> find, SortOn<T> sort, out T[] outArray)
         {
@@ -21,27 +21,28 @@ namespace StorageList
 
             outArray = outList.ToArray();
 
-            SortArray(0, outArray.Length, outArray, sort, 0);
+            SortArray(0, outArray.Length, outArray, sort, 0, 2);
         }
-        public static T[] SortArray<T>(T[] arrToSort, SortOn<T> sortFunction)
+
+        public static T[] SortArray<T>(T[] arrToSort, SortOn<T> sortFunction, int parallelDepth = 2)
         {
-            T[] sortedCRC = new T[arrToSort.Length];
-            arrToSort.CopyTo(sortedCRC, 0);
-            SortArray(0, sortedCRC.Length, sortedCRC, sortFunction, 0);
-            return sortedCRC;
+            T[] sorted = new T[arrToSort.Length];
+            arrToSort.CopyTo(sorted, 0);
+            SortArray(0, sorted.Length, sorted, sortFunction, 0, parallelDepth);
+            return sorted;
         }
 
 
-        public static List<T> SortList<T>(List<T> arrToSort, SortOn<T> sortFunction)
+        public static List<T> SortList<T>(List<T> arrToSort, SortOn<T> sortFunction, int parallelDepth = 2)
         {
-            T[] sortedCRC = new T[arrToSort.Count];
-            arrToSort.CopyTo(sortedCRC, 0);
-            SortArray(0, sortedCRC.Length, sortedCRC, sortFunction, 0);
-            return sortedCRC.ToList();
+            T[] sorted = new T[arrToSort.Count];
+            arrToSort.CopyTo(sorted, 0);
+            SortArray(0, sorted.Length, sorted, sortFunction, 0, parallelDepth);
+            return sorted.ToList();
         }
 
 
-        private static void SortArray<T>(int intBase, int intTop, T[] arrToSort, SortOn<T> sortFunction, int depth)
+        private static void SortArray<T>(int intBase, int intTop, T[] arrToSort, SortOn<T> sortFunction, int depth, int parallelDepth)
         {
             int sortSize = intTop - intBase;
             if (sortSize <= 1) return;
@@ -53,7 +54,9 @@ namespace StorageList
                 T t0 = arrToSort[intBase];
                 T t1 = arrToSort[intBase + 1];
                 if (sortFunction(t0, t1) < 1)
+                {
                     return;
+                }
                 // swap them
                 arrToSort[intBase] = t1;
                 arrToSort[intBase + 1] = t0;
@@ -62,10 +65,10 @@ namespace StorageList
 
             int intMiddle = (intTop + intBase) / 2;
 
-            if (depth < 2)
+            if (depth < parallelDepth)
             {
-                Thread t0 = new Thread(() => SortArray(intBase, intMiddle, arrToSort, sortFunction, depth + 1));
-                Thread t1 = new Thread(() => SortArray(intMiddle, intTop, arrToSort, sortFunction, depth + 1));
+                Thread t0 = new Thread(() => SortArray(intBase, intMiddle, arrToSort, sortFunction, depth + 1, parallelDepth));
+                Thread t1 = new Thread(() => SortArray(intMiddle, intTop, arrToSort, sortFunction, depth + 1, parallelDepth));
                 t0.Start();
                 t1.Start();
                 t0.Join();
@@ -73,8 +76,8 @@ namespace StorageList
             }
             else
             {
-                SortArray(intBase, intMiddle, arrToSort, sortFunction, depth + 1);
-                SortArray(intMiddle, intTop, arrToSort, sortFunction, depth + 1);
+                SortArray(intBase, intMiddle, arrToSort, sortFunction, depth + 1, parallelDepth);
+                SortArray(intMiddle, intTop, arrToSort, sortFunction, depth + 1, parallelDepth);
             }
 
             int intBottomSize = intMiddle - intBase;
@@ -83,7 +86,7 @@ namespace StorageList
             T[] arrBottom = new T[intBottomSize];
             T[] arrTop = new T[intTopSize];
 
-            if (depth == 0)
+            if (depth < parallelDepth)
             {
                 Thread t0 = new Thread(() => Array.Copy(arrToSort, intBase, arrBottom, 0, intBottomSize));
                 Thread t1 = new Thread(() => Array.Copy(arrToSort, intMiddle, arrTop, 0, intTopSize));

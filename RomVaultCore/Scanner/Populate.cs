@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -206,6 +206,7 @@ namespace RomVaultCore.Scanner
                 return;
             }
 
+            file.DeepScanned = fr.DeepScanned;
             file.HeaderFileType = fr.HeaderFileType;
             file.Size = fr.Size;
             file.CRC = fr.CRC;

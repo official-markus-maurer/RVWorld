@@ -2,6 +2,7 @@
 using Path = RVIO.Path;
 using FileInfo = RVIO.FileInfo;
 using FileStream = RVIO.FileStream;
+using Compress.StructuredZip;
 
 namespace Compress.File
 {
@@ -166,7 +167,7 @@ namespace Compress.File
             return ZipReturn.ZipGood;
         }
 
-        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ushort compressionMethod, out Stream stream, long? modTime, int? threadCount = null)
+        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ZipCompression compressionMethod, out Stream stream, long? modTime, int? threadCount = null, byte[] properties = null)
         {
             _inStream.Position = 0;
             stream = _inStream;

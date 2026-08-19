@@ -32,6 +32,26 @@ namespace Compress.ZipFile
         }
 
 
+        public void ZipFileClose()
+        {
+            switch (ZipOpen)
+            {
+                case ZipOpenType.Closed:
+                    return;
+
+                case ZipOpenType.OpenRead:
+                    zipFileCloseRead();
+                    return;
+
+                default:
+                    CentralDirectoryWrite();
+                    EndOfCentralDirectoryWrite();
+                    zipFileCloseWrite();
+                    break;
+            }
+        }
+
+
 
 
         public void ZipFileCloseFailed()

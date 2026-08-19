@@ -1,14 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
-using System.Text.RegularExpressions;
-using Compress;
-using DATReader.Utils;
+﻿using Compress.StructuredZip;
 using RomVaultCore.FindFix;
 using RomVaultCore.Utils;
-using Path = RVIO.Path;
 using RVUtils;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.RegularExpressions;
+using Path = RVIO.Path;
 
 namespace RomVaultCore.RvDB
 {
@@ -33,6 +31,9 @@ namespace RomVaultCore.RvDB
 
     public partial class RvFile
     {
+        public delegate void SendMIA(RvFile thisFile);
+        public static SendMIA sendMIA;
+
         public string Name; // The Name of the File or Directory
         public string FileName; // Found filename if different from Name (Should only be differences in Case)
         public RvFile Parent; // A link to the Parent Directory
@@ -294,9 +295,18 @@ namespace RomVaultCore.RvDB
                 Parent?.RepStatusUpTreeUpdate(_MIAStatus, value, _repStatus);
                 _MIAStatus = value;
 
+                if (IsMIA() && _gotStatus == GotStatus.Got)
+                {
+                    ReportError.LogOut($"Sending Found MIA {FullName} , {Size} , {CRC.ToHexString()} , {SHA1.ToHexString()}");
+                    sendMIA?.Invoke(this);
+                }
             }
         }
 
+        public bool IsMIA()
+        {
+            return (_MIAStatus & (MIAStatus.MIA | MIAStatus.MIAFromDat | MIAStatus.New | MIAStatus.Seen)) > 0;
+        }
         public bool MIAStatusIs(MIAStatus testValue)
         {
             return (_MIAStatus & testValue) > 0;
@@ -304,16 +314,15 @@ namespace RomVaultCore.RvDB
 
         public void MIAStatusSet(MIAStatus value)
         {
-            if ((_MIAStatus & value) == value)
+            if ((MIAStatus & value) == value)
                 return;
-
-            MIAStatus = (int)_MIAStatus + value;
+            MIAStatus |= value;
         }
         public void MIAStatusClear(MIAStatus value)
         {
-            if ((_MIAStatus & value) == 0)
+            if ((MIAStatus & value) == 0)
                 return;
-            MIAStatus = (int)_MIAStatus - value;
+            MIAStatus &= ~value;
         }
 
         public DatStatus DatStatus
@@ -332,6 +341,9 @@ namespace RomVaultCore.RvDB
             get => _gotStatus;
             set
             {
+                if (IsMIA() && value == GotStatus.Got)
+                    sendMIA?.Invoke(this);
+
                 _gotStatus = value;
                 RepStatusReset();
             }
@@ -681,8 +693,13 @@ namespace RomVaultCore.RvDB
 
 
         // this is only used to copy a file.
+
+        // setMIA = true, reportMIA = false    this is used in building report sets for making missing files DATs
+        // setMIA = false, reportMIA = false   this is used right before a fix starts to be sure not to set and send an MIA found report when loading up the tmp fix rvfile variable.
+        // setMIA = false, reportMIA = true    this is used at the end of a fix incase we just did fix an MIA file.
+
         [Obsolete("deprecated")]
-        public void CopyTo(RvFile c)
+        public void CopyTo(RvFile c, bool setMIA,bool reportMIA)
         {
             c.Size = Size;
             c.CRC = CRC;
@@ -713,10 +730,13 @@ namespace RomVaultCore.RvDB
 
             c._datStatus = _datStatus;
             c._gotStatus = _gotStatus;
-            c._MIAStatus = _MIAStatus;
+            if (setMIA)
+                c._MIAStatus = _MIAStatus;
             c.RepStatus = RepStatus;
             c.FileGroup = FileGroup;
 
+            if (reportMIA && c.IsMIA() && c._gotStatus == GotStatus.Got)
+                sendMIA?.Invoke(this);
         }
 
 
@@ -734,6 +754,9 @@ namespace RomVaultCore.RvDB
         {
             _datStatus = dt;
             _gotStatus = flag;
+
+            if (IsMIA() && _gotStatus == GotStatus.Got)
+                sendMIA?.Invoke(this);
 
             RepStatusReset();
         }
@@ -918,9 +941,9 @@ namespace RomVaultCore.RvDB
             fileZero.Name = "ZeroFile";
             fileZero.Size = 0;
 
-            fileZero.CRC = VarFix.CleanMD5SHA1("00000000", 8);
-            fileZero.MD5 = VarFix.CleanMD5SHA1("d41d8cd98f00b204e9800998ecf8427e", 32);
-            fileZero.SHA1 = VarFix.CleanMD5SHA1("da39a3ee5e6b4b0d3255bfef95601890afd80709", 40);
+            fileZero.CRC = ByteUtils.ZeroByteCRC;
+            fileZero.MD5 = ByteUtils.ZeroByteMD5;
+            fileZero.SHA1 = ByteUtils.ZeroByteSHA1;
 
             fileZero.GotStatus = GotStatus.Got;
             fileZero.DatStatus = DatStatus.InToSort;

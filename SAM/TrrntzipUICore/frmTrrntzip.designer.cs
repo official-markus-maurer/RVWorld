@@ -28,323 +28,314 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FrmTrrntzip));
-            this.splitContainer = new System.Windows.Forms.SplitContainer();
-            this.StatusPanel = new System.Windows.Forms.Panel();
-            this.picRomVault = new System.Windows.Forms.PictureBox();
-            this.btnCancel = new System.Windows.Forms.Button();
-            this.btnPause = new System.Windows.Forms.Button();
-            this.tbProccessors = new System.Windows.Forms.TrackBar();
-            this.picDonate = new System.Windows.Forms.PictureBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.chkFix = new System.Windows.Forms.CheckBox();
-            this.cboOutType = new System.Windows.Forms.ComboBox();
-            this.cboInType = new System.Windows.Forms.ComboBox();
-            this.chkForce = new System.Windows.Forms.CheckBox();
-            this.label1 = new System.Windows.Forms.Label();
-            this.lblTotalStatus = new System.Windows.Forms.Label();
-            this.picTitle = new System.Windows.Forms.PictureBox();
-            this.DropBox = new System.Windows.Forms.PictureBox();
-            this.dataGrid = new System.Windows.Forms.DataGridView();
-            this.FileName = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Status = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.timer1 = new System.Windows.Forms.Timer(this.components);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).BeginInit();
-            this.splitContainer.Panel1.SuspendLayout();
-            this.splitContainer.Panel2.SuspendLayout();
-            this.splitContainer.SuspendLayout();
-            this.StatusPanel.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picRomVault)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.tbProccessors)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picDonate)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picTitle)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.DropBox)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGrid)).BeginInit();
-            this.SuspendLayout();
+            splitContainer = new System.Windows.Forms.SplitContainer();
+            StatusPanel = new System.Windows.Forms.Panel();
+            picRomVault = new System.Windows.Forms.PictureBox();
+            btnCancel = new System.Windows.Forms.Button();
+            btnPause = new System.Windows.Forms.Button();
+            tbProccessors = new System.Windows.Forms.TrackBar();
+            picDonate = new System.Windows.Forms.PictureBox();
+            label3 = new System.Windows.Forms.Label();
+            label2 = new System.Windows.Forms.Label();
+            chkDryRun = new System.Windows.Forms.CheckBox();
+            cboOutType = new System.Windows.Forms.ComboBox();
+            cboInType = new System.Windows.Forms.ComboBox();
+            label1 = new System.Windows.Forms.Label();
+            lblTotalStatus = new System.Windows.Forms.Label();
+            picTitle = new System.Windows.Forms.PictureBox();
+            DropBox = new System.Windows.Forms.PictureBox();
+            dataGrid = new System.Windows.Forms.DataGridView();
+            FileName = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            Status = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            timer1 = new System.Windows.Forms.Timer(components);
+            ((System.ComponentModel.ISupportInitialize)splitContainer).BeginInit();
+            splitContainer.Panel1.SuspendLayout();
+            splitContainer.Panel2.SuspendLayout();
+            splitContainer.SuspendLayout();
+            StatusPanel.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)picRomVault).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)tbProccessors).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)picDonate).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)picTitle).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)DropBox).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dataGrid).BeginInit();
+            SuspendLayout();
             // 
             // splitContainer
             // 
-            this.splitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
-            this.splitContainer.IsSplitterFixed = true;
-            this.splitContainer.Location = new System.Drawing.Point(0, 0);
-            this.splitContainer.MinimumSize = new System.Drawing.Size(0, 300);
-            this.splitContainer.Name = "splitContainer";
+            splitContainer.Dock = System.Windows.Forms.DockStyle.Fill;
+            splitContainer.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
+            splitContainer.IsSplitterFixed = true;
+            splitContainer.Location = new System.Drawing.Point(0, 0);
+            splitContainer.Margin = new System.Windows.Forms.Padding(4);
+            splitContainer.MinimumSize = new System.Drawing.Size(0, 346);
+            splitContainer.Name = "splitContainer";
             // 
             // splitContainer.Panel1
             // 
-            this.splitContainer.Panel1.Controls.Add(this.StatusPanel);
+            splitContainer.Panel1.Controls.Add(StatusPanel);
             // 
             // splitContainer.Panel2
             // 
-            this.splitContainer.Panel2.Controls.Add(this.dataGrid);
-            this.splitContainer.Size = new System.Drawing.Size(784, 361);
-            this.splitContainer.SplitterDistance = 250;
-            this.splitContainer.TabIndex = 0;
+            splitContainer.Panel2.Controls.Add(dataGrid);
+            splitContainer.Size = new System.Drawing.Size(915, 416);
+            splitContainer.SplitterDistance = 292;
+            splitContainer.SplitterWidth = 5;
+            splitContainer.TabIndex = 0;
             // 
             // StatusPanel
             // 
-            this.StatusPanel.Controls.Add(this.picRomVault);
-            this.StatusPanel.Controls.Add(this.btnCancel);
-            this.StatusPanel.Controls.Add(this.btnPause);
-            this.StatusPanel.Controls.Add(this.tbProccessors);
-            this.StatusPanel.Controls.Add(this.picDonate);
-            this.StatusPanel.Controls.Add(this.label3);
-            this.StatusPanel.Controls.Add(this.label2);
-            this.StatusPanel.Controls.Add(this.chkFix);
-            this.StatusPanel.Controls.Add(this.cboOutType);
-            this.StatusPanel.Controls.Add(this.cboInType);
-            this.StatusPanel.Controls.Add(this.chkForce);
-            this.StatusPanel.Controls.Add(this.label1);
-            this.StatusPanel.Controls.Add(this.lblTotalStatus);
-            this.StatusPanel.Controls.Add(this.picTitle);
-            this.StatusPanel.Controls.Add(this.DropBox);
-            this.StatusPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.StatusPanel.Location = new System.Drawing.Point(0, 0);
-            this.StatusPanel.Name = "StatusPanel";
-            this.StatusPanel.Size = new System.Drawing.Size(250, 361);
-            this.StatusPanel.TabIndex = 0;
+            StatusPanel.Controls.Add(picRomVault);
+            StatusPanel.Controls.Add(btnCancel);
+            StatusPanel.Controls.Add(btnPause);
+            StatusPanel.Controls.Add(tbProccessors);
+            StatusPanel.Controls.Add(picDonate);
+            StatusPanel.Controls.Add(label3);
+            StatusPanel.Controls.Add(label2);
+            StatusPanel.Controls.Add(chkDryRun);
+            StatusPanel.Controls.Add(cboOutType);
+            StatusPanel.Controls.Add(cboInType);
+            StatusPanel.Controls.Add(label1);
+            StatusPanel.Controls.Add(lblTotalStatus);
+            StatusPanel.Controls.Add(picTitle);
+            StatusPanel.Controls.Add(DropBox);
+            StatusPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            StatusPanel.Location = new System.Drawing.Point(0, 0);
+            StatusPanel.Margin = new System.Windows.Forms.Padding(4);
+            StatusPanel.Name = "StatusPanel";
+            StatusPanel.Size = new System.Drawing.Size(292, 416);
+            StatusPanel.TabIndex = 0;
             // 
             // picRomVault
             // 
-            this.picRomVault.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.picRomVault.Image = ((System.Drawing.Image)(resources.GetObject("picRomVault.Image")));
-            this.picRomVault.Location = new System.Drawing.Point(151, 320);
-            this.picRomVault.Name = "picRomVault";
-            this.picRomVault.Size = new System.Drawing.Size(90, 29);
-            this.picRomVault.TabIndex = 18;
-            this.picRomVault.TabStop = false;
-            this.picRomVault.Click += new System.EventHandler(this.picRomVault_Click);
+            picRomVault.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            picRomVault.Image = (System.Drawing.Image)resources.GetObject("picRomVault.Image");
+            picRomVault.Location = new System.Drawing.Point(176, 369);
+            picRomVault.Margin = new System.Windows.Forms.Padding(4);
+            picRomVault.Name = "picRomVault";
+            picRomVault.Size = new System.Drawing.Size(105, 34);
+            picRomVault.TabIndex = 18;
+            picRomVault.TabStop = false;
+            picRomVault.Click += picRomVault_Click;
             // 
             // btnCancel
             // 
-            this.btnCancel.Enabled = false;
-            this.btnCancel.Image = ((System.Drawing.Image)(resources.GetObject("btnCancel.Image")));
-            this.btnCancel.Location = new System.Drawing.Point(212, 97);
-            this.btnCancel.Name = "btnCancel";
-            this.btnCancel.Size = new System.Drawing.Size(21, 20);
-            this.btnCancel.TabIndex = 17;
-            this.btnCancel.UseVisualStyleBackColor = true;
-            this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
+            btnCancel.Enabled = false;
+            btnCancel.Image = (System.Drawing.Image)resources.GetObject("btnCancel.Image");
+            btnCancel.Location = new System.Drawing.Point(247, 112);
+            btnCancel.Margin = new System.Windows.Forms.Padding(4);
+            btnCancel.Name = "btnCancel";
+            btnCancel.Size = new System.Drawing.Size(24, 23);
+            btnCancel.TabIndex = 17;
+            btnCancel.UseVisualStyleBackColor = true;
+            btnCancel.Click += btnCancel_Click;
             // 
             // btnPause
             // 
-            this.btnPause.Enabled = false;
-            this.btnPause.Image = ((System.Drawing.Image)(resources.GetObject("btnPause.Image")));
-            this.btnPause.Location = new System.Drawing.Point(188, 97);
-            this.btnPause.Name = "btnPause";
-            this.btnPause.Size = new System.Drawing.Size(21, 20);
-            this.btnPause.TabIndex = 16;
-            this.btnPause.UseVisualStyleBackColor = true;
-            this.btnPause.Click += new System.EventHandler(this.btnPause_Click);
+            btnPause.Enabled = false;
+            btnPause.Image = (System.Drawing.Image)resources.GetObject("btnPause.Image");
+            btnPause.Location = new System.Drawing.Point(219, 112);
+            btnPause.Margin = new System.Windows.Forms.Padding(4);
+            btnPause.Name = "btnPause";
+            btnPause.Size = new System.Drawing.Size(24, 23);
+            btnPause.TabIndex = 16;
+            btnPause.UseVisualStyleBackColor = true;
+            btnPause.Click += btnPause_Click;
             // 
             // tbProccessors
             // 
-            this.tbProccessors.Location = new System.Drawing.Point(12, 189);
-            this.tbProccessors.Name = "tbProccessors";
-            this.tbProccessors.Size = new System.Drawing.Size(221, 69);
-            this.tbProccessors.TabIndex = 15;
-            this.tbProccessors.ValueChanged += new System.EventHandler(this.tbProccessors_ValueChanged);
+            tbProccessors.Location = new System.Drawing.Point(14, 218);
+            tbProccessors.Margin = new System.Windows.Forms.Padding(4);
+            tbProccessors.Name = "tbProccessors";
+            tbProccessors.Size = new System.Drawing.Size(258, 45);
+            tbProccessors.TabIndex = 15;
+            tbProccessors.ValueChanged += tbProccessors_ValueChanged;
             // 
             // picDonate
             // 
-            this.picDonate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.picDonate.Image = ((System.Drawing.Image)(resources.GetObject("picDonate.Image")));
-            this.picDonate.Location = new System.Drawing.Point(13, 320);
-            this.picDonate.Name = "picDonate";
-            this.picDonate.Size = new System.Drawing.Size(134, 29);
-            this.picDonate.TabIndex = 13;
-            this.picDonate.TabStop = false;
-            this.picDonate.Click += new System.EventHandler(this.picDonate_Click);
+            picDonate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            picDonate.Image = (System.Drawing.Image)resources.GetObject("picDonate.Image");
+            picDonate.Location = new System.Drawing.Point(15, 369);
+            picDonate.Margin = new System.Windows.Forms.Padding(4);
+            picDonate.Name = "picDonate";
+            picDonate.Size = new System.Drawing.Size(156, 34);
+            picDonate.TabIndex = 13;
+            picDonate.TabStop = false;
+            picDonate.Click += picDonate_Click;
             // 
             // label3
             // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(84, 146);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(42, 13);
-            this.label3.TabIndex = 12;
-            this.label3.Text = "Output:";
+            label3.AutoSize = true;
+            label3.Location = new System.Drawing.Point(93, 169);
+            label3.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            label3.Name = "label3";
+            label3.Size = new System.Drawing.Size(48, 15);
+            label3.TabIndex = 12;
+            label3.Text = "Output:";
             // 
             // label2
             // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(84, 125);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(34, 13);
-            this.label2.TabIndex = 11;
-            this.label2.Text = "Input:";
+            label2.AutoSize = true;
+            label2.Location = new System.Drawing.Point(93, 144);
+            label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            label2.Name = "label2";
+            label2.Size = new System.Drawing.Size(38, 15);
+            label2.TabIndex = 11;
+            label2.Text = "Input:";
             // 
-            // chkFix
+            // chkDryRun
             // 
-            this.chkFix.AutoSize = true;
-            this.chkFix.Checked = true;
-            this.chkFix.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.chkFix.Location = new System.Drawing.Point(132, 169);
-            this.chkFix.Name = "chkFix";
-            this.chkFix.Size = new System.Drawing.Size(46, 21);
-            this.chkFix.TabIndex = 10;
-            this.chkFix.Text = "Fix";
-            this.chkFix.UseVisualStyleBackColor = true;
-            this.chkFix.CheckedChanged += new System.EventHandler(this.chkFix_CheckedChanged);
+            chkDryRun.AutoSize = true;
+            chkDryRun.CheckAlign = System.Drawing.ContentAlignment.MiddleRight;
+            chkDryRun.Location = new System.Drawing.Point(209, 195);
+            chkDryRun.Margin = new System.Windows.Forms.Padding(4);
+            chkDryRun.Name = "chkDryRun";
+            chkDryRun.Size = new System.Drawing.Size(68, 19);
+            chkDryRun.TabIndex = 10;
+            chkDryRun.Text = "Dry Run";
+            chkDryRun.UseVisualStyleBackColor = true;
+            chkDryRun.CheckedChanged += chkDryRun_CheckedChanged;
             // 
             // cboOutType
             // 
-            this.cboOutType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboOutType.FormattingEnabled = true;
-            this.cboOutType.Items.AddRange(new object[] {
-            "Zip-Torrent",
-            "Zip-ZSTD",
-            "7Z-ZSTD",
-            "7Z-ZSTD-Solid",
-            "7Z-LZMA",
-            "7Z-LZMA-Solid"});
-            this.cboOutType.Location = new System.Drawing.Point(132, 143);
-            this.cboOutType.Name = "cboOutType";
-            this.cboOutType.Size = new System.Drawing.Size(101, 21);
-            this.cboOutType.TabIndex = 9;
-            this.cboOutType.TextChanged += new System.EventHandler(this.cboOutType_TextChanged);
+            cboOutType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            cboOutType.FormattingEnabled = true;
+            cboOutType.Items.AddRange(new object[] { "Zip-Torrent", "Zip-ZSTD", "7Z-ZSTD", "7Z-ZSTD-Solid", "7Z-LZMA", "7Z-LZMA-Solid", "Repair keep original" });
+            cboOutType.Location = new System.Drawing.Point(143, 165);
+            cboOutType.Margin = new System.Windows.Forms.Padding(4);
+            cboOutType.Name = "cboOutType";
+            cboOutType.Size = new System.Drawing.Size(140, 23);
+            cboOutType.TabIndex = 9;
+            cboOutType.TextChanged += cboOutType_TextChanged;
             // 
             // cboInType
             // 
-            this.cboInType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cboInType.FormattingEnabled = true;
-            this.cboInType.Items.AddRange(new object[] {
-            "ZIP",
-            "7Z",
-            "ZIP & 7Z",
-            "Files",
-            "Directories",
-            "All"});
-            this.cboInType.Location = new System.Drawing.Point(132, 122);
-            this.cboInType.Name = "cboInType";
-            this.cboInType.Size = new System.Drawing.Size(101, 21);
-            this.cboInType.TabIndex = 8;
-            this.cboInType.TextChanged += new System.EventHandler(this.cboInType_TextChanged);
-            // 
-            // chkForce
-            // 
-            this.chkForce.AutoSize = true;
-            this.chkForce.Location = new System.Drawing.Point(187, 169);
-            this.chkForce.Name = "chkForce";
-            this.chkForce.Size = new System.Drawing.Size(60, 21);
-            this.chkForce.TabIndex = 7;
-            this.chkForce.Text = "Force";
-            this.chkForce.UseVisualStyleBackColor = true;
-            this.chkForce.CheckedChanged += new System.EventHandler(this.chkForce_CheckedChanged);
+            cboInType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            cboInType.FormattingEnabled = true;
+            cboInType.Items.AddRange(new object[] { "ZIP", "7Z", "ZIP & 7Z", "Files", "Directories", "All" });
+            cboInType.Location = new System.Drawing.Point(143, 140);
+            cboInType.Margin = new System.Windows.Forms.Padding(4);
+            cboInType.Name = "cboInType";
+            cboInType.Size = new System.Drawing.Size(140, 23);
+            cboInType.TabIndex = 8;
+            cboInType.TextChanged += cboInType_TextChanged;
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(73, 100);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(114, 13);
-            this.label1.TabIndex = 4;
-            this.label1.Text = "<-- drop Files/Dirs here";
+            label1.AutoSize = true;
+            label1.Location = new System.Drawing.Point(85, 115);
+            label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            label1.Name = "label1";
+            label1.Size = new System.Drawing.Size(130, 15);
+            label1.TabIndex = 4;
+            label1.Text = "<-- drop Files/Dirs here";
             // 
             // lblTotalStatus
             // 
-            this.lblTotalStatus.Location = new System.Drawing.Point(9, 169);
-            this.lblTotalStatus.Name = "lblTotalStatus";
-            this.lblTotalStatus.Size = new System.Drawing.Size(117, 17);
-            this.lblTotalStatus.TabIndex = 3;
-            this.lblTotalStatus.Text = "(0/0)";
-            this.lblTotalStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            lblTotalStatus.Location = new System.Drawing.Point(10, 195);
+            lblTotalStatus.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+            lblTotalStatus.Name = "lblTotalStatus";
+            lblTotalStatus.Size = new System.Drawing.Size(136, 20);
+            lblTotalStatus.TabIndex = 3;
+            lblTotalStatus.Text = "(0/0)";
+            lblTotalStatus.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // picTitle
             // 
-            this.picTitle.Image = ((System.Drawing.Image)(resources.GetObject("picTitle.Image")));
-            this.picTitle.Location = new System.Drawing.Point(12, 6);
-            this.picTitle.Name = "picTitle";
-            this.picTitle.Size = new System.Drawing.Size(224, 84);
-            this.picTitle.TabIndex = 2;
-            this.picTitle.TabStop = false;
-            this.picTitle.Click += new System.EventHandler(this.picTitle_Click);
+            picTitle.Image = (System.Drawing.Image)resources.GetObject("picTitle.Image");
+            picTitle.Location = new System.Drawing.Point(14, 7);
+            picTitle.Margin = new System.Windows.Forms.Padding(4);
+            picTitle.Name = "picTitle";
+            picTitle.Size = new System.Drawing.Size(261, 97);
+            picTitle.TabIndex = 2;
+            picTitle.TabStop = false;
+            picTitle.Click += picTitle_Click;
             // 
             // DropBox
             // 
-            this.DropBox.BackColor = System.Drawing.SystemColors.Control;
-            this.DropBox.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
-            this.DropBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.DropBox.Image = global::TrrntZipUICore.rvImages1.giphy;
-            this.DropBox.InitialImage = null;
-            this.DropBox.Location = new System.Drawing.Point(10, 99);
-            this.DropBox.Name = "DropBox";
-            this.DropBox.Size = new System.Drawing.Size(63, 61);
-            this.DropBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
-            this.DropBox.TabIndex = 0;
-            this.DropBox.TabStop = false;
+            DropBox.BackColor = System.Drawing.SystemColors.Control;
+            DropBox.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
+            DropBox.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            DropBox.Image = rvImages1.giphy;
+            DropBox.InitialImage = null;
+            DropBox.Location = new System.Drawing.Point(12, 114);
+            DropBox.Margin = new System.Windows.Forms.Padding(4);
+            DropBox.Name = "DropBox";
+            DropBox.Size = new System.Drawing.Size(73, 70);
+            DropBox.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            DropBox.TabIndex = 0;
+            DropBox.TabStop = false;
             // 
             // dataGrid
             // 
-            this.dataGrid.AllowUserToAddRows = false;
-            this.dataGrid.AllowUserToDeleteRows = false;
-            this.dataGrid.AllowUserToResizeRows = false;
-            this.dataGrid.BackgroundColor = System.Drawing.Color.White;
-            this.dataGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.FileName,
-            this.Status});
-            this.dataGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dataGrid.Location = new System.Drawing.Point(0, 0);
-            this.dataGrid.MultiSelect = false;
-            this.dataGrid.Name = "dataGrid";
-            this.dataGrid.ReadOnly = true;
-            this.dataGrid.RowHeadersVisible = false;
-            this.dataGrid.RowHeadersWidth = 62;
-            this.dataGrid.ShowCellErrors = false;
-            this.dataGrid.ShowEditingIcon = false;
-            this.dataGrid.ShowRowErrors = false;
-            this.dataGrid.Size = new System.Drawing.Size(530, 361);
-            this.dataGrid.TabIndex = 0;
+            dataGrid.AllowUserToAddRows = false;
+            dataGrid.AllowUserToDeleteRows = false;
+            dataGrid.AllowUserToResizeRows = false;
+            dataGrid.BackgroundColor = System.Drawing.Color.White;
+            dataGrid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dataGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] { FileName, Status });
+            dataGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            dataGrid.Location = new System.Drawing.Point(0, 0);
+            dataGrid.Margin = new System.Windows.Forms.Padding(4);
+            dataGrid.MultiSelect = false;
+            dataGrid.Name = "dataGrid";
+            dataGrid.ReadOnly = true;
+            dataGrid.RowHeadersVisible = false;
+            dataGrid.RowHeadersWidth = 62;
+            dataGrid.ShowCellErrors = false;
+            dataGrid.ShowEditingIcon = false;
+            dataGrid.ShowRowErrors = false;
+            dataGrid.Size = new System.Drawing.Size(618, 416);
+            dataGrid.TabIndex = 0;
             // 
             // FileName
             // 
-            this.FileName.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
-            this.FileName.HeaderText = "FileName";
-            this.FileName.MinimumWidth = 200;
-            this.FileName.Name = "FileName";
-            this.FileName.ReadOnly = true;
+            FileName.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            FileName.HeaderText = "FileName";
+            FileName.MinimumWidth = 200;
+            FileName.Name = "FileName";
+            FileName.ReadOnly = true;
             // 
             // Status
             // 
-            this.Status.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None;
-            this.Status.HeaderText = "Status";
-            this.Status.MinimumWidth = 8;
-            this.Status.Name = "Status";
-            this.Status.ReadOnly = true;
-            this.Status.Width = 160;
+            Status.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None;
+            Status.HeaderText = "Status";
+            Status.MinimumWidth = 8;
+            Status.Name = "Status";
+            Status.ReadOnly = true;
+            Status.Width = 160;
             // 
             // timer1
             // 
-            this.timer1.Tick += new System.EventHandler(this.timer1_Tick);
+            timer1.Tick += timer1_Tick;
             // 
             // FrmTrrntzip
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(784, 361);
-            this.Controls.Add(this.splitContainer);
-            this.DoubleBuffered = true;
-            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
-            this.MinimumSize = new System.Drawing.Size(428, 327);
-            this.Name = "FrmTrrntzip";
-            this.Text = "SAM-UI";
-            this.splitContainer.Panel1.ResumeLayout(false);
-            this.splitContainer.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainer)).EndInit();
-            this.splitContainer.ResumeLayout(false);
-            this.StatusPanel.ResumeLayout(false);
-            this.StatusPanel.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.picRomVault)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.tbProccessors)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picDonate)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.picTitle)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.DropBox)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGrid)).EndInit();
-            this.ResumeLayout(false);
+            AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+            AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            ClientSize = new System.Drawing.Size(915, 416);
+            Controls.Add(splitContainer);
+            DoubleBuffered = true;
+            Icon = (System.Drawing.Icon)resources.GetObject("$this.Icon");
+            Margin = new System.Windows.Forms.Padding(4);
+            MinimumSize = new System.Drawing.Size(494, 362);
+            Name = "FrmTrrntzip";
+            Text = "SAM-UI";
+            splitContainer.Panel1.ResumeLayout(false);
+            splitContainer.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)splitContainer).EndInit();
+            splitContainer.ResumeLayout(false);
+            StatusPanel.ResumeLayout(false);
+            StatusPanel.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)picRomVault).EndInit();
+            ((System.ComponentModel.ISupportInitialize)tbProccessors).EndInit();
+            ((System.ComponentModel.ISupportInitialize)picDonate).EndInit();
+            ((System.ComponentModel.ISupportInitialize)picTitle).EndInit();
+            ((System.ComponentModel.ISupportInitialize)DropBox).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dataGrid).EndInit();
+            ResumeLayout(false);
 
         }
 
@@ -357,10 +348,9 @@
         private System.Windows.Forms.Label lblTotalStatus;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.DataGridView dataGrid;
-        private System.Windows.Forms.CheckBox chkForce;
         private System.Windows.Forms.ComboBox cboOutType;
         private System.Windows.Forms.ComboBox cboInType;
-        private System.Windows.Forms.CheckBox chkFix;
+        private System.Windows.Forms.CheckBox chkDryRun;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.PictureBox picDonate;

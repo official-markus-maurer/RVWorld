@@ -240,7 +240,7 @@
   <data name="picTitle.Image" type="System.Drawing.Bitmap, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>
         iVBORw0KGgoAAAANSUhEUgAAANwAAABRCAYAAAC5dMiHAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAAO
-        wQAADsEBuJFr7QAAKGNJREFUeF7tnQd0FUea72d33+4+2+/s2fccZue9Ge/YYFzYxjYOYxsbB2wcJHIS
+        vAAADrwBlbxySQAAKGNJREFUeF7tnQd0FUea72d33+4+2+/s2fccZue9Ge/YYFzYxjYOYxsbB2wcJHIS
         QVkiZ2EMmGCijQkGJEQwEggQImOQyCIHAwaTMyLnHCWwsf2986/u6q6u6r5JV5iZI53zO91d9dVXX1XX
         /1Z3dd+rPxDRH0oppZR7g5ZQSimllBxaQimllFJyaAmllFJKyaEllFJKKSWHlgAYY+8yxqaXUkopxQI6
         gp4sNLGZgpseGVGXIiLqGHxSmyIj6nAiPqlF1SJwjC3yjWNOZB1rH/nALlubl5UxbGR7w4ecLvwKf1bd
@@ -414,6 +414,9 @@
         FegDQnuHMfY38zcp/ww9aWKTBPev5iz3f0zRQaGYFnEt+gJj7MVSSinFEyySQC9lTbFBRw9pYjMF90/m
         ZeW/mfdymOkexTWoKT44KKWUUryBTv5k6uZ/mzr69/8PINzo9OKY4zkAAAAASUVORK5CYII=
 </value>
+  </data>
+  <data name="timer1.TrayLocation" type="System.Drawing.Point, System.Drawing">
+    <value>17, 17</value>
   </data>
   <data name="$this.Icon" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
     <value>

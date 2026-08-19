@@ -9,8 +9,7 @@ namespace TrrntZipUICore
 
         public int InZip = 2;
         public int OutZip = 0;
-        public bool Force = false;
-        public bool Fix = true;
+        public bool DryRun = false;
         public int ProcCount = 0;
 
 
@@ -47,8 +46,7 @@ namespace TrrntZipUICore
                 {
                     InZip = 2,
                     OutZip = 0,
-                    Force = false,
-                    Fix = true,
+                    DryRun = false,
                     ProcCount = 0
                 };
                 return tZipSettings;
@@ -60,6 +58,9 @@ namespace TrrntZipUICore
             {
                 XmlSerializer x = new XmlSerializer(typeof(TzipSettings));
                 TzipSettings tZipSettings = (TzipSettings)x.Deserialize(sr);
+                if (tZipSettings.OutZip > 6)
+                    tZipSettings.OutZip = 0;
+
                 return tZipSettings;
             }
         }

@@ -1,6 +1,4 @@
-﻿using Compress.Support.Compression.RangeCoder;
-using Compress.Support.Filters;
-using System.IO;
+﻿using System.IO;
 
 namespace Compress.Support.Filters
 {

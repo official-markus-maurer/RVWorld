@@ -6,20 +6,7 @@ namespace Compress
 {
     public static class CompressUtils
     {
-        /*
-        private static int _zstdCompCount;
-        public static int zstdCompCount
-        {
-            get
-            {
-                return _zstdCompCount == 0 ? Math.Max(Environment.ProcessorCount - 2, 1) : _zstdCompCount;
-            }
-            set
-            {
-                _zstdCompCount = Math.Max(value, 0);
-            }
-        }
-        */
+ 
         internal static int SetThreadCount(int? threadCount)
         {
             if (threadCount == null)
@@ -36,14 +23,13 @@ namespace Compress
             string strTemp = Path.GetDirectoryName(sFilename);
 
             if (string.IsNullOrEmpty(strTemp))
-            {
                 return;
-            }
+
+            if (strTemp.Length == 2 && strTemp[1] == ':')
+                return;
 
             if (Directory.Exists(strTemp))
-            {
                 return;
-            }
 
             Directory.CreateDirectory(strTemp);
         }

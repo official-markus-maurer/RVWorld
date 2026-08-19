@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using RomVaultCore.RvDB;
-using DATReader.Utils;
 using RVUtils;
 
 namespace RomVaultCore.FindFix

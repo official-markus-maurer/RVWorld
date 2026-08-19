@@ -1,13 +1,15 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 using FileScanner;
 using RomVaultCore.FixFile.FixAZipCore;
 using RomVaultCore.FixFile.Utils;
 using RomVaultCore.RvDB;
 using RVIO;
+using RVUtils;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
-using RVUtils;
+using System.Threading.Tasks;
 
 namespace RomVaultCore.FixFile
 {
@@ -174,14 +176,6 @@ namespace RomVaultCore.FixFile
 
                 fixZip.Child(fixZipIndex).FileMergeIn(sourceZip.Child(sourceZipIndex), false);
 
-                lstFixRomTable = FindSourceFile.GetFixFileList(fixZip.Child(fixZipIndex));
-                foreach (RvFile fixingFiles in lstFixRomTable)
-                {
-                    string treeFullName = fixingFiles.TreeFullName;
-                    if (!filesUserForFix.ContainsKey(treeFullName))
-                        filesUserForFix.Add(treeFullName, fixingFiles);
-                }
-
                 if (sourceZip.Child(sourceZipIndex).FileRemove() == EFile.Delete)
                 {
                     sourceZip.ChildRemove(sourceZipIndex);
@@ -189,6 +183,34 @@ namespace RomVaultCore.FixFile
                 }
                 sourceZipIndex++;
             }
+
+            ConcurrentDictionary<string, RvFile> localFixed = new ConcurrentDictionary<string, RvFile>();
+
+            int childCount = fixZip.ChildCount;
+            Parallel.For(0, childCount, fixZipIndex =>
+            {
+
+                RvFile child = fixZip.Child(fixZipIndex);
+                if (child.Size == 0)
+                    return;
+
+                if (child.RepStatus == RepStatus.Missing || child.RepStatus == RepStatus.NotCollected)
+                    return;
+
+                var lstFixRomTable1 = FindSourceFile.GetFixFileList(child);
+                foreach (RvFile fixingFiles in lstFixRomTable1)
+                {
+                    string treeFullName = fixingFiles.TreeFullName;
+                    localFixed.TryAdd(treeFullName, fixingFiles);
+                }
+            });
+
+            foreach (KeyValuePair<string, RvFile> fix in localFixed)
+            {
+                if (!filesUserForFix.ContainsKey(fix.Key))
+                    filesUserForFix.Add(fix.Key, fix.Value);
+            }
+
             fixZip.GotStatus = GotStatus.Got;
             fixZip.ZipStruct = sourceZip.ZipStruct;
 
@@ -271,7 +293,7 @@ namespace RomVaultCore.FixFile
         {
             if (fixFile.Name != usingFile.Name)
                 return false;
-            if (fixFile.Size != usingFile.Size)
+            if (fixFile.Size != null && fixFile.Size != usingFile.Size)
                 return false;
             if (FileScanner.FileHeaderReader.AltHeaderFile(usingFile.HeaderFileType))
                 return false;

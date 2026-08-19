@@ -1,12 +1,14 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Reflection;
+using System.Threading;
 using System.Windows.Forms;
 using RomVaultCore;
 using MethodInvoker = System.Windows.Forms.MethodInvoker;
@@ -31,6 +33,8 @@ namespace ROMVault
         private DateTime _dateTimeLast;
         private string _lastMessage;
 
+        private Stopwatch sw;
+        private System.Threading.Timer tm;
 
         public FrmProgressWindow(Form parentForm, string titleRoot, WorkerStart function, Finished funcFinished)
         {
@@ -53,6 +57,8 @@ namespace ROMVault
             if (Settings.rvSettings.Darkness)
                 Dark.dark.SetColors(this);
 
+            sw = new Stopwatch();
+            sw.Start();
 
             _thWrk = new ThreadWorker(function);
         }
@@ -254,11 +260,32 @@ namespace ROMVault
             }
             else
             {
-                _funcFinished?.Invoke();
-                _parentForm.Show();
-                Close();
+                long tElapsed = (long)sw.Elapsed.TotalMilliseconds;
+                if (tElapsed > 2000)
+                    tElapsed = 2000;
+                tElapsed = 2500 - tElapsed;
+
+                tm = new System.Threading.Timer(trmClose, null, tElapsed, Timeout.Infinite);
             }
         }
+
+        private void trmClose(object state)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(doClose));
+                return;
+            }
+            doClose();
+        }
+
+        private void doClose()
+        {
+            _funcFinished?.Invoke();
+            _parentForm.Show();
+            Close();
+        }
+
 
         private void CancelButtonClick(object sender, EventArgs e)
         {

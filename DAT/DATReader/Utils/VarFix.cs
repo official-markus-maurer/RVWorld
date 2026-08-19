@@ -1,16 +1,14 @@
 ﻿using System;
 using System.Xml;
-using DATReader.DatStore;
 
 namespace DATReader.Utils
 {
     public static class VarFix
     {
-        private const string ValidHexChar = "0123456789abcdef";
 
         public static bool StringYesNo(string b)
         {
-            return (b != null) && ((b.ToLower() == "yes") || (b.ToLower() == "true"));
+            return (b != null) && (string.Equals(b, "yes", StringComparison.OrdinalIgnoreCase) || string.Equals(b, "true", StringComparison.OrdinalIgnoreCase));
         }
 
         public static ulong? ULong(XmlNode n)
@@ -32,7 +30,7 @@ namespace DATReader.Utils
 
             try
             {
-                if ((n.Length >= 2) && (n.Substring(0, 2).ToLower() == "0x"))
+                if ((n.Length >= 2) && (n.Substring(0, 2).Equals("0x", StringComparison.OrdinalIgnoreCase)))
                 {
                     return Convert.ToUInt64(n.Substring(2), 16);
                 }
@@ -56,7 +54,7 @@ namespace DATReader.Utils
         public static string CleanCHD(string n)
         {
             string diskName = n ?? "";
-            if (diskName.ToLower().EndsWith(".chd"))
+            if (diskName.EndsWith(".chd", StringComparison.OrdinalIgnoreCase))
                 diskName = diskName.Substring(0, diskName.Length - 4);
             return diskName;
 
@@ -75,37 +73,6 @@ namespace DATReader.Utils
         {
             return n ?? "";
         }
-
-        private static string CleanCheck(string crc, int length)
-        {
-            string retcrc = crc ?? "";
-            retcrc = retcrc.ToLower().Trim();
-
-            if ((retcrc.Length >= 2) && (retcrc.Substring(0, 2).ToLower() == "0x"))
-            {
-                retcrc = retcrc.Substring(2);
-            }
-
-            if (retcrc == "-")
-            {
-                retcrc = "00000000";
-            }
-
-            for (int i = 0; i < retcrc.Length; i++)
-            {
-                if (ValidHexChar.IndexOf(retcrc.Substring(i, 1), StringComparison.Ordinal) < 0)
-                {
-                    return "";
-                }
-            }
-
-
-            retcrc = new string('0', length) + retcrc;
-            retcrc = retcrc.Substring(retcrc.Length - length);
-
-            return retcrc;
-        }
-
 
         //CleanMD5SHA1 with a null or empty string will return null
         public static byte[] CleanMD5SHA1(XmlNode n, int length)
@@ -202,13 +169,5 @@ namespace DATReader.Utils
         {
             return name?.ToLower() ?? "";
         }
-
-
-        public static string ToString(byte[] b)
-        {
-            return b == null ? "" : BitConverter.ToString(b).ToLower().Replace("-", "");
-        }
-
-
     }
 }

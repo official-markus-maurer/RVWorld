@@ -1,8 +1,8 @@
-﻿using System.ComponentModel;
-using System.Text;
-using DATReader.DatStore;
+﻿using DATReader.DatStore;
 using DATReader.Utils;
 using RVIO;
+using System;
+using System.ComponentModel;
 
 namespace DATReader.DatReader
 {
@@ -25,7 +25,7 @@ namespace DATReader.DatReader
                 {
                     return false;
                 }
-                if (dfl.Next.ToLower() == "clrmamepro" || dfl.Next.ToLower() == "clrmame")
+                if (string.Equals(dfl.Next, "clrmamepro", StringComparison.OrdinalIgnoreCase) || string.Equals(dfl.Next, "clrmame", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!LoadHeaderFromDat(dfl, strFilename, datHeader, errorReport))
                     {
@@ -33,9 +33,9 @@ namespace DATReader.DatReader
                     }
                     dfl.Gn();
                 }
-                if (dfl.Next.ToLower() == "raine")
+                if (string.Equals(dfl.Next, "raine", StringComparison.OrdinalIgnoreCase))
                 {
-                    while (dfl.Next.ToLower() != "emulator")
+                    while (!string.Equals(dfl.Next,"emulator",StringComparison.OrdinalIgnoreCase))
                         dfl.Gn();
                     if (!LoadHeaderFromDat(dfl, strFilename, datHeader, errorReport))
                     {
@@ -43,7 +43,7 @@ namespace DATReader.DatReader
                     }
                     dfl.Gn();
                 }
-                if (dfl.Next.ToLower() == "romvault")
+                if (string.Equals(dfl.Next, "romvault", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!LoadHeaderFromDat(dfl, strFilename, datHeader, errorReport))
                     {
@@ -227,7 +227,7 @@ namespace DATReader.DatReader
             }
 
             dfl.Gn();
-            if (dfl.Next.ToLower() != "name")
+            if (!string.Equals(dfl.Next, "name", StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;
@@ -256,17 +256,17 @@ namespace DATReader.DatReader
             }
 
             dfl.Gn();
-            string snext = dfl.Next.ToLower();
+            string snext = dfl.Next;
 
             string pathextra = "";
-            if (snext == "rebuildto")
+            if (string.Equals(snext,"rebuildto",StringComparison.OrdinalIgnoreCase))
             {
                 pathextra = dfl.Gn();
                 dfl.Gn();
-                snext = dfl.Next.ToLower();
+                snext = dfl.Next;
             }
 
-            if (snext != "name")
+            if (!string.Equals(snext,"name",StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;
@@ -368,7 +368,7 @@ namespace DATReader.DatReader
 
                     case "rom":
                     case "badrom": // should set status to baddump
-                    case "unusedrom": 
+                    case "unusedrom":
                     case "znbiosrom":
                     case "s16sndrom":
                     case "s16gfxrom":
@@ -412,7 +412,7 @@ namespace DATReader.DatReader
             }
 
             dfl.Gn();
-            if (dfl.Next.ToLower() != "name")
+            if (!string.Equals(dfl.Next, "name", StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;
@@ -499,7 +499,7 @@ namespace DATReader.DatReader
             }
 
             dfl.Gn();
-            if (dfl.Next.ToLower() != "name")
+            if (!string.Equals(dfl.Next, "name", StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;

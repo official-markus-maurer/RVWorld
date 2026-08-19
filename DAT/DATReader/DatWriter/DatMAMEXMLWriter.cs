@@ -2,6 +2,7 @@
 using Compress;
 using DATReader.DatStore;
 using RVIO;
+using RVUtils;
 
 namespace DATReader.DatWriter
 {
@@ -155,7 +156,7 @@ namespace DATReader.DatWriter
                     if (baseObj.DateModified != null && baseObj.DateModified != Compress.StructuredZip.StructuredZip.TrrntzipDateTime)
                         sw.WriteItem("date", CompressUtils.zipDateTimeToString(baseObj.DateModified));
 
-                    if (baseRom.Status != null && baseRom.Status.ToLower() != "good")
+                    if (baseRom.Status != null && !string.Equals(baseRom.Status, "good", StringComparison.OrdinalIgnoreCase))
                         sw.WriteItem("status", baseRom.Status);
                     sw.WriteEnd("/>");
                 }
@@ -182,11 +183,6 @@ namespace DATReader.DatWriter
             }
 
             return ret;
-        }
-
-        private static string ByteToStr(byte[] b)
-        {
-            return b == null ? "" : BitConverter.ToString(b).ToLower().Replace("-", "");
         }
 
         private class DatStreamWriter : IDisposable
@@ -279,7 +275,7 @@ namespace DATReader.DatWriter
             {
                 if (value == null)
                     return;
-                _sw.Write(@" " + name + @"=""" + ByteToStr(value) + @"""");
+                _sw.Write(@" " + name + @"=""" + value.ToHexString() + @"""");
             }
 
 

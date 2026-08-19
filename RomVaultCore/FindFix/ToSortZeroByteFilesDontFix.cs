@@ -1,5 +1,4 @@
-﻿using CHDSharpLib;
-using RomVaultCore.RvDB;
+﻿using RomVaultCore.RvDB;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;

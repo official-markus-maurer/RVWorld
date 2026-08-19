@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using CodePage;
+using Compress.StructuredZip;
 using Compress.Support.Compression.Deflate;
 using FileInfo = RVIO.FileInfo;
 using FileStream = RVIO.FileStream;
@@ -338,7 +339,7 @@ namespace Compress.gZip
 
         public byte[] ExtraData;
 
-        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong unCompressedSize, ushort compressionMethod, out Stream stream, long? modTime, int? threadCount = null)
+        public ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong unCompressedSize, ZipCompression compressionMethod, out Stream stream, long? modTime, int? threadCount = null, byte[] properties = null)
         {
             using (BinaryWriter zipBw = new(_zipFs, Encoding.UTF8, true))
             {

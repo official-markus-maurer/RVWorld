@@ -151,7 +151,6 @@
             dataGridViewImageColumn2 = new System.Windows.Forms.DataGridViewImageColumn();
             dataGridViewImageColumn3 = new System.Windows.Forms.DataGridViewImageColumn();
             timer1 = new System.Windows.Forms.Timer(components);
-            garbageCollectToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             tooltip = new System.Windows.Forms.ToolTip(components);
             trbFontSize2 = new System.Windows.Forms.TrackBar();
             ((System.ComponentModel.ISupportInitialize)splitToolBarMain).BeginInit();
@@ -1320,6 +1319,10 @@
             updateAllDATsToolStripMenuItem.Text = "Refresh All DATs";
             updateAllDATsToolStripMenuItem.Click += updateAllDATsToolStripMenuItem_Click;
             // 
+            // updateMIAToolStripMenuItem
+            // 
+
+            // 
             // tsmScanROMs
             // 
             tsmScanROMs.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmScanLevel1, tsmScanLevel2, tsmScanLevel3 });
@@ -1463,8 +1466,9 @@
             colorKeyToolStripMenuItem.Name = "colorKeyToolStripMenuItem";
             colorKeyToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F1;
             colorKeyToolStripMenuItem.Size = new System.Drawing.Size(208, 22);
-            colorKeyToolStripMenuItem.Text = "Color Key";
+            colorKeyToolStripMenuItem.Text = "Icon Key";
             colorKeyToolStripMenuItem.Click += colorKeyToolStripMenuItem_Click;
+
             // 
             // whatsNewToolStripMenuItem
             // 
@@ -1480,6 +1484,7 @@
             aboutRomVaultToolStripMenuItem.Size = new System.Drawing.Size(208, 22);
             aboutRomVaultToolStripMenuItem.Text = "About RomVault";
             aboutRomVaultToolStripMenuItem.Click += AboutRomVaultToolStripMenuItemClick;
+
             // 
             // dataGridViewImageColumn1
             // 
@@ -1516,11 +1521,6 @@
             // 
             timer1.Interval = 8000;
             timer1.Tick += timer1_Tick;
-            // 
-            // garbageCollectToolStripMenuItem
-            // 
-            garbageCollectToolStripMenuItem.Name = "garbageCollectToolStripMenuItem";
-            garbageCollectToolStripMenuItem.Size = new System.Drawing.Size(32, 19);
             // 
             // tooltip
             // 
@@ -1684,6 +1684,7 @@
         private System.Windows.Forms.Timer timer1;
         private System.Windows.Forms.ToolStripMenuItem updateNewDATsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem updateAllDATsToolStripMenuItem;
+
         private System.Windows.Forms.Button btnDefault2;
         private System.Windows.Forms.Button btnDefault1;
         private System.Windows.Forms.Button btnDefault4;

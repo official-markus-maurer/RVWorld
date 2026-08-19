@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -43,6 +43,7 @@ namespace ROMVault
                 RepStatus.Correct,
                 RepStatus.CorrectMIA,
                 RepStatus.Missing,
+                RepStatus.MissingNew,
                 RepStatus.MissingMIA,
                 RepStatus.Unknown,
                 RepStatus.UnNeeded,
@@ -109,58 +110,61 @@ namespace ROMVault
                 switch (displayList[i])
                 {
                     case RepStatus.Missing:
-                        text = "Red - This ROM is missing.";
+                        text = "This ROM is missing.";
+                        break;
+                    case RepStatus.MissingNew:
+                        text = "This ROM is new and has not been reported found yet. (DatVault members only feature.)";
                         break;
                     case RepStatus.MissingMIA:
-                        text = "Salmon - This ROM is known to be private or missing in action (MIA).";
+                        text = "This ROM is known to be private or missing in action (MIA).";
                         break;
                     case RepStatus.Correct:
-                        text = "Green - This ROM is Correct.";
+                        text = "This ROM is Correct.";
                         break;
                     case RepStatus.CorrectMIA:
-                        text = "SuperGreen - The ROM was known to be MIA (Missing In Action), but you found it. (Good Job!)";
+                        text = "The ROM was known to be MIA (Missing In Action), but you found it. (Good Job!)";
                         break;
                     case RepStatus.NotCollected:
-                        text = "Gray - The ROM is not collected here because it belongs in the parent or primary deduped set.";
+                        text = "The ROM is not collected here because it belongs in the parent or primary deduped set.";
                         break;
                     case RepStatus.UnNeeded:
-                        text = "Light Cyan - The ROM is not needed here because it belongs in the parent or primary deduped set.";
+                        text = "The ROM is not needed here because it belongs in the parent or primary deduped set.";
                         break;
                     case RepStatus.Unknown:
-                        text = "Cyan - The ROM is not needed here. Use 'Find Fixes' to see what should be done with the ROM.";
+                        text = "The ROM is not needed here. Use 'Find Fixes' to see what should be done with the ROM.";
                         break;
                     case RepStatus.InToSort:
-                        text = "Magenta - The ROM is in a ToSort directory.";
+                        text = "The ROM is in a ToSort directory.";
                         break;
                     case RepStatus.Corrupt:
-                        text = "Red - This file is corrupt.";
+                        text = "This file is corrupt.";
                         break;
                     case RepStatus.UnScanned:
-                        text = "Blue - The file could not be scanned. The file could be locked or have incompatible permissions.";
+                        text = "The file could not be scanned. The file could be locked or have incompatible permissions.";
                         break;
                     case RepStatus.Ignore:
-                        text = "GreyBlue - The file matches an ignore rule.";
+                        text = "The file matches an ignore rule.";
                         break;
                     case RepStatus.CanBeFixed:
-                        text = "Yellow - The ROM is missing here, but it's available elsewhere. The ROM will be fixed.";
+                        text = "The ROM is missing here, but it's available elsewhere. The ROM will be fixed.";
                         break;
                     case RepStatus.CanBeFixedMIA:
-                        text = "SuperYellow - The MIA ROM is missing here, but it's available elsewhere. The ROM will be fixed.";
+                        text = "The MIA ROM is missing here, but it's available elsewhere. The ROM will be fixed.";
                         break;
                     case RepStatus.MoveToSort:
-                        text = "Purple - The ROM is not needed here, but a copy isn't located elsewhere. The ROM will be moved to the Primary ToSort.";
+                        text = "The ROM is not needed here, but a copy isn't located elsewhere. The ROM will be moved to the Primary ToSort.";
                         break;
                     case RepStatus.Delete:
-                        text = "Brown - The ROM is not needed here, but a copy is located elsewhere. The ROM will be deleted.";
+                        text = "The ROM is not needed here, but a copy is located elsewhere. The ROM will be deleted.";
                         break;
                     case RepStatus.NeededForFix:
-                        text = "Orange - The ROM is not needed here, but it's needed elsewhere. The ROM will be moved.";
+                        text = "The ROM is not needed here, but it's needed elsewhere. The ROM will be moved.";
                         break;
                     case RepStatus.Rename:
-                        text = "Light Orange - The ROM is needed here, but has the incorrect name. The ROM will be renamed.";
+                        text = "The ROM is needed here, but has the incorrect name. The ROM will be renamed.";
                         break;
                     case RepStatus.Incomplete:
-                        text = "Pink - This is a ROM that could be fixed, but will not be because it is part of an incomplete set.";
+                        text = "This is a ROM that could be fixed, but will not be because it is part of an incomplete set.";
                         break;
 
                     default:

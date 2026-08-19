@@ -21,7 +21,7 @@ namespace DATReader
             byte[] buffer = null;
             try
             {
-                if (Path.GetExtension(fullname.ToLower()) == ".datz")
+                if (string.Equals(Path.GetExtension(fullname), ".datz", StringComparison.OrdinalIgnoreCase))
                 {
                     Compress.gZip.gZip gz = new Compress.gZip.gZip();
                     gz.ZipFileOpen(fullname);
@@ -68,31 +68,31 @@ namespace DATReader
                 }
 
 
-                if (strLine.ToLower().IndexOf("xml", StringComparison.Ordinal) >= 0)
+                if (strLine.IndexOf("xml", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     if (!ReadXMLDatFromStream(mStream, fullname, ErrorReport, out rvDat))
                     {
                         return false;
                     }
                 }
-                else if ((strLine.ToLower().IndexOf("clrmamepro", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("clrmame", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("romvault", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("game", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("machine", StringComparison.Ordinal) >= 0))
+                else if ((strLine.IndexOf("clrmamepro", StringComparison.OrdinalIgnoreCase) >= 0) || (strLine.IndexOf("clrmame", StringComparison.OrdinalIgnoreCase) >= 0) || (strLine.ToLower().IndexOf("romvault", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("game", StringComparison.Ordinal) >= 0) || (strLine.ToLower().IndexOf("machine", StringComparison.Ordinal) >= 0))
                 {
                     if (!DatCmpReader.ReadDat(mStream, fullname, ErrorReport, out rvDat))
                     {
                         return false;
                     }
                 }
-                else if (strLine.ToLower().IndexOf("doscenter", StringComparison.Ordinal) >= 0)
+                else if (strLine.IndexOf("doscenter", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     if (!DatDOSReader.ReadDat(mStream, fullname, ErrorReport, out rvDat))
                         return false;
                 }
-                else if (strLine.ToLower().IndexOf("[credits]", StringComparison.Ordinal) >= 0)
+                else if (strLine.IndexOf("[credits]", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     if (!DatROMCenterReader.ReadDat(mStream, fullname, ErrorReport, out rvDat))
                         return false;
                 }
-                else if (strLine.ToLower().IndexOf("raine (680x0 arcade emulation)", StringComparison.Ordinal) >= 0)
+                else if (strLine.IndexOf("raine (680x0 arcade emulation)", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     if (!DatCmpReader.ReadDat(mStream, fullname, ErrorReport, out rvDat))
                     {
@@ -115,7 +115,9 @@ namespace DATReader
             XmlDocument doc = new XmlDocument() { XmlResolver = null };
             try
             {
-                XmlReaderSettings xmlReaderSettings = new XmlReaderSettings() { CheckCharacters = false, DtdProcessing = DtdProcessing.Ignore };
+                XmlReaderSettings xmlReaderSettings = new XmlReaderSettings() { 
+                    CheckCharacters = false, 
+                    DtdProcessing = DtdProcessing.Ignore };
                 using (XmlReader reader = XmlReader.Create(fs, xmlReaderSettings))
                 {
                     doc.Load(reader);

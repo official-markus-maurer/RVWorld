@@ -1,14 +1,15 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
+using Extensions;
+using RomVaultCore;
+using RomVaultCore.Utils;
 using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
-using RomVaultCore;
-using RomVaultCore.Utils;
 
 namespace ROMVault
 {
@@ -16,6 +17,7 @@ namespace ROMVault
     {
         public FrmSettings()
         {
+
             InitializeComponent();
 
             cboFixLevel.Items.Clear();
@@ -34,7 +36,14 @@ namespace ROMVault
 
             if (Settings.rvSettings.Darkness)
                 Dark.dark.SetColors(this);
+
+            txtDATVaultKey.BorderStyle = BorderStyle.FixedSingle;
         }
+
+        int previousMIADays = 0;
+        public bool MIADaysChanged = false;
+        public bool previousShowNewMIA = false;
+        public bool previousEnableNewMIA = false;
 
         private void FrmConfigLoad(object sender, EventArgs e)
         {
@@ -59,6 +68,15 @@ namespace ROMVault
             cbo7zStruct.SelectedIndex = Settings.rvSettings.sevenZDefaultStruct;
             chkDarkMode.Checked = Settings.rvSettings.Darkness;
             chkDoNotReportFeedback.Checked = Settings.rvSettings.DoNotReportFeedback;
+
+            upMIADays.Value = Settings.rvSettings.MIADays;
+            chkShowNewMIA.Checked = Settings.rvSettings.ShowNewMIA;
+
+            previousMIADays = Settings.rvSettings.MIADays;
+            previousShowNewMIA = Settings.rvSettings.ShowNewMIA;
+
+            txtDATVaultKey.Text = Settings.rvSettings.DATUpdateKey;
+
         }
 
         private void BtnCancelClick(object sender, EventArgs e)
@@ -103,7 +121,15 @@ namespace ROMVault
 
             Settings.rvSettings.DoNotReportFeedback = chkDoNotReportFeedback.Checked;
 
+            Settings.rvSettings.MIADays = (int)upMIADays.Value;
+            Settings.rvSettings.ShowNewMIA = chkShowNewMIA.Checked;
+
+            Settings.rvSettings.DATUpdateKey = txtDATVaultKey.Text;
+
             Settings.WriteConfig();
+
+            MIADaysChanged = Settings.rvSettings.MIADays != previousMIADays;
+
             Close();
         }
 
@@ -129,6 +155,24 @@ namespace ROMVault
         {
             chkSendFoundMIAAnon.Enabled = chkSendFoundMIA.Checked;
         }
+
+        private void picEye_Click(object sender, EventArgs e)
+        {
+            txtDATVaultKey.PasswordChar = txtDATVaultKey.PasswordChar > 0 ? (char)0 : '*';
+        }
+
+        private void btnValidate_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txtDATVaultKey.Text))
+            {
+                MessageBox.Show("Please enter a DATVault key.", "DATVault Key Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            bool res = ExtHelper.ValidateKey(txtDATVaultKey.Text);
+            MessageBox.Show((res ? "Valid" : "Invalid") + " Key", "DATVault Key Validation", MessageBoxButtons.OK, res ? MessageBoxIcon.Information : MessageBoxIcon.Error);
+        }
+
 
     }
 }

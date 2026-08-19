@@ -7,6 +7,7 @@ namespace ROMVault
     {
         enum AutoStat
         {
+
             Start_Scanning,
             Scanning,
             FindFix,
@@ -15,6 +16,7 @@ namespace ROMVault
         }
 
         private static AutoStat fixStat;
+
 
 
         public static void AutoScanFix()

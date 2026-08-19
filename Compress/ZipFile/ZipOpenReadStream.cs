@@ -6,10 +6,10 @@ namespace Compress.ZipFile
     {
         public ZipReturn ZipFileOpenReadStream(int index, out Stream stream, out ulong streamSize)
         {
-            return ZipFileOpenReadStream(index, false, out stream, out streamSize, out ushort _);
+            return ZipFileOpenReadStream(index, false, out stream, out streamSize, out ZipCompression _);
         }
 
-        public ZipReturn ZipFileOpenReadStream(int index, bool raw, out Stream stream, out ulong streamSize, out ushort compressionMethod)
+        public ZipReturn ZipFileOpenReadStream(int index, bool raw, out Stream stream, out ulong streamSize, out ZipCompression compressionMethod)
         {
             ZipFileCloseReadStream();
 
@@ -27,7 +27,7 @@ namespace Compress.ZipFile
         }
 
 
-        public ZipReturn ZipFileOpenReadStreamFromLocalHeaderPointer(ulong localIndexOffset, bool raw, out Stream stream, out ulong streamSize, out ushort compressionMethod)
+        public ZipReturn ZipFileOpenReadStreamFromLocalHeaderPointer(ulong localIndexOffset, bool raw, out Stream stream, out ulong streamSize, out ZipCompression compressionMethod)
         {
             ZipFileCloseReadStream();
 

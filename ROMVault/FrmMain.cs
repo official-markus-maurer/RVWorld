@@ -1,7 +1,7 @@
 /******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -15,12 +15,12 @@ using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
 using RomVaultCore.Scanner;
 using RVIO;
-
 using DATReader.DatStore;
 using DATReader.DatWriter;
-using TrrntZipUICore;
 using RomVaultCore.Utils;
 using System.Threading;
+using MethodInvoker = System.Windows.Forms.MethodInvoker;
+using Extensions;
 
 namespace ROMVault
 {
@@ -72,9 +72,31 @@ namespace ROMVault
         private float _scaleFactorX = 1;
         private float _scaleFactorY = 1;
 
-        private ToolStripMenuItem garbageCollectToolStripMenuItem;
         #region MainUISetup
 
+        private string txtDefault;
+        private string txtNow = "";
+        private bool sending = false;
+
+
+        public void settext(string txt)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(() => settext(txt)));
+                return;
+            }
+
+            txtNow = txt;
+
+            string res = txtDefault;
+            sending = !string.IsNullOrWhiteSpace(txtNow);
+            if (sending)
+                res += " " + txtNow;
+
+            if (Text != res)
+                Text = res;
+        }
 
         public FrmMain()
         {
@@ -94,7 +116,9 @@ namespace ROMVault
             btnDefault4.BackgroundImage = rvImages.GetBitmap("default4");
 
             AddGameMetaData();
-            Text = $@"RomVault ({Program.strVersion}) {Application.StartupPath}";
+            txtDefault = $@"RomVault ({Program.strVersion}) {Application.StartupPath}";
+            settext("");
+            MIA.stme = settext;
 
             Type dgvType = GameGrid.GetType();
             PropertyInfo pi = dgvType.GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -117,6 +141,7 @@ namespace ROMVault
             _displayColor[(int)RepStatus.DirCorrupt] = CBrightRed; //BrightRed
 
             _displayColor[(int)RepStatus.Missing] = CRed;
+            _displayColor[(int)RepStatus.MissingNew] = CSoftGreen;
             _displayColor[(int)RepStatus.Correct] = CGreen;
             _displayColor[(int)RepStatus.CorrectMIA] = CNeonGreen;
             _displayColor[(int)RepStatus.NotCollected] = CGrey;
@@ -204,6 +229,10 @@ namespace ROMVault
                 Tag = null
             };
 
+
+
+            ToolStripMenuItem mnuResetCorrupt = new ToolStripMenuItem { Text = "Reset Corrupt for scanning", Tag = null };
+
             _mnuContext.Items.Add(mnuScan2);
             _mnuContext.Items.Add(mnuScan1);
             _mnuContext.Items.Add(mnuScan3);
@@ -214,6 +243,12 @@ namespace ROMVault
             _mnuContext.Items.Add(mnuFixDat);
             _mnuContext.Items.Add(mnuMakeDat);
 
+
+            if ((Settings.rvSettings.Permissions & 8) == 8)
+            {
+                _mnuContext.Items.Add(mnuResetCorrupt);
+                mnuResetCorrupt.Click += MnuResetCorruptClick;
+            }
 
             mnuScan1.Click += MnuScan;
             mnuScan2.Click += MnuScan;
@@ -277,7 +312,7 @@ namespace ROMVault
                 Text = @"Clear File Only ToSort",
                 Tag = null
             };
-             
+
             _mnuToSortUp = new ToolStripMenuItem
             {
                 Text = @"Move Up",
@@ -316,16 +351,13 @@ namespace ROMVault
             _mnuToSortUp.Click += MnuToSortUp;
             _mnuToSortDown.Click += MnuToSortDown;
 
+
             chkBoxShowComplete.Checked = Settings.rvSettings.chkBoxShowComplete;
             chkBoxShowPartial.Checked = Settings.rvSettings.chkBoxShowPartial;
             chkBoxShowEmpty.Checked = Settings.rvSettings.chkBoxShowEmpty;
             chkBoxShowFixes.Checked = Settings.rvSettings.chkBoxShowFixes;
             chkBoxShowMIA.Checked = Settings.rvSettings.chkBoxShowMIA;
             chkBoxShowMerged.Checked = Settings.rvSettings.chkBoxShowMerged;
-
-            TabArtworkInitialize();
-
-            SetButtonPosLeft();
 
             tooltip.SetToolTip(btnDefault1, "Right Click: Save Tree Settings\nLeft Click: Load Tree Settings");
             tooltip.SetToolTip(btnDefault2, "Right Click: Save Tree Settings\nLeft Click: Load Tree Settings");
@@ -335,13 +367,12 @@ namespace ROMVault
             tooltip.SetToolTip(btnUpdateDats, "Left Click: Dat Update\nShift Left Click: Full Dat Rescan\n\nRight Click: Open DatVault");
             tooltip.SetToolTip(btnFixFiles, "Left Click: Fix Files\nRight Click: Scan / Find Fix / Fix");
 
-#if DEBUG
-            garbageCollectToolStripMenuItem.Name = "garbageCollectToolStripMenuItem";
-            garbageCollectToolStripMenuItem.Size = new Size(186, 22);
-            garbageCollectToolStripMenuItem.Text = "Garbage Collect";
-            garbageCollectToolStripMenuItem.Click += new EventHandler(this.garbageCollectToolStripMenuItem_Click_1);
-            helpToolStripMenuItem.DropDownItems.Add(garbageCollectToolStripMenuItem);
-#endif
+            ExtHelper.AddIns(this, isWorking, UpdateDats, updateMIACallback);
+
+            TabArtworkInitialize();
+
+            SetButtonPosLeft();
+
             InitGameGridMenu();
 
             if (Settings.rvSettings.Darkness)
@@ -351,6 +382,15 @@ namespace ROMVault
                 SetTextBoxHeight(gbSetInfo);
             }
         }
+
+        /*
+        private void MnuExportToLB(object sender, EventArgs e)
+        {
+            RVLB.DoExport.Go(_clickedTree);
+            DatSetSelected(ctrRvTree.Selected);
+            MessageBox.Show("Export to LB Complete");
+        }
+        */
 
         private void MnuResetCorruptClick(object sender, EventArgs e)
         {
@@ -370,7 +410,6 @@ namespace ROMVault
                     break;
             }
         }
-
 
         // returns either white or black, depending of quick luminance of the Color " a "
         // called when the _displayColor is finished, in order to populate the _fontColor table.
@@ -744,6 +783,9 @@ namespace ROMVault
             UpdateDats();
         }
 
+
+
+
         private void AddToSortToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (_working) return;
@@ -820,6 +862,34 @@ namespace ROMVault
             using (FrmSettings fcfg = new FrmSettings())
             {
                 fcfg.ShowDialog(this);
+
+                if (!fcfg.MIADaysChanged && Settings.rvSettings.ShowNewMIA == fcfg.previousShowNewMIA)
+                    return;
+
+                bool changeShowNewMIA = Settings.rvSettings.ShowNewMIA != fcfg.previousShowNewMIA;
+
+                if (changeShowNewMIA)
+                {
+                    // flip the value back to correctly remove all the old values.
+                    if (changeShowNewMIA)
+                        Settings.rvSettings.ShowNewMIA = !Settings.rvSettings.ShowNewMIA;
+
+                    MIA.ClearOut();
+
+                    // now flip the value again to put it back to its new value.
+                    if (changeShowNewMIA)
+                        Settings.rvSettings.ShowNewMIA = !Settings.rvSettings.ShowNewMIA;
+
+                    // continue on with the new settings, and the code below will put everything back in as now required.
+                }
+
+                MIA.updateType = MIA.MIAUpdateType.doUpdate;
+                using (FrmProgressWindow progress = new FrmProgressWindow(this, "Scanning Dats", MIA.UpdateMIA, null))
+                {
+                    progress.HideCancelButton();
+                    progress.ShowDialog(this);
+                }
+                DatSetSelected(ctrRvTree.Selected);
             }
         }
         private void DirectorySettingsToolStripMenuItem_Click(object sender, EventArgs e)
@@ -897,7 +967,12 @@ namespace ROMVault
         private void BtnUpdateDatsMouseUp(object sender, MouseEventArgs e)
         {
             RootDirsCreate.CheckDatRoot();
-            if (Control.ModifierKeys == Keys.Shift)
+            if (e.Button == MouseButtons.Right)
+            {
+                ExtHelper.DatVaultRightClick();
+                return;
+            }
+            else if (Control.ModifierKeys == Keys.Shift)
             {
                 DatUpdate.InvalidateAllDATs(DB.DirRoot.Child(0), @"DatRoot\");
             }
@@ -1025,6 +1100,7 @@ namespace ROMVault
 
         #region coreFunctions
 
+
         public void UpdateDats()
         {
             // incase the selected tree item(DAT) is removed from the tree in the updated we need to build a parent list and traverse up it until we find a parent item still in the tree.
@@ -1039,11 +1115,11 @@ namespace ROMVault
             }
 
             // update the dats
-            FrmProgressWindow progress = new FrmProgressWindow(this, "Scanning Dats", DatUpdate.UpdateDat, null);
-            progress.HideCancelButton();
-            progress.ShowDialog(this);
-            progress.Dispose();
-
+            using (FrmProgressWindow progress = new FrmProgressWindow(this, "Scanning Dats", DatUpdate.UpdateDat, null))
+            {
+                progress.HideCancelButton();
+                progress.ShowDialog(this);
+            }
             // rebuild the tree
             ctrRvTree.Setup(ref DB.DirRoot);
 
@@ -1073,9 +1149,12 @@ namespace ROMVault
             );
         }
 
-        public FrmProgressWindow frmScanRoms;
+        public FrmProgressWindow frmScanRoms = null;
         public void ScanRoms(EScanLevel sd, RvFile StartAt = null, FormClosedEventHandler fceh = null)
         {
+            if (frmScanRoms != null && !frmScanRoms.IsDisposed)
+                frmScanRoms.Dispose();
+
             FileScanning.StartAt = StartAt;
             FileScanning.EScanLevel = sd;
             frmScanRoms = new FrmProgressWindow(this, "Scanning Dirs", FileScanning.ScanFiles, Finish);
@@ -1089,6 +1168,9 @@ namespace ROMVault
         public FrmProgressWindow frmFindFixes;
         public void FindFixes(bool showLog = false, FormClosedEventHandler fceh = null)
         {
+            if (frmFindFixes != null && !frmFindFixes.IsDisposed)
+                frmFindFixes.Dispose();
+
             frmFindFixes = new FrmProgressWindow(this, "Finding Fixes", RomVaultCore.FindFix.FindFixes.ScanFiles, Finish);
             frmFindFixes.ShowTimeLog = showLog;
             Start();
@@ -1096,12 +1178,14 @@ namespace ROMVault
             if (fceh != null)
                 frmFindFixes.FormClosed += fceh;
             frmFindFixes.Show();
-
         }
 
         FrmProgressWindowFix frmFixFiles;
         public void FixFiles(bool closeOnExit = false, FormClosedEventHandler fceh = null)
         {
+            if (frmFixFiles != null && !frmFixFiles.IsDisposed)
+                frmFixFiles.Dispose();
+
             frmFixFiles = new FrmProgressWindowFix(this, closeOnExit, Finish);
             Start();
             setPos(frmFixFiles);
@@ -1111,6 +1195,13 @@ namespace ROMVault
         }
 
         private bool _working = false;
+
+
+        public bool isWorking()
+        {
+            return _working;
+        }
+
         private void Start()
         {
             _working = true;
@@ -1144,6 +1235,12 @@ namespace ROMVault
         }
         private void Finish()
         {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new MethodInvoker(Finish));
+                return;
+            }
+
             _working = false;
             ctrRvTree.CoreActive = false;
             //menuStrip1.Enabled = true;
@@ -1305,7 +1402,6 @@ namespace ROMVault
 
         #endregion
 
-
         private void btnDefault1_MouseDown(object sender, MouseEventArgs e)
         {
             treeDefault(e.Button == MouseButtons.Right, 1);
@@ -1370,32 +1466,37 @@ namespace ROMVault
             if (_fk != null && !_fk.IsDisposed)
                 _fk.Close();
 
+            while (sending)
+                Thread.Sleep(1000);
+
             this.Hide();
-            foreach (Thread frmTrrntzip in frmTrrntzips)
-                frmTrrntzip.Join();
 
             Environment.Exit(0);
         }
 
-        private List<Thread> frmTrrntzips = new List<Thread>();
         private void torrentZipToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            TrrntZipUICore.TzipSettings.outDir = "config";
-            Thread tStart = new Thread(() =>
-            {
-                FrmTrrntzip frmTrrntzip = new FrmTrrntzip();
-                if (Settings.rvSettings.Darkness)
-                    Dark.dark.SetColors(frmTrrntzip);
-                Application.Run(frmTrrntzip);
-            });
-            frmTrrntzips.Add(tStart);
-            tStart.SetApartmentState(ApartmentState.STA);
-            tStart.Start();
+
+#if NET10_0
+            string appName = Environment.ProcessPath;
+#else
+            string appName = Assembly.GetEntryAssembly().Location;
+#endif
+            RVProcess.StartURL(appName, "sam");
         }
 
-        private void garbageCollectToolStripMenuItem_Click_1(object sender, EventArgs e)
+        private void updateMIACallback()
         {
-            GC.Collect();
+            MIA.updateType = (Control.ModifierKeys == Keys.Shift) ? MIA.MIAUpdateType.forceUpdate : MIA.MIAUpdateType.Regular;
+
+            // update the dats
+            using (FrmProgressWindow progress = new FrmProgressWindow(this, "Scanning Dats", MIA.UpdateMIA, null))
+            {
+                progress.HideCancelButton();
+                progress.ShowDialog(this);
+            }
+            DatSetSelected(ctrRvTree.Selected);
         }
+
     }
 }

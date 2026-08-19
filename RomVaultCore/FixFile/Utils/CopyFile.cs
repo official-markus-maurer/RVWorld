@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.IO;
 using Compress;
 using Compress.SevenZip;
+using Compress.StructuredZip;
 using Compress.Support.Compression.Deflate;
 using Compress.Support.Compression.LZMA;
 using Compress.ThreadReaders;
@@ -105,10 +106,12 @@ namespace RomVaultCore.FixFile.Utils
             // trusting that this logic is correct, as it is now not double checked anywhere else.
             bool rawCopy = fixStyle == FixStyle.RawCopy;
 
+
             ulong streamSize = 0;
-            ushort inCompressionMethod = 8;
+            ZipCompression inCompressionMethod = ZipCompression.Deflated;
 
             bool isZeroLengthFile = DBHelper.IsZeroLengthFile(fileOut);
+
             byte[] properties = null;
             if (!isZeroLengthFile)
             {
@@ -127,13 +130,12 @@ namespace RomVaultCore.FixFile.Utils
                 }
             }
 
-            retC = GetOutputCompressionMethod(zipFileOut, fileOut, inCompressionMethod, rawCopy, out ushort outCompressionMethod);
+            retC = GetOutputCompressionMethod(zipFileOut, fileOut, inCompressionMethod, rawCopy, out ZipCompression outCompressionMethod);
             if (retC != ReturnCode.Good)
                 return retC;
 
             if (rawCopy && inCompressionMethod != outCompressionMethod)
                 return ReturnCode.LogicError;
-
 
             //Find and Check/Open Output Files
             long dateTimeOut = fileOut.FileModTimeStamp != long.MinValue && fileOut.FileStatusIs(FileStatus.DateFromDAT)
@@ -367,11 +369,10 @@ namespace RomVaultCore.FixFile.Utils
                 return retC;
             }
 
-
             return ReturnCode.Good;
         }
 
-        private static ReturnCode GetOutputCompressionMethod(ICompress zipFileOut, RvFile fileOut, ushort inCompressionMethod, bool rawCopy, out ushort outCompressionMethod)
+        private static ReturnCode GetOutputCompressionMethod(ICompress zipFileOut, RvFile fileOut, ZipCompression inCompressionMethod, bool rawCopy, out ZipCompression outCompressionMethod)
         {
             outCompressionMethod = 0;
 
@@ -383,16 +384,17 @@ namespace RomVaultCore.FixFile.Utils
 
             if (zipFileOut.ZipStruct == ZipStructure.None)
             {
+
                 if (fileOut.FileType == FileType.FileZip)
                 {
-                    outCompressionMethod = rawCopy ? inCompressionMethod : (ushort)8;
+                    outCompressionMethod = rawCopy ? inCompressionMethod : ZipCompression.Deflated;
                     return ReturnCode.Good;
                 }
                 else
                     return ReturnCode.LogicError;
             }
-            outCompressionMethod = StructuredArchive.GetCompressionType(zipFileOut.ZipStruct);
-            return outCompressionMethod == ushort.MaxValue ? ReturnCode.LogicError : ReturnCode.Good;
+            outCompressionMethod = StructuredArchive.GetCompressionType(zipFileOut.ZipStruct, fileOut.FileGroup.Size);
+            return (ushort)outCompressionMethod == ushort.MaxValue ? ReturnCode.LogicError : ReturnCode.Good;
         }
 
         private static ReturnCode CheckInputAndOutputFile(RvFile fileIn, RvFile fileOut, out string error)
@@ -431,7 +433,7 @@ namespace RomVaultCore.FixFile.Utils
             return ReturnCode.Good;
         }
 
-        private static ReturnCode OpenInputStream(RvFile fileIn, bool rawCopy, out ICompress zipFileIn, out Stream readStream, out ulong streamSize, out ushort compressionMethod, out byte[] properties, out string error)
+        private static ReturnCode OpenInputStream(RvFile fileIn, bool rawCopy, out ICompress zipFileIn, out Stream readStream, out ulong streamSize, out ZipCompression compressionMethod, out byte[] properties, out string error)
         {
             zipFileIn = null;
             readStream = null;
@@ -553,7 +555,7 @@ namespace RomVaultCore.FixFile.Utils
 
         // if we are fixing a zip/7z file then we use zipFileOut to open an output compressed stream
         // if we are just making a file then we use filenameOut to open an output filestream
-        private static ReturnCode OpenOutputStream(RvFile fileOut, RvFile fileIn, ICompress zipFileOut, string filenameOut, ushort compressionMethod, bool rawCopy, long? modTime, byte[] properties, out Stream writeStream, out string error)
+        private static ReturnCode OpenOutputStream(RvFile fileOut, RvFile fileIn, ICompress zipFileOut, string filenameOut, ZipCompression compressionMethod, bool rawCopy, long? modTime, byte[] properties, out Stream writeStream, out string error)
         {
             writeStream = null;
 
@@ -578,11 +580,7 @@ namespace RomVaultCore.FixFile.Utils
                     return ReturnCode.LogicError;
                 }
 
-                ZipReturn zr = ZipReturn.ZipGood;
-                if (zipFileOut is SevenZ zipFileOutSevenZ)
-                    zr = zipFileOutSevenZ.ZipFileOpenWriteStream(rawCopy, fileOut.Name, (ulong)fileIn.Size, compressionMethod, properties, out writeStream, modTime, Settings.rvSettings.zstdCompCount);
-                else
-                    zr = zipFileOut.ZipFileOpenWriteStream(rawCopy, fileOut.Name, (ulong)fileIn.Size, compressionMethod, out writeStream, modTime, Settings.rvSettings.zstdCompCount);
+                ZipReturn zr = zipFileOut.ZipFileOpenWriteStream(rawCopy, fileOut.Name, (ulong)fileIn.Size, compressionMethod, out writeStream, modTime, Settings.rvSettings.zstdCompCount, properties);
                 if (zr != ZipReturn.ZipGood)
                 {
                     error = "Error Opening Write Stream " + zr;

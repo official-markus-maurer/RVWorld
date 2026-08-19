@@ -1,5 +1,6 @@
 ﻿using Compress.ZipFile;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 
@@ -39,9 +40,10 @@ namespace ROMVault
                 zf.ZipFileClose();
             }
 
-            if (File.Exists($"graphics\\{bitmapName}.png"))
+            string imageFilename = $"graphics\\{bitmapName}.png";
+            if (File.Exists(imageFilename))
             {
-                Bitmap bmpf = new Bitmap($"graphics\\{bitmapName}.png");
+                Bitmap bmpf = new Bitmap(imageFilename);
                 bmps.Add(bitmapName, new Bitmap(bmpf));
                 return bmpf;
             }
@@ -55,7 +57,16 @@ namespace ROMVault
                 bm = (Bitmap)bmObj;
                 bmps.Add(bitmapName, new Bitmap(bm));
             }
-
+            if (bm == null)
+            {
+                imageFilename += ".missing";
+                if (!File.Exists(imageFilename))
+                {
+                    if (Directory.Exists("graphics"))
+                        File.WriteAllText(imageFilename, $"Icon {bitmapName} is missing.");
+                }
+                Debug.WriteLine($"{bitmapName} is not found");
+            }
             return bm;
         }
     }

@@ -155,7 +155,7 @@ namespace RomVaultCore.FindFix
             }
         }
 
-        internal static void GetSelectedFiles(RvFile val, bool selected, List<RvFile> gotFiles, List<RvFile> missingFiles)
+        public static void GetSelectedFiles(RvFile val, bool selected, List<RvFile> gotFiles, List<RvFile> missingFiles)
         {
             if (selected)
             {
@@ -200,7 +200,7 @@ namespace RomVaultCore.FindFix
         //  add the rom to an existing set or make a new set.
 
 
-        internal static void MergeGotFiles(IEnumerable<RvFile> gotFilesSortedByCRC, out FileGroup[] fileGroups)
+        public static void MergeGotFiles(IEnumerable<RvFile> gotFilesSortedByCRC, out FileGroup[] fileGroups)
         {
             ByteSortedList<FileGroup, RvFile> listFileGroupsOut = new ByteSortedList<FileGroup, RvFile>(getByteFunc, CompareCRC, newFunc, mergeFunc);
 

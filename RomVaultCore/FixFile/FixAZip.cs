@@ -12,7 +12,7 @@ using RVIO;
 
 namespace RomVaultCore.FixFile
 {
-    public static partial class FixAZip 
+    public static partial class FixAZip
     {
         public class ZipFileException : Exception
         {
@@ -33,7 +33,7 @@ namespace RomVaultCore.FixFile
             {
                 return ReturnCode.FindFixesInvalidStatus; // Error
             }
-          
+
 
             // need to add code to check if we want a trrntzip or an rvzip
 
@@ -170,12 +170,12 @@ namespace RomVaultCore.FixFile
 
                 for (int iRom = 0; iRom < fixZip.ChildCount; iRom++)
                 {
-                    RvFile fixZippedFile = new RvFile(DBTypeGet.FileFromDir(fixFileType));
-                    RvFile fixingChild = fixZip.Child(iRom);
-             
-                    fixingChild.CopyTo(fixZippedFile);
+                    RvFile fixZippedFile = new RvFile(DBTypeGet.FileFromDir(fixFileType)); // make a new temp instance of the rom being fixed.
+                    RvFile fixingChild = fixZip.Child(iRom); // get the cache version of the info of this rom.
 
-                    fixZipTemp.Add(fixZippedFile);
+                    fixingChild.CopyTo(fixZippedFile, false, false); // copy the cache version info into the temp instance.
+
+                    fixZipTemp.Add(fixZippedFile); // add the temp instance to the list of fixing files.
 
                     ReportError.LogOut(fixZippedFile.RepStatus + " : " + fixingChild.FullName);
                     ReportError.procLog("FixAZip: " + fixZippedFile.RepStatus + " : " + fixingChild.FullName);
@@ -324,9 +324,12 @@ namespace RomVaultCore.FixFile
                     if (Report.CancellationPending())
                     {
                         ReportError.procLog($"FixAZip: Cancellation Pending Closing All");
-                        try { tempFixZip?.ZipFileCloseFailed(); } catch { }; tempFixZip = null;
-                        try { toSortZipOut?.ZipFileCloseFailed(); } catch { }; toSortZipOut = null;
-                        try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }; toSortCorruptOut = null;
+                        try { tempFixZip?.ZipFileCloseFailed(); } catch { }
+                        ; tempFixZip = null;
+                        try { toSortZipOut?.ZipFileCloseFailed(); } catch { }
+                        ; toSortZipOut = null;
+                        try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }
+                        ; toSortCorruptOut = null;
                         ReportError.procLog($"FixAZip: Cancellation Pending Returning");
 
                         errorMessage = "Cancel";
@@ -337,24 +340,30 @@ namespace RomVaultCore.FixFile
 
                 //if ToSort Zip Made then close the zip and add this new zip to the Database
                 ReportError.procLog($"FixAZip: ClosetoSortGame");
-                returnCode=CloseToSortGame(toSortGame, ref toSortZipOut);
+                returnCode = CloseToSortGame(toSortGame, ref toSortZipOut);
                 if (returnCode != ReturnCode.Good)
                 {
-                    try { tempFixZip?.ZipFileCloseFailed(); } catch { }; tempFixZip = null;
-                    try { toSortZipOut?.ZipFileCloseFailed(); } catch { }; toSortZipOut = null;
-                    try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }; toSortCorruptOut = null;
+                    try { tempFixZip?.ZipFileCloseFailed(); } catch { }
+                    ; tempFixZip = null;
+                    try { toSortZipOut?.ZipFileCloseFailed(); } catch { }
+                    ; toSortZipOut = null;
+                    try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }
+                    ; toSortCorruptOut = null;
                     errorMessage += $"\nErrorClosing ToSort Game {returnCode}";
                     return returnCode;
                 }
 
                 //if Corrupt Zip Made then close the zip and add this new zip to the Database
                 ReportError.procLog($"FixAZip: Close Corrupt Game");
-                returnCode=CloseToSortCorruptGame(toSortCorruptGame, ref toSortCorruptOut);
+                returnCode = CloseToSortCorruptGame(toSortCorruptGame, ref toSortCorruptOut);
                 if (returnCode != ReturnCode.Good)
                 {
-                    try { tempFixZip?.ZipFileCloseFailed(); } catch { }; tempFixZip = null;
-                    try { toSortZipOut?.ZipFileCloseFailed(); } catch { }; toSortZipOut = null;
-                    try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }; toSortCorruptOut = null;
+                    try { tempFixZip?.ZipFileCloseFailed(); } catch { }
+                    ; tempFixZip = null;
+                    try { toSortZipOut?.ZipFileCloseFailed(); } catch { }
+                    ; toSortZipOut = null;
+                    try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }
+                    ; toSortCorruptOut = null;
                     errorMessage += $"\nMoveToCorrupt Corrupt Game {returnCode}";
                     return returnCode;
                 }
@@ -395,7 +404,7 @@ namespace RomVaultCore.FixFile
                     try
                     {
                         int tryCount = 0;
-                        while (File.Exists(filename) && tryCount<10)
+                        while (File.Exists(filename) && tryCount < 10)
                         {
                             tryCount++;
                             Thread.Sleep(100);
@@ -406,7 +415,7 @@ namespace RomVaultCore.FixFile
                             }
                             catch { }
                         }
-                        if (tryCount==10)
+                        if (tryCount == 10)
                         {
                             if (tempFixZip != null && tempFixZip.ZipOpen != ZipOpenType.Closed)
                             {
@@ -485,7 +494,7 @@ namespace RomVaultCore.FixFile
                 ReportError.procLog($"FixAZip: putting back data");
                 foreach (RvFile tmpZip in fixZipTemp)
                 {
-                    tmpZip.CopyTo(fixZip.Child(intLoopFix));
+                    tmpZip.CopyTo(fixZip.Child(intLoopFix), false, true);
 
                     if (fixZip.Child(intLoopFix).GotStatus == GotStatus.NotGot)
                     {
@@ -526,11 +535,14 @@ namespace RomVaultCore.FixFile
             catch (ZipFileException ex)
             {
                 ReportError.procLog($"FixAZip: Error on ZipfileException, Closing tempFixZip");
-                try { tempFixZip?.ZipFileCloseFailed(); } catch { }; tempFixZip = null;
+                try { tempFixZip?.ZipFileCloseFailed(); } catch { }
+                ; tempFixZip = null;
                 ReportError.procLog($"FixAZip: Error on ZipfileException, Closing toSortZipOut");
-                try { toSortZipOut?.ZipFileCloseFailed(); } catch { }; toSortZipOut = null;
+                try { toSortZipOut?.ZipFileCloseFailed(); } catch { }
+                ; toSortZipOut = null;
                 ReportError.procLog($"FixAZip: Error on ZipfileException, Closing toSortCorruptOut");
-                try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }; toSortCorruptOut = null;
+                try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }
+                ; toSortCorruptOut = null;
                 ReportError.procLog($"FixAZip: Error on ZipfileException, nulling out.");
 
                 errorMessage = "In Fix Zip, ZipFileException:\n" + ex.Message + "\nat\n:" + ex.StackTrace;
@@ -539,11 +551,14 @@ namespace RomVaultCore.FixFile
             catch (Exception ex)
             {
                 ReportError.procLog($"FixAZip: Error Exception, Closing tempFixZip");
-                try { tempFixZip?.ZipFileCloseFailed(); } catch { }; tempFixZip = null;
+                try { tempFixZip?.ZipFileCloseFailed(); } catch { }
+                ; tempFixZip = null;
                 ReportError.procLog($"FixAZip: Error Exception, Closing toSortZipOut");
-                try { toSortZipOut?.ZipFileCloseFailed(); } catch { }; toSortZipOut = null;
+                try { toSortZipOut?.ZipFileCloseFailed(); } catch { }
+                ; toSortZipOut = null;
                 ReportError.procLog($"FixAZip: Error Exception, Closing toSortCorruptOut");
-                try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }; toSortCorruptOut = null;
+                try { toSortCorruptOut?.ZipFileCloseFailed(); } catch { }
+                ; toSortCorruptOut = null;
                 ReportError.procLog($"FixAZip: Error Exception, nulling out.");
 
                 errorMessage = "In Fix Zip:\n" + ex.Message + "\nat\n:" + ex.StackTrace;
@@ -583,7 +598,8 @@ namespace RomVaultCore.FixFile
                 tempFixZip?.ZipFileCloseFailed();
                 return ReturnCode.Good;
             }
-            catch {
+            catch
+            {
                 return ReturnCode.FileSystemError;
             }
             finally { tempFixZip = null; }

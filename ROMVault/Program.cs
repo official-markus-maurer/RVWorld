@@ -1,13 +1,15 @@
-﻿using RomVaultCore;
+﻿using Extensions;
+using RomVaultCore;
 using RomVaultCore.FixFile.FixAZipCore;
+using RomVaultCore.RvDB;
 using RomVaultCore.Utils;
 using System;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
-using System.ServiceModel;
 using System.Threading;
 using System.Windows.Forms;
+using TrrntZipUICore;
 
 namespace ROMVault
 {
@@ -21,7 +23,7 @@ namespace ROMVault
         private static Mutex mutex = null;
 
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
             strVersion = $"{Version.Major}.{Version.Minor}.{Version.Build}";
             if (Version.Revision > 0)
@@ -31,6 +33,38 @@ namespace ROMVault
 #if NET10_0
             Application.SetHighDpiMode(HighDpiMode.DpiUnaware);
             Application.SetDefaultFont(new Font(new FontFamily("Microsoft Sans Serif"), 8.25f));
+#endif
+
+            Settings.readSettings += ExtHelper.readSettings;
+            Settings.writeSettings += ExtHelper.writeSettings;
+
+            Settings.checkdirs();
+            Settings.rvSettings = new Settings();
+            Settings.rvSettings = Settings.SetDefaults(out string errorReadingSettings);
+
+
+
+            if (!string.IsNullOrWhiteSpace(errorReadingSettings))
+                MessageBox.Show(errorReadingSettings, "Error Reading Settings", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+
+            if (args.Length == 1 && args[0] == "sam")
+            {
+                TzipSettings.outDir = "config";
+                FrmTrrntzip frmTrrntzip = new FrmTrrntzip();
+                frmTrrntzip.Text = $"SAM-UI ({strVersion})";
+                if (Settings.rvSettings.Darkness)
+                    Dark.dark.SetColors(frmTrrntzip);
+                Application.Run(frmTrrntzip);
+                return;
+            }
+
+            ReportError.ErrorForm += ShowErrorForm;
+            ReportError.Dialog += ShowDialog;
+            ReportError.SendErrorMessageExternalLink += ExtHelper.SendErrorMessage;
+            RvFile.sendMIA += MIA.SendMIAFound;
+            RomVaultCore.ReadDat.DatUpdate.UpdateMIAExternal += MIA.UpdateMIA;
+#if NET10_0
             string appName = Environment.ProcessPath;
 #else
             string appName = Assembly.GetEntryAssembly().Location;
@@ -47,15 +81,9 @@ namespace ROMVault
                 DialogResult res = MessageBox.Show($"You cannot run two copies of the same instance of RomVault.", $"You are already running RomVault", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                 return;
             }
-            Settings.checkdirs();
-            Settings.rvSettings = new Settings();
-            Settings.rvSettings = Settings.SetDefaults(out string errorReadingSettings);
 
-            if (!string.IsNullOrWhiteSpace(errorReadingSettings))
-                MessageBox.Show(errorReadingSettings, "Error Reading Settings", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            ExtHelper.StartUpChecks(Version);
 
-            ReportError.ErrorForm += ShowErrorForm;
-            ReportError.Dialog += ShowDialog;
 
             Dark.dark.darkEnabled = Settings.rvSettings.Darkness;
 
@@ -81,7 +109,7 @@ namespace ROMVault
             frmMain = new FrmMain();
             Application.Run(frmMain);
 
-            ReportError.Close();
+            RomVaultCore.ReportError.Close();
         }
 
         public static void ShowErrorForm(string message)

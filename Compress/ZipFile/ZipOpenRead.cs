@@ -173,17 +173,9 @@ namespace Compress.ZipFile
         {
             HeaderCentral.ClearStatus();
 
-            if (HeaderCentral.GeneralPurposeBitFlag != HeaderLocal.GeneralPurposeBitFlag)
-                HeaderCentral.SetStatus(LocalFileStatus.HeadersMismatch);
-
+            /* hard errors */
             if (HeaderCentral.CompressionMethod != HeaderLocal.CompressionMethod)
                 return ZipReturn.ZipLocalFileHeaderError;
-
-            if (HeaderCentral.HeaderLastModified != HeaderLocal.HeaderLastModified)
-                HeaderCentral.SetStatus(LocalFileStatus.DateTimeMisMatch);
-
-            if (!CompressUtils.CompareStringSlashToLower(HeaderCentral.Filename, HeaderLocal.Filename))
-                HeaderCentral.SetStatus(LocalFileStatus.FilenameMisMatch);
 
             if (!CompressUtils.ByteArrEquals(HeaderCentral.CRC, HeaderLocal.CRC))
                 return ZipReturn.ZipLocalFileHeaderError;
@@ -193,6 +185,16 @@ namespace Compress.ZipFile
 
             if (HeaderCentral.UncompressedSize != HeaderLocal.UncompressedSize)
                 return ZipReturn.ZipLocalFileHeaderError;
+
+            /* soft errors */
+            if (HeaderCentral.GeneralPurposeBitFlag != HeaderLocal.GeneralPurposeBitFlag)
+                HeaderCentral.SetStatus(LocalFileStatus.HeadersMismatch);
+
+            if (HeaderCentral.HeaderLastModified != HeaderLocal.HeaderLastModified)
+                HeaderCentral.SetStatus(LocalFileStatus.DateTimeMisMatch);
+
+            if (!CompressUtils.CompareStringSlashToLower(HeaderCentral.Filename, HeaderLocal.Filename))
+                HeaderCentral.SetStatus(LocalFileStatus.FilenameMisMatch);
 
             if (HeaderCentral.IsDirectory && HeaderCentral.UncompressedSize != 0)
                 HeaderCentral.SetStatus(LocalFileStatus.DirectoryLengthError);
@@ -230,22 +232,22 @@ namespace Compress.ZipFile
             99 - AE-x encryption marker (see APPENDIX E)
            */
 
-            switch (HeaderCentral.CompressionMethod)
+            switch ((ZipCompression)HeaderCentral.CompressionMethod)
             {
-                case 0: // The file is stored (no compression)
-                case 1: // The file is Shrunk
-                case 2: // The file is Reduced with compression factor 1
-                case 3: // The file is Reduced with compression factor 2
-                case 4: // The file is Reduced with compression factor 3
-                case 5: // The file is Reduced with compression factor 4
-                case 6: // The file is Imploded
-                case 8: // The file is Deflated
-                case 9: // Enhanced Deflating using Deflate64(tm)
-                case 12: // The file is BZIP2 algorithm. 
-                case 14: // LZMA
-                case 20:
-                case 93: // Zstandard (zstd) Compression 
-                case 98: // PPMd version I, Rev 1
+                case ZipCompression.Stored: 
+                case ZipCompression.Shrunk: 
+                case ZipCompression.Reduced1: 
+                case ZipCompression.Reduced2: 
+                case ZipCompression.Reduced3: 
+                case ZipCompression.Reduced4: 
+                case ZipCompression.Imploded: 
+                case ZipCompression.Deflated: 
+                case ZipCompression.Deflate64: 
+                case ZipCompression.Bzip2:
+                case ZipCompression.LZMA: 
+                case ZipCompression.ZStandardDeprecated:
+                case ZipCompression.ZStandard: 
+                case ZipCompression.PPMd: 
                     break;
 
                 default:

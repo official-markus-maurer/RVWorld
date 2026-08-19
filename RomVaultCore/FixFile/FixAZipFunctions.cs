@@ -1,5 +1,4 @@
 ﻿using Compress;
-using Compress.SevenZip;
 using Compress.StructuredZip;
 using RomVaultCore.FixFile.Utils;
 using RomVaultCore.RvDB;
@@ -36,8 +35,8 @@ namespace RomVaultCore.FixFile
             }
             else
             {
-                outputFixZip = new SevenZ();
-                zrf = ((SevenZ)outputFixZip).ZipFileCreateFromUncompressedSize(outputZipFilename, newFileStruct, UncompressedSize);
+                outputFixZip = new Structured7Zip();
+                zrf = ((Structured7Zip)outputFixZip).ZipFileCreateFromUncompressedSize(outputZipFilename, newFileStruct, UncompressedSize);
             }
 
             if (zrf != ZipReturn.ZipGood)

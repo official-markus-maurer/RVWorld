@@ -13,7 +13,7 @@ namespace TrrntZip
 {
     public static class TorrentZipRebuild
     {
-        public static TrrntZipStatus ReZipFiles(List<ZippedFile> zippedFiles, ICompress originalZipFile, byte[] buffer, StatusCallback statusCallBack, LogCallback logCallback, ErrorCallback errorCallback, int threadId, int threadCount, PauseCancel pc,Settings settings)
+        public static TrrntZipStatus ReZipFiles(List<ZippedFile> zippedFiles, ICompress originalZipFile, ZipStructure outputType, byte[] buffer, StatusCallback statusCallBack, LogCallback logCallback, ErrorCallback errorCallback, int threadId, int threadCount, PauseCancel pc, Settings settings)
         {
             zipType inputType;
 
@@ -35,8 +35,6 @@ namespace TrrntZip
                     return TrrntZipStatus.Unknown;
             }
 
-            ZipStructure outputType = settings.OutZip;
-
             int bufferSize = buffer.Length;
 
 
@@ -46,10 +44,10 @@ namespace TrrntZip
             string fileNameOutputPart = inputType == zipType.file ? Path.GetFileName(filename) : Path.GetFileNameWithoutExtension(filename);
             string fileNameOutputDir = Path.GetDirectoryName(filename);
 
-            string tmpFilename = Path.Combine(fileNameOutputDir, "__" + Path.GetFileName(filename) + ".samtmp");
+            string tmpFilename = $"{fileNameOutputDir}{Path.DirSeparatorChar}__{Path.GetFileName(filename)}.samtmp";
 
             string outExt = outputType == ZipStructure.ZipTrrnt || outputType == ZipStructure.ZipZSTD ? ".zip" : ".7z";
-            string outfilename = Path.Combine(fileNameOutputDir, fileNameOutputPart + outExt);
+            string outfilename = $"{fileNameOutputDir}{Path.DirSeparatorChar}{fileNameOutputPart + outExt}";
 
             if (inExt != outExt)
             {
@@ -81,8 +79,8 @@ namespace TrrntZip
                     foreach (ZippedFile f in zippedFiles)
                         unCompressedSize += f.Size;
 
-                    zipFileOut = new SevenZ();
-                    zr = ((SevenZ)zipFileOut).ZipFileCreateFromUncompressedSize(tmpFilename, outputType, unCompressedSize);
+                    zipFileOut = new Structured7Zip();
+                    zr = ((Structured7Zip)zipFileOut).ZipFileCreateFromUncompressedSize(tmpFilename, outputType, unCompressedSize);
                 }
                 if (zr != ZipReturn.ZipGood)
                     return TrrntZipStatus.ErrorOutputFile;
@@ -93,24 +91,6 @@ namespace TrrntZip
                 foreach (ZippedFile f in zippedFiles)
                 {
                     fileSizeTotal += f.Size;
-                }
-
-                ushort outputCompressionType = 0;
-                switch (outputType)
-                {
-                    case ZipStructure.ZipTrrnt:
-                        outputCompressionType = 8;
-                        break;
-                    case ZipStructure.ZipZSTD:
-                    case ZipStructure.SevenZipSZSTD:
-                    case ZipStructure.SevenZipNZSTD:
-                        outputCompressionType = 93;
-                        break;
-                    case ZipStructure.SevenZipSLZMA:
-                    case ZipStructure.SevenZipNLZMA:
-                        outputCompressionType = 14;
-                        break;
-
                 }
 
                 // by now the zippedFiles have been sorted so just loop over them
@@ -131,7 +111,7 @@ namespace TrrntZip
                         switch (inputType)
                         {
                             case zipType.zip:
-                                zrInput = ((Zip)originalZipFile).ZipFileOpenReadStream(t.Index, false, out readStream, out streamSize, out ushort _);
+                                zrInput = ((Zip)originalZipFile).ZipFileOpenReadStream(t.Index, false, out readStream, out streamSize, out ZipCompression _);
                                 break;
                             case zipType.sevenzip:
                                 zrInput = originalZipFile.ZipFileOpenReadStream(t.Index, out readStream, out streamSize);
@@ -147,7 +127,9 @@ namespace TrrntZip
                         zrInput = ZipReturn.ZipGood;
                     }
 
-                    ZipReturn zrOutput = zipFileOut.ZipFileOpenWriteStream(false, t.Name, streamSize, outputCompressionType, out Stream writeStream, threadCount: threadCount);
+                    ZipCompression outputcompressionType = StructuredArchive.GetCompressionType(outputType,t.Size);
+
+                    ZipReturn zrOutput = zipFileOut.ZipFileOpenWriteStream(false, t.Name, streamSize, outputcompressionType, out Stream writeStream, threadCount: threadCount);
 
                     if ((zrInput != ZipReturn.ZipGood) || (zrOutput != ZipReturn.ZipGood))
                     {
@@ -189,7 +171,8 @@ namespace TrrntZip
                         writeStream.Write(buffer, 0, sizenow);
                         sizetogo = sizetogo - (ulong)sizenow;
                     }
-                    
+                    writeStream?.Flush();
+
                     crcCs.Close();
                     if (inputType != zipType.sevenzip)
                     {

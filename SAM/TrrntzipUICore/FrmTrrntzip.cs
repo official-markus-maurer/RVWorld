@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Compress.StructuredZip;
+using RVIO;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,10 +8,7 @@ using System.Drawing;
 using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
-using Compress;
-using RVIO;
 using TrrntZip;
-using TrrntZipUICore;
 
 namespace TrrntZipUICore
 {
@@ -71,11 +70,9 @@ namespace TrrntZipUICore
 
             cboInType.SelectedIndex = tZipSettings.InZip;
 
-            cboOutType.SelectedIndex = UIIndexFromZipStructure((ZipStructure)tZipSettings.OutZip);
+            cboOutType.SelectedIndex = tZipSettings.OutZip;
 
-            chkForce.Checked = tZipSettings.Force;
-
-            chkFix.Checked = tZipSettings.Fix;
+            chkDryRun.Checked = tZipSettings.DryRun;
 
             tbProccessors.Minimum = 1;
             tbProccessors.Maximum = Environment.ProcessorCount;
@@ -144,7 +141,9 @@ namespace TrrntZipUICore
                     Top = 235 + 30 * i,
                     Width = 225,
                     Height = 15,
-                    Text = $"Processor {i + 1}"
+                    Text = $"Processor {i + 1}",
+                    AutoEllipsis = true
+
                 };
 
                 StatusPanel.Controls.Add(pLabel);
@@ -209,8 +208,8 @@ namespace TrrntZipUICore
 
             Settings settings = new Settings
             {
-                ForceReZip = chkForce.Checked,
-                CheckOnly = !chkFix.Checked,
+                Repair = cboOutType.SelectedIndex == 6,
+                DryRun = chkDryRun.Checked,
                 InZip = (zipType)cboInType.SelectedIndex,
                 OutZip = ZipStructureFromUIIndex(cboOutType.SelectedIndex)
             };
@@ -226,7 +225,7 @@ namespace TrrntZipUICore
 
             FileCountProcessed = 0;
             scanningForFiles = true;
-            FileAdder pm = new FileAdder(bccFile, file, UpdateFileCount, ProcessFileEndCallback, settings);
+            FileAdder pm = new FileAdder(bccFile, file, UpdateFileCount, ProcessFileEndCallback, settings, pc);
             Thread procT = new Thread(pm.ProcFiles);
             procT.Start();
 
@@ -238,12 +237,10 @@ namespace TrrntZipUICore
         private void StartWorking()
         {
             _working = true;
-            //DropBox.Enabled = false;
-            DropBox.Image = TrrntZipUICore.rvImages1.giphy;
+            DropBox.Image = rvImages1.giphy;
             cboInType.Enabled = false;
             cboOutType.Enabled = false;
-            chkForce.Enabled = false;
-            chkFix.Enabled = false;
+            chkDryRun.Enabled = false;
             tbProccessors.Enabled = false;
             btnCancel.Enabled = true;
             btnPause.Enabled = true;
@@ -255,12 +252,10 @@ namespace TrrntZipUICore
         private void StopWorking()
         {
             _working = false;
-            //DropBox.Enabled = true;
             DropBox.Image = null;
             cboInType.Enabled = true;
             cboOutType.Enabled = true;
-            chkForce.Enabled = true;
-            chkFix.Enabled = true;
+            chkDryRun.Enabled = true;
             tbProccessors.Enabled = true;
             btnCancel.Enabled = false;
             btnPause.Enabled = false;
@@ -338,19 +333,11 @@ namespace TrrntZipUICore
             SetUpWorkerThreads();
         }
 
-        private void chkFix_CheckedChanged(object sender, EventArgs e)
+        private void chkDryRun_CheckedChanged(object sender, EventArgs e)
         {
             if (UiUpdate)
                 return;
-            tZipSettings.Fix = chkFix.Checked;
-            TzipSettings.WriteConfig(tZipSettings);
-        }
-
-        private void chkForce_CheckedChanged(object sender, EventArgs e)
-        {
-            if (UiUpdate)
-                return;
-            tZipSettings.Force = chkForce.Checked;
+            tZipSettings.DryRun = chkDryRun.Checked;
             TzipSettings.WriteConfig(tZipSettings);
         }
 
@@ -359,6 +346,14 @@ namespace TrrntZipUICore
             if (UiUpdate)
                 return;
             tZipSettings.InZip = cboInType.SelectedIndex;
+            if (cboOutType.SelectedIndex == 6 && cboInType.SelectedIndex > 2)
+            {
+                UiUpdate = true;
+                cboOutType.SelectedIndex = 0;
+                tZipSettings.OutZip = cboOutType.SelectedIndex;
+                UiUpdate = false;
+            }
+
             TzipSettings.WriteConfig(tZipSettings);
         }
 
@@ -366,7 +361,14 @@ namespace TrrntZipUICore
         {
             if (UiUpdate)
                 return;
-            tZipSettings.OutZip = (int)ZipStructureFromUIIndex(cboOutType.SelectedIndex);
+            tZipSettings.OutZip = cboOutType.SelectedIndex;
+            if (cboOutType.SelectedIndex==6 && cboInType.SelectedIndex>2)
+            {
+                UiUpdate = true;
+                cboInType.SelectedIndex = 2;
+                tZipSettings.InZip = cboInType.SelectedIndex;
+                UiUpdate = false;
+            }
             TzipSettings.WriteConfig(tZipSettings);
         }
 
@@ -421,31 +423,10 @@ namespace TrrntZipUICore
                 case 3: return ZipStructure.SevenZipSZSTD;
                 case 4: return ZipStructure.SevenZipNLZMA;
                 case 5: return ZipStructure.SevenZipSLZMA;
+                case 6: return ZipStructure.None; // this is the repair option, and is not used as an output
                 default: return ZipStructure.ZipTrrnt;
             }
         }
-
-        private static int UIIndexFromZipStructure(ZipStructure zipStructure)
-        {
-            switch (zipStructure)
-            {
-                case ZipStructure.ZipTrrnt:
-                    return 0;
-                case ZipStructure.ZipZSTD:
-                    return 1;
-                case ZipStructure.SevenZipNZSTD:
-                    return 2;
-                case ZipStructure.SevenZipSZSTD:
-                    return 3;
-                case ZipStructure.SevenZipNLZMA:
-                    return 4;
-                case ZipStructure.SevenZipSLZMA:
-                    return 5;
-                default:
-                    return 0;
-            }
-        }
-
 
         #region callbacks
 
@@ -463,22 +444,25 @@ namespace TrrntZipUICore
                 return;
             }
 
-            _fileIndex = fileId + 1;
+            lock (tGrid)
+            {
+                _fileIndex = fileId + 1;
 
-            _threads[processId].tLabel = Path.GetFileName(filename);
-            _threads[processId].tProgress = 0;
+                _threads[processId].tLabel = Path.GetFileName(filename);
+                _threads[processId].tProgress = 0;
 
-            if ((fileId + 1) > tGridMax)
-                tGridMax = (fileId + 1);
+                if ((fileId + 1) > tGridMax)
+                    tGridMax = (fileId + 1);
 
-            tGrid.Add(new dGrid() { fileId = fileId, filename = filename, status = "Processing....(" + processId + ")" });
+                tGrid.Add(new dGrid() { fileId = fileId, filename = filename, status = "Processing....(" + processId + ")" });
+            }
         }
 
-        private void ProcessFileEndCallback(int processId, int fileId, TrrntZipStatus trrntZipStatus)
+        private void ProcessFileEndCallback(int processId, int fileId, TrrntZipStatus trrntZipStatus, ZipStructure zipStruct)
         {
             if (InvokeRequired)
             {
-                BeginInvoke(new ProcessFileEndCallback(ProcessFileEndCallback), processId, fileId, trrntZipStatus);
+                BeginInvoke(new ProcessFileEndCallback(ProcessFileEndCallback), processId, fileId, trrntZipStatus, zipStruct);
                 return;
             }
 
@@ -496,28 +480,36 @@ namespace TrrntZipUICore
             else
             {
                 _threads[processId].tProgress = 100;
-                if ((fileId + 1) > tGridMax)
-                    tGridMax = (fileId + 1);
 
                 dGrid tGridn = new dGrid() { fileId = fileId, filename = null };
                 switch (trrntZipStatus)
                 {
                     case TrrntZipStatus.ValidTrrntzip:
-                        tGridn.status = "Valid Archive";
+                        tGridn.status = $"Valid {StructuredArchive.GetZipStructureName(zipStruct)}";
                         break;
                     case TrrntZipStatus.Trrntzipped:
-                        tGridn.status = "Re-Structured";
+                        tGridn.status = $"Re Struc {StructuredArchive.GetZipStructureName(zipStruct)}";
+                        break;
+                    case TrrntZipStatus.NeedsRepaired:
+                        tGridn.status = $"Needs Repair {StructuredArchive.GetZipStructureName(zipStruct)}";
+                        break;
+                    case TrrntZipStatus.Trrntzipped | TrrntZipStatus.NeedsRepaired:
+                        tGridn.status = $"Repaired {StructuredArchive.GetZipStructureName(zipStruct)}";
                         break;
                     default:
                         tGridn.status = trrntZipStatus.ToString();
                         break;
                 }
+
                 lock (tGrid)
                 {
-                    tGrid.Add(tGridn);
-                }
+                    if ((fileId + 1) > tGridMax)
+                        tGridMax = (fileId + 1);
 
-                FileCountProcessed += 1;
+                    tGrid.Add(tGridn);
+
+                    FileCountProcessed += 1;
+                }
 
                 if (!scanningForFiles && FileCountProcessed == FileCount)
                 {

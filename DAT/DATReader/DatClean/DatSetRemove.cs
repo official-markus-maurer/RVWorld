@@ -1,5 +1,5 @@
 ﻿using System;
-using Compress;
+using Compress.StructuredZip;
 using DATReader.DatStore;
 using DATReader.Utils;
 using RVUtils;

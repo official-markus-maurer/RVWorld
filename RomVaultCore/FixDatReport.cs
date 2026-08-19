@@ -96,7 +96,7 @@ namespace RomVaultCore
                 if (child.IsDirectory)
                 {
                     RvFile tCopy = new RvFile(child.FileType);
-                    child.CopyTo(tCopy);
+                    child.CopyTo(tCopy, true, false);
                     tCopy.Game = child.Game;
                     int ret = RecursiveDatTreeFindingDat(rvDat, child, tCopy, redOnly);
                     found += ret;
@@ -110,7 +110,7 @@ namespace RomVaultCore
                      child.GotStatus != GotStatus.Got && (!redOnly || !(child.RepStatus == RepStatus.CanBeFixed || child.RepStatus == RepStatus.CorruptCanBeFixed)))
                 {
                     RvFile tCopy = new RvFile(child.FileType);
-                    child.CopyTo(tCopy);
+                    child.CopyTo(tCopy, true, false);
                     outDir.ChildAdd(tCopy);
                     found++;
                 }
@@ -132,7 +132,7 @@ namespace RomVaultCore
                     continue;
                 }
                 RvFile tCopy = new RvFile(child.FileType);
-                child.CopyTo(tCopy);
+                child.CopyTo(tCopy, true, false);
 
                 filesToFix.Add(tCopy);
                 tDir.ChildRemove(i);

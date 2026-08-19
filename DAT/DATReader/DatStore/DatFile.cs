@@ -1,6 +1,4 @@
-﻿using System.Collections.ObjectModel;
-
-namespace DATReader.DatStore
+﻿namespace DATReader.DatStore
 {
     public class DatFile : DatBase
     {

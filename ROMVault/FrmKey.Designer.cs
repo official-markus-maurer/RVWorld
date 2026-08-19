@@ -41,7 +41,7 @@
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "FrmKey";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "Color Key to ROM Status";
+            this.Text = "Icon Key to ROM Status";
             this.Load += new System.EventHandler(this.FrmKey_Load);
             this.ResumeLayout(false);
 

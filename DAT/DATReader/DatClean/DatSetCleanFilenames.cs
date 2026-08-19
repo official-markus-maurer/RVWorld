@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using DATReader.DatStore;
+﻿using DATReader.DatStore;
 using RVIO;
 
 namespace DATReader.DatClean

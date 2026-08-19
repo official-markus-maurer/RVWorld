@@ -28,7 +28,7 @@ namespace Compress.ZipFile
         }
 
 
-        public ZipReturn ZipFileAddFake(string filename, ulong fileOffset, ulong uncompressedSize, ulong compressedSize, byte[] crc32, ushort compressionMethod, long headerLastModified, out byte[] localHeader)
+        public ZipReturn ZipFileAddFake(string filename, ulong fileOffset, ulong uncompressedSize, ulong compressedSize, byte[] crc32, ZipCompression compressionMethod, long headerLastModified, out byte[] localHeader)
         {
             localHeader = null;
 

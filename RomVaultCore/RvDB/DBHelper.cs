@@ -6,7 +6,6 @@
 
 using System;
 using System.Collections.Generic;
-using DATReader.Utils;
 using RomVaultCore.Storage.Dat;
 using RVUtils;
 
@@ -20,17 +19,6 @@ namespace RomVaultCore.RvDB
 
     public static class DBHelper
     {
-        private static readonly byte[] ZeroByteMD5;
-        private static readonly byte[] ZeroByteSHA1;
-        private static readonly byte[] ZeroByteCRC;
-
-        static DBHelper()
-        {
-            ZeroByteMD5 = VarFix.CleanMD5SHA1("d41d8cd98f00b204e9800998ecf8427e", 32);
-            ZeroByteSHA1 = VarFix.CleanMD5SHA1("da39a3ee5e6b4b0d3255bfef95601890afd80709", 40);
-            ZeroByteCRC = VarFix.CleanMD5SHA1("00000000", 8);
-        }
-
         public static void GetSelectedDirListStart(ref List<RvFile> lstDir, RvFile thisDir)
         {
             if (thisDir == null)
@@ -219,7 +207,7 @@ namespace RomVaultCore.RvDB
             bool foundOneMatching = false;
             if (tFile.MD5 != null)
             {
-                if (!ByteUtils.ByteArrEquals(tFile.MD5, ZeroByteMD5))
+                if (!ByteUtils.ByteArrEquals(tFile.MD5, ByteUtils.ZeroByteMD5))
                 {
                     return false;
                 }
@@ -228,7 +216,7 @@ namespace RomVaultCore.RvDB
 
             if (tFile.SHA1 != null)
             {
-                if (!ByteUtils.ByteArrEquals(tFile.SHA1, ZeroByteSHA1))
+                if (!ByteUtils.ByteArrEquals(tFile.SHA1, ByteUtils.ZeroByteSHA1))
                 {
                     return false;
                 }
@@ -237,7 +225,7 @@ namespace RomVaultCore.RvDB
 
             if (tFile.CRC != null)
             {
-                if (!ByteUtils.ByteArrEquals(tFile.CRC, ZeroByteCRC))
+                if (!ByteUtils.ByteArrEquals(tFile.CRC, ByteUtils.ZeroByteCRC))
                 {
                     return false;
                 }

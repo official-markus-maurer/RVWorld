@@ -51,7 +51,6 @@ namespace Compress.SevenZip
             #endregion
 
             ZipOpen = ZipOpenType.OpenRead;
-            ZipStruct = ZipStructure.None;
 
             return ZipFileReadHeaders();
         }
@@ -63,43 +62,32 @@ namespace Compress.SevenZip
             _zipFileInfo = null;
             _zipFs = inStream;
             ZipOpen = ZipOpenType.OpenRead;
-            ZipStruct = ZipStructure.None;
+
             return ZipFileReadHeaders();
         }
-
-
 
         private ZipReturn ZipFileReadHeaders()
         {
             try
             {
-                SignatureHeader signatureHeader = new();
-                if (!signatureHeader.Read(_zipFs))
+                _signatureHeader = new();
+                if (!_signatureHeader.Read(_zipFs))
                     return ZipReturn.ZipSignatureError;
 
-                _baseOffset = _zipFs.Position;
-
-                _zipFs.Seek(_baseOffset + (long)signatureHeader.NextHeaderOffset, SeekOrigin.Begin);
-                byte[] mainHeader = new byte[signatureHeader.NextHeaderSize];
-                _zipFs.Read(mainHeader, 0, (int)signatureHeader.NextHeaderSize);
-                if (!CRC.VerifyDigest(signatureHeader.NextHeaderCRC, mainHeader, 0, (uint)signatureHeader.NextHeaderSize))
+                _zipFs.Seek((long)_signatureHeader.NextHeaderLocation, SeekOrigin.Begin);
+                byte[] mainHeader = new byte[_signatureHeader.NextHeaderSize];
+                _zipFs.Read(mainHeader, 0, (int)_signatureHeader.NextHeaderSize);
+                if (!CRC.VerifyDigest(_signatureHeader.NextHeaderCRC, mainHeader, 0, (uint)_signatureHeader.NextHeaderSize))
                     return ZipReturn.Zip64EndOfCentralDirError;
 
-                if (signatureHeader.NextHeaderSize != 0)
+                if (_signatureHeader.NextHeaderSize != 0)
                 {
-                    _zipFs.Seek(_baseOffset + (long)signatureHeader.NextHeaderOffset, SeekOrigin.Begin);
-                    ZipReturn zr = Header.ReadHeaderOrPackedHeader(_zipFs, _baseOffset, out _header);
+                    _zipFs.Seek((long)_signatureHeader.NextHeaderLocation, SeekOrigin.Begin);
+                    ZipReturn zr = Header.ReadHeaderOrPackedHeader(_zipFs, _signatureHeader.BaseOffset, out _header);
                     if (zr != ZipReturn.ZipGood)
                         return zr;
                 }
-
-
-                ZipStruct = IsRomVault7Z(_baseOffset, signatureHeader.NextHeaderOffset, signatureHeader.NextHeaderSize, signatureHeader.NextHeaderCRC);
-                if (ZipStruct == ZipStructure.None)
-                {
-                    _zipFs.Seek(_baseOffset + (long)(signatureHeader.NextHeaderOffset + signatureHeader.NextHeaderSize), SeekOrigin.Begin);
-                    ZipStruct = Istorrent7Z();
-                }
+                
                 PopulateLocalFiles(out _localFiles);
 
                 return ZipReturn.ZipGood;

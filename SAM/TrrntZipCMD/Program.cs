@@ -1,4 +1,4 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 using System;
 using System.IO;
 using System.Reflection;
@@ -51,6 +51,7 @@ namespace TrrntZipCMD
                     switch (arg.Substring(1, 1))
                     {
                         case "?":
+                        case "h":
                             Console.WriteLine($"TorrentZip.Net v{Assembly.GetExecutingAssembly().GetName().Version.ToString(3)} - Powered by RomVault");
                             Console.WriteLine("");
                             Console.WriteLine("Copyright (C) 2026 GordonJ");
@@ -68,6 +69,7 @@ namespace TrrntZipCMD
                             Console.WriteLine("     7NL = 7Zip-NonSolid-LZMA");
                             Console.WriteLine("     7SZ = 7Zip-Solid-ZSTD");
                             Console.WriteLine("     7NZ = 7Zip-NonSolid-ZSTD");
+                            Console.WriteLine("-r : Repair");
                             Console.WriteLine("-s : prevent sub-directory recursion");
                             Console.WriteLine("-f : force re-zip");
                             Console.WriteLine("-c : Check files only do not repair");
@@ -104,14 +106,17 @@ namespace TrrntZipCMD
                                     return;
                             }
                             break;
+                        case "r":
+                            settings.Repair = true;
+                            break;
                         case "s":
                             _noRecursion = true;
                             break;
                         case "f":
-                            settings.ForceReZip = true;
+                            settings.Repair = true;
                             break;
                         case "c":
-                            settings.CheckOnly = true;
+                            settings.DryRun = true;
                             break;
                         case "l":
                             settings.VerboseLogging = true;
@@ -172,7 +177,7 @@ namespace TrrntZipCMD
                         string ext = Path.GetExtension(file.FullName).ToLower();
                         if (!string.IsNullOrEmpty(ext) && ((ext == ".zip") || (ext == ".7z")))
                         {
-                            torrentZip.Process(new FileInfo(file.FullName));
+                            torrentZip.Process(new FileInfo(file.FullName),out ZipStructure zipStruct);
                         }
                     }
                 }
@@ -211,7 +216,7 @@ namespace TrrntZipCMD
                 string ext = Path.GetExtension(filename)?.ToLower();
                 if (!string.IsNullOrEmpty(ext) && (ext == ".zip" || ext == ".7z"))
                 {
-                    torrentZip.Process(new FileInfo(filename));
+                    torrentZip.Process(new FileInfo(filename),out ZipStructure zipStruct);
                 }
             }
 

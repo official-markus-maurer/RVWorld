@@ -2,6 +2,7 @@
 using Compress;
 using DATReader.DatStore;
 using RVIO;
+using RVUtils;
 
 namespace DATReader.DatWriter
 {
@@ -154,6 +155,11 @@ namespace DATReader.DatWriter
                         {
                             sw.WriteNode("year", g.Year);
                             sw.WriteNode("manufacturer", g.Manufacturer);
+
+
+                            sw.WriteNode("serial", g.Serial);
+                            sw.WriteNode("version", g.Version);
+                            sw.WriteNode("game_id", g.GameId);
                         }
                     }
 
@@ -202,7 +208,7 @@ namespace DATReader.DatWriter
                         sw.WriteItem("md5", baseRom.MD5);
                         if (baseObj.DateModified != null && baseObj.DateModified != Compress.StructuredZip.StructuredZip.TrrntzipDateTime)
                             sw.WriteItem("date", CompressUtils.zipDateTimeToString(baseObj.DateModified));
-                        if (baseRom.Status != null && baseRom.Status.ToLower() != "good")
+                        if (baseRom.Status != null && !string.Equals(baseRom.Status, "good", StringComparison.OrdinalIgnoreCase))
                             sw.WriteItem("status", baseRom.Status);
                         if (baseRom.MIA == "yes")
                             sw.WriteItem("mia", "yes");
@@ -233,11 +239,6 @@ namespace DATReader.DatWriter
             }
 
             return ret;
-        }
-
-        private static string ByteToStr(byte[] b)
-        {
-            return b == null ? "" : BitConverter.ToString(b).ToLower().Replace("-", "");
         }
 
         private class DatStreamWriter : IDisposable
@@ -330,7 +331,7 @@ namespace DATReader.DatWriter
             {
                 if (value == null)
                     return;
-                _sw.Write(@" " + name + @"=""" + ByteToStr(value) + @"""");
+                _sw.Write(@" " + name + @"=""" + value.ToHexString() + @"""");
             }
 
 

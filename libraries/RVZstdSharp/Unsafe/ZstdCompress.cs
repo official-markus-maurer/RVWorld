@@ -1,6 +1,4 @@
 using static RVZstdSharp.UnsafeHelper;
-using System;
-using System.Runtime.InteropServices;
 using RV.Numerics;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;

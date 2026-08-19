@@ -33,7 +33,7 @@ namespace RomVaultCore.FixFile
 
                 case RepStatus.Correct:
                     // this is correct nothing to be done here
-                    return FixFileCheckName(fixFile);
+                    return FixFileCheckName(fixFile,out errorMessage);
 
 
                 case RepStatus.NotCollected:
@@ -86,8 +86,9 @@ namespace RomVaultCore.FixFile
             }
         }
 
-        private static ReturnCode FixFileCheckName(RvFile fixFile)
+        private static ReturnCode FixFileCheckName(RvFile fixFile, out string errorMessage)
         {
+            errorMessage = "";
             if (string.IsNullOrEmpty(fixFile.FileName))
                 return ReturnCode.Good;
 
@@ -104,6 +105,7 @@ namespace RomVaultCore.FixFile
             catch (System.Exception ex)
             {
                 Report.ReportProgress(new bgwShowError(sourceFullName, $"Error Renaming file to correct case. {ex.Message}"));
+                errorMessage = $"Error Renaming file to correct case. {ex.Message}";
                 return ReturnCode.FileSystemError;
             }
             fixFile.FileName = null;
@@ -137,6 +139,7 @@ namespace RomVaultCore.FixFile
                 catch (System.Exception ex)
                 {
                     Report.ReportProgress(new bgwShowError(filename, $"Error Deleting File. {ex.Message}"));
+                    errorMessage = $"Error Deleting File. {ex.Message}";
                     return ReturnCode.FileSystemError;
                 }
             }
@@ -345,6 +348,7 @@ namespace RomVaultCore.FixFile
                                 catch (System.Exception ex)
                                 {
                                     Report.ReportProgress(new bgwShowError(testChild.FullName, $"Error Movingfile to .tmp location. {ex.Message}"));
+                                    errorMessage = $"Error Movingfile to .tmp location. {ex.Message}";
                                     return ReturnCode.FileSystemError;
                                 }
 

@@ -20,6 +20,10 @@ namespace DATReader.DatStore
         public string Year;
         public string Runnable;
 
+        public string Serial; // in Redump
+        public string Version; // in Redump
+        public string GameId; // in NoIntro
+
         public List<string> Category;
         public List<string> device_ref;
 
@@ -59,6 +63,10 @@ namespace DATReader.DatStore
             Board = dg.Board;
             Year = dg.Year;
             Runnable = dg.Runnable;
+
+            Serial = dg.Serial;
+            Version = dg.Version;
+            GameId= dg.GameId;
 
             //
 

@@ -1,4 +1,4 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 using DATReader.DatStore;
 
 namespace DATReader.DatClean

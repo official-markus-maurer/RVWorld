@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace RVZstdSharp.Unsafe
 {
     public unsafe struct HUF_compress_tables_t

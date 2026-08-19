@@ -1,0 +1,14 @@
+﻿If editing/moving an archived file:
+-------------------------------------------------
+If non-struct-ZIP: copy as a non-struct-ZIP and always raw copy from source to destination
+If non-struct-7z or t7z: copy as the selected 7z format and then use regular copy rules.
+
+All other files remain the same format and use the regular copy rules.
+
+
+
+if moving a corrupt zip archive to ToSort corrupt:
+--------------------------------------------------
+For any zip raw copy the corrupt file to ToSort corrupt
+7z files cannot be copied as 7z files to ToSort corrupt (This could change once 7z raw copy single file is implemented)
+

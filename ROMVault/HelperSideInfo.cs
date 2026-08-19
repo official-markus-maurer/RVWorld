@@ -9,7 +9,6 @@ using Compress;
 using Compress.ZipFile;
 using RomVaultCore.RvDB;
 using File = RVIO.File;
-using Path = RVIO.Path;
 
 namespace ROMVault
 {
@@ -66,7 +65,7 @@ namespace ROMVault
                                 return false;
 
                             if (zf.ZipFileOpenReadStreamFromLocalHeaderPointer((ulong)imagefile.ZipFileHeaderPosition, false,
-                                    out Stream stream, out ulong streamSize, out ushort _) != ZipReturn.ZipGood)
+                                    out Stream stream, out ulong streamSize, out ZipCompression _) != ZipReturn.ZipGood)
                             {
                                 zf.ZipFileClose();
                                 return false;

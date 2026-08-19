@@ -1,4 +1,4 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 using DATReader.DatClean;
 using RomVaultCore.RvDB;
 using System;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using System.Xml.Serialization;
 using File = RVIO.File;
 
@@ -48,6 +49,7 @@ namespace RomVaultCore
         Headered,
         Headerless
     }
+
 
     public class Settings
     {
@@ -103,6 +105,16 @@ namespace RomVaultCore
 
         public int zstdCompCount = 0;
         public int sevenZDefaultStruct = 3;
+
+        public int RVOpenTimeout = 120;
+        public int RVSendTimeout = 120;
+        public int RVReceiveTimeout = 180;
+
+        public int MIADays = 14;
+        public bool ShowNewMIA = true;
+
+        [XmlIgnore]
+        public int Permissions;
 
         public static bool isLinux
         {
@@ -241,7 +253,7 @@ namespace RomVaultCore
             IgnoreFilesScanRegex = new List<Regex>();
             foreach (string str in IgnoreFiles)
             {
-                bool mIgnore = str.ToLower().StartsWith("ignore:");
+                bool mIgnore = str.StartsWith("ignore:", StringComparison.OrdinalIgnoreCase);
                 if (mIgnore)
                     IgnoreFilesScanRegex.Add(WildcardToRegex(str.Substring(7)));
                 else
@@ -254,7 +266,7 @@ namespace RomVaultCore
                 r.IgnoreFilesScanRegex = new List<Regex>();
                 foreach (string str in r.IgnoreFiles)
                 {
-                    bool mIgnore = str.ToLower().StartsWith("ignore:");
+                    bool mIgnore = str.StartsWith("ignore:", StringComparison.OrdinalIgnoreCase);
                     if (mIgnore)
                         r.IgnoreFilesScanRegex.Add(WildcardToRegex(str.Substring(7)));
                     else
@@ -265,7 +277,7 @@ namespace RomVaultCore
 
         private static Regex WildcardToRegex(string pattern)
         {
-            if (pattern.ToLower().StartsWith("regex:"))
+            if (pattern.StartsWith("regex:", StringComparison.OrdinalIgnoreCase))
                 return new Regex(pattern.Substring(6), RegexOptions.IgnoreCase);
 
             return new Regex("^" + Regex.Escape(pattern).
@@ -314,12 +326,18 @@ namespace RomVaultCore
                 File.Delete(configPathTemp);
             }
 
-            using (StreamWriter sw = new StreamWriter(configPathTemp))
+            XDocument cfgXML;
+            XmlSerializer x = new XmlSerializer(typeof(Settings));
+            using (MemoryStream ms = new MemoryStream())
             {
-                XmlSerializer x = new XmlSerializer(typeof(Settings));
-                x.Serialize(sw, Settings.rvSettings);
-                sw.Flush();
+                x.Serialize(ms, Settings.rvSettings);
+                ms.Position = 0;
+                cfgXML = XDocument.Load(ms);
             }
+
+            writeSettings?.Invoke(cfgXML);
+
+            cfgXML.Save(configPathTemp);
 
             if (File.Exists(configPath))
             {
@@ -333,6 +351,13 @@ namespace RomVaultCore
             File.Move(configPathTemp, configPath);
         }
 
+
+
+        public delegate void XMLSettings(XDocument cfgXML);
+        public static XMLSettings readSettings;
+        public static XMLSettings writeSettings;
+
+
         private static Settings ReadConfig()
         {
             string configPath = Path.Combine("config", "RomVault3cfg.xml");
@@ -340,17 +365,12 @@ namespace RomVaultCore
             {
                 return null;
             }
-            string strXml = System.IO.File.ReadAllText(configPath);
 
-            // converting old enum to new:
-            strXml = strXml.Replace("TrrntZipLevel", "Level");
+            XDocument xdoc = XDocument.Load(configPath);
 
-            Settings retSettings;
-            using (TextReader sr = new StringReader(strXml))
-            {
-                XmlSerializer x = new XmlSerializer(typeof(Settings));
-                retSettings = (Settings)x.Deserialize(sr);
-            }
+            Settings retSettings = DeserializeFromXDocument<Settings>(xdoc);
+
+            readSettings?.Invoke(xdoc);
 
             foreach (var rule in retSettings.DatRules)
             {
@@ -362,6 +382,19 @@ namespace RomVaultCore
             }
 
             return retSettings;
+        }
+
+        public static T DeserializeFromXDocument<T>(XDocument xdoc)
+        {
+            if (xdoc == null) throw new ArgumentNullException(nameof(xdoc));
+
+            XmlSerializer serializer = new XmlSerializer(typeof(T));
+
+            using (var reader = xdoc.CreateReader())
+            {
+                object result = serializer.Deserialize(reader);
+                return (T)result;
+            }
         }
 
         public ZipStructure getDefault7ZStruct

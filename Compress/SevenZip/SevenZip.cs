@@ -2,19 +2,15 @@
 using System.IO;
 using System.Text;
 using Compress.SevenZip.Structure;
+using Compress.StructuredZip;
 using FileInfo = RVIO.FileInfo;
 
 namespace Compress.SevenZip
 {
     public partial class SevenZ : ICompress
     {
+        private Header _header;
 
-        public enum SevenZipCompressType
-        {
-            uncompressed,
-            lzma,
-            zstd
-        }
 
         private class SevenZipLocalFile : FileHeader
         {
@@ -27,13 +23,9 @@ namespace Compress.SevenZip
 
         private FileInfo _zipFileInfo;
 
-        private Stream _zipFs;
+        internal Stream _zipFs;
 
-        private SignatureHeader _signatureHeader;
-
-
-
-        private long _baseOffset;
+        internal SignatureHeader _signatureHeader { get; private set; }
 
         public string ZipFilename => _zipFileInfo != null ? _zipFileInfo.FullName : "";
 
@@ -42,7 +34,8 @@ namespace Compress.SevenZip
         public string FileComment => null;
 
         public ZipOpenType ZipOpen { get; private set; }
-        public ZipStructure ZipStruct { get; private set; }
+
+        public ZipStructure ZipStruct => ZipStructure.None;
 
         public int LocalFilesCount => _localFiles.Count;
         
@@ -87,25 +80,26 @@ namespace Compress.SevenZip
                     return;
                 case ZipOpenType.OpenRead:
                     ZipFileCloseReadStream();
-                    if (_zipFs != null)
-                    {
-                        _zipFs.Close();
-                        _zipFs.Dispose();
-                    }
-                    ZipOpen = ZipOpenType.Closed;
+                    ZipFileCloseRead();
                     return;
                 case ZipOpenType.OpenWrite:
                     CloseWriting7Zip();
-                    if (_zipFileInfo != null)
-                        _zipFileInfo = new FileInfo(_zipFileInfo.FullName);
                     break;
             }
 
             ZipOpen = ZipOpenType.Closed;
         }
 
+        internal void ZipFileCloseRead()
+        {
+            if (_zipFs != null)
+            {
+                _zipFs.Close();
+                _zipFs.Dispose();
+            }
+            ZipOpen = ZipOpenType.Closed;
+        }
 
-        private Header _header;
 
         public StringBuilder HeaderReport()
         {

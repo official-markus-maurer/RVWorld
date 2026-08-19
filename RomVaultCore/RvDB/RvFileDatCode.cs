@@ -1,10 +1,10 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
-using Compress;
+using Compress.StructuredZip;
 using DATReader.DatStore;
 using StorageList;
 using System.Collections.Generic;

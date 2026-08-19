@@ -175,11 +175,6 @@ namespace DATReader.DatWriter
                 }
             }
         }
-
-        private static string ByteToStr(byte[] b)
-        {
-            return b == null ? "" : BitConverter.ToString(b).ToLower().Replace("-", "");
-        }
     }
 
 }

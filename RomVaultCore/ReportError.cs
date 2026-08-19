@@ -13,8 +13,11 @@ namespace RomVaultCore
         public delegate void ShowError(string message);
         public delegate void MessageDialog(string text, string caption);
 
+        public delegate void SendError(string message,int vMajor,int vMinor,int vBuild);
+
         public static ShowError ErrorForm;
         public static MessageDialog Dialog;
+        public static SendError SendErrorMessageExternalLink;
 
         public static int vMajor;
         public static int vMinor;
@@ -33,6 +36,7 @@ namespace RomVaultCore
                 }
                 message += $"\r\nSTACK TRACE:\r\n{e.Exception.StackTrace}";
 
+                SendErrorMessage(message);
                 ErrorForm?.Invoke(message);
 
                 Close();
@@ -57,6 +61,7 @@ namespace RomVaultCore
                 }
                 message += $"\r\nSTACK TRACE:\r\n{e.StackTrace}";
 
+                SendErrorMessage(message);
                 ErrorForm?.Invoke(message);
             }
             catch
@@ -88,6 +93,7 @@ namespace RomVaultCore
 
                 message += $"\r\nSTACK TRACE:\r\n{Environment.StackTrace}";
 
+                SendErrorMessage(message);
                 ErrorForm?.Invoke(message);
 
                 Environment.Exit(0);
@@ -100,12 +106,22 @@ namespace RomVaultCore
 
         public static void SendAndShow(string message)
         {
+            SendErrorMessage(message);
             Show(message);
         }
 
         public static void Show(string text, string caption = "RomVault")
         {
             Dialog?.Invoke(text, caption);
+        }
+
+        private static void SendErrorMessage(string message)
+        {
+
+            if (Settings.rvSettings.DoNotReportFeedback)
+                return;
+
+            SendErrorMessageExternalLink?.Invoke(message, vMajor, vMinor, vBuild);
         }
 
         private static string GetLogFilname()

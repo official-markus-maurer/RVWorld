@@ -1,9 +1,7 @@
-﻿using System.Collections.Generic;
-using Compress;
-using Compress.SevenZip;
+﻿using Compress;
 using Compress.StructuredZip;
-using Compress.ZipFile;
 using RVIO;
+using System.Collections.Generic;
 
 namespace TrrntZip
 {
@@ -28,8 +26,9 @@ namespace TrrntZip
             _buffer = new byte[1024 * 1024];
         }
 
-        public TrrntZipStatus Process(FileInfo fi, PauseCancel pc = null)
+        public TrrntZipStatus Process(FileInfo fi, out ZipStructure outZipStruct, PauseCancel pc = null)
         {
+            outZipStruct = ZipStructure.None;
             if (settings.VerboseLogging)
             {
                 StatusLogCallBack?.Invoke(ThreadId, "");
@@ -41,13 +40,6 @@ namespace TrrntZip
             TrrntZipStatus tzs = OpenZip(fi, out ICompress zipFile);
             // this will return ValidTrrntZip or CorruptZip.
 
-            /*
-            for (int i = 0; i < zipFile.LocalFilesCount; i++)
-            {
-                FileHeader lf = zipFile.GetFileHeader(i);
-                Debug.WriteLine("Name = " + lf.Filename + " , " + lf.UncompressedSize);
-            }
-            */
 
             if ((tzs & TrrntZipStatus.SourceFileLocked) == TrrntZipStatus.SourceFileLocked)
             {
@@ -65,79 +57,67 @@ namespace TrrntZip
                 return TrrntZipStatus.CatchError;
             }
 
-
             // the zip file may have found a valid trrntzip header, but we now check that all the file info
             // is actually valid, and may invalidate it being a valid trrntzip if any problem is found.
 
-            List<ZippedFile> zippedFiles = ReadZipContent(zipFile);
+            ZipStructure header = ZipStructure.None;
+            if (zipFile is StructuredZip sz)
+                header = sz.HeaderZipStruct;
+            else if (zipFile is Structured7Zip s7z)
+                header = s7z.HeaderZipStruct;
 
-            ZipStructure outputType = settings.OutZip;
+            if (zipFile.ZipStruct == ZipStructure.None && header != ZipStructure.None)
+                tzs |= TrrntZipStatus.NeedsRepaired;
 
-            // check if the compression type has changed
-            zipType inputType;
-            switch (zipFile)
+            bool compressionChanged = false;
+
+            outZipStruct = settings.OutZip;
+            if (settings.Repair)
             {
-                case Zip _:
-                    tzs |= TorrentZipCheck.CheckZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
-                    inputType = zipType.zip;
-                    break;
-                case SevenZ _:
-                    tzs |= TorrentZipCheck.CheckSevenZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
-                    inputType = zipType.sevenzip;
-                    break;
-                case Compress.File.File _:
-                    inputType = zipType.file;
-                    break;
-                default:
-                    return TrrntZipStatus.Unknown;
+                outZipStruct = header;
+                if (zipFile.ZipStruct == ZipStructure.None && header != ZipStructure.None)
+                {
+                    compressionChanged = true;
+                }
+                else
+                    tzs = TrrntZipStatus.ValidTrrntzip;
             }
+            else
+                compressionChanged = zipFile.ZipStruct != outZipStruct;
 
-
-            bool compressionChanged = zipFile.ZipStruct != outputType;
-
-
-            // if tza is now just 'ValidTrrntzip' the it is fully valid, and nothing needs to be done to it.
-
-            if ((tzs == TrrntZipStatus.ValidTrrntzip) && !compressionChanged && !settings.ForceReZip && !settings.CheckOnly && zipFile.ZipStruct == ZipStructure.ZipZSTD && !((StructuredZip)zipFile).zstdCheckZeroBytesValid)
-            {
-
-                StatusLogCallBack?.Invoke(ThreadId, "Fixing Zero Bytes");
-                List<long> fixpos = ((StructuredZip)zipFile).zSTDFixZeroBytes();
-                zipFile.ZipFileClose();
-                ((StructuredZip)zipFile).zSTDFixZeroBytesWrite(fixpos, fi.FullName);
-                return TrrntZipStatus.Trrntzipped;
-            }
-
-
-            if (((tzs == TrrntZipStatus.ValidTrrntzip) && !compressionChanged && !settings.ForceReZip) || settings.CheckOnly)
+            if (((tzs == TrrntZipStatus.ValidTrrntzip) && !compressionChanged) || settings.DryRun)
             {
                 StatusLogCallBack?.Invoke(ThreadId, "Skipping File");
                 zipFile.ZipFileClose();
                 return tzs;
             }
 
+            List<ZippedFile> zippedFiles = ReadZipContent(zipFile);
+
             // if compressionChanged then the required file order will also have changed so need to re-sort the files.
-            if (compressionChanged)
+
+            switch (outZipStruct)
             {
-                switch (outputType)
-                {
-                    case ZipStructure.ZipTrrnt:
-                    case ZipStructure.ZipZSTD:
-                        tzs |= TorrentZipCheck.CheckZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
-                        break;
-                    case ZipStructure.SevenZipNLZMA:
-                    case ZipStructure.SevenZipSLZMA:
-                    case ZipStructure.SevenZipNZSTD:
-                    case ZipStructure.SevenZipSZSTD:
-                        tzs |= TorrentZipCheck.CheckSevenZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
-                        break;
-                    default:
-                        return TrrntZipStatus.Unknown;
-                }
+                case ZipStructure.ZipTrrnt:
+                case ZipStructure.ZipZSTD:
+                    TorrentZipApplyRules.CheckZipFiles(ref zippedFiles);
+                    break;
+                case ZipStructure.SevenZipNLZMA:
+                case ZipStructure.SevenZipSLZMA:
+                case ZipStructure.SevenZipNZSTD:
+                case ZipStructure.SevenZipSZSTD:
+                    TorrentZipApplyRules.CheckSevenZipFiles(ref zippedFiles);
+                    break;
+                default:
+                    return TrrntZipStatus.Unknown;
             }
 
             StatusLogCallBack?.Invoke(ThreadId, "TorrentZipping");
-            TrrntZipStatus fixedTzs = TorrentZipRebuild.ReZipFiles(zippedFiles, zipFile, _buffer, StatusCallBack, StatusLogCallBack, ErrorCallBack, ThreadId, workerCount, pc, settings);
+            TrrntZipStatus fixedTzs = TorrentZipRebuild.ReZipFiles(zippedFiles, zipFile, outZipStruct, _buffer, StatusCallBack, StatusLogCallBack, ErrorCallBack, ThreadId, workerCount, pc, settings);
+
+            if ((tzs | TrrntZipStatus.NeedsRepaired) == TrrntZipStatus.NeedsRepaired)
+                fixedTzs |= TrrntZipStatus.NeedsRepaired;
+
             return fixedTzs;
         }
 
@@ -148,11 +128,10 @@ namespace TrrntZip
             switch (ext)
             {
                 case ".7z":
-                    zipFile = new SevenZ();
+                    zipFile = new Structured7Zip();
                     break;
                 case ".zip":
                     zipFile = new StructuredZip();
-                    ((StructuredZip)zipFile).zstdCheckOnlyZeroBytes = true;
                     break;
                 default:
                     zipFile = new Compress.File.File();
@@ -227,30 +206,35 @@ namespace TrrntZip
 
         }
 
-        public TrrntZipStatus Process(DirectoryInfo di, PauseCancel pc = null)
+        public TrrntZipStatus Process(DirectoryInfo di, out ZipStructure outputType, PauseCancel pc = null)
         {
             // read in all the files & dirs
             List<ZippedFile> zippedFiles = new List<ZippedFile>();
             ReadDirContent(di, ref zippedFiles, di.FullName.Length + 1);
 
             // sort them
-            ZipStructure outputType = settings.OutZip;
+            outputType = settings.OutZip;
             switch (outputType)
             {
                 case ZipStructure.ZipTrrnt:
                 case ZipStructure.ZipZSTD:
-                    TorrentZipCheck.CheckZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
+                    TorrentZipApplyRules.CheckZipFiles(ref zippedFiles);
                     break;
                 case ZipStructure.SevenZipNLZMA:
                 case ZipStructure.SevenZipSLZMA:
                 case ZipStructure.SevenZipNZSTD:
                 case ZipStructure.SevenZipSZSTD:
-                    TorrentZipCheck.CheckSevenZipFiles(ref zippedFiles, ThreadId, StatusLogCallBack, settings);
+                    TorrentZipApplyRules.CheckSevenZipFiles(ref zippedFiles);
                     break;
                 default:
                     return TrrntZipStatus.Unknown;
             }
 
+            if (settings.DryRun)
+            {
+                StatusLogCallBack?.Invoke(ThreadId, "Skipping File");
+                return TrrntZipStatus.DryRun;
+            }
 
             StatusLogCallBack?.Invoke(ThreadId, "TorrentZipping");
             TrrntZipStatus fixedTzs = TorrentZipMake.ZipFiles(zippedFiles, di.FullName, _buffer, StatusCallBack, StatusLogCallBack, ErrorCallBack, ThreadId, workerCount, pc, settings);

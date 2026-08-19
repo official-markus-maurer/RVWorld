@@ -1,5 +1,4 @@
 ﻿using DATReader.DatStore;
-using DATReader.Utils;
 using RVUtils;
 
 namespace DATReader.DatClean

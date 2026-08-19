@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using Compress;
-using Compress.SevenZip;
 using Compress.StructuredZip;
 using Compress.Support.Utils;
 using File = RVIO.File;
@@ -12,7 +11,7 @@ namespace TrrntZip
 {
     public static class TorrentZipMake
     {
-        public static TrrntZipStatus ZipFiles(List<ZippedFile> zippedFiles, string filename, byte[] buffer, StatusCallback statusCallBack, LogCallback logCallback, ErrorCallback errorCallback, int threadId, int threadCount, PauseCancel pc,Settings settings)
+        public static TrrntZipStatus ZipFiles(List<ZippedFile> zippedFiles, string filename, byte[] buffer, StatusCallback statusCallBack, LogCallback logCallback, ErrorCallback errorCallback, int threadId, int threadCount, PauseCancel pc, Settings settings)
         {
 
             int bufferSize = buffer.Length;
@@ -56,8 +55,8 @@ namespace TrrntZip
                     foreach (ZippedFile f in zippedFiles)
                         unCompressedSize += f.Size;
 
-                    zipFileOut = new SevenZ();
-                    zr = ((SevenZ)zipFileOut).ZipFileCreateFromUncompressedSize(tmpFilename, outputType, unCompressedSize);
+                    zipFileOut = new Structured7Zip();
+                    zr = ((Structured7Zip)zipFileOut).ZipFileCreateFromUncompressedSize(tmpFilename, outputType, unCompressedSize);
                 }
                 if (zr != ZipReturn.ZipGood)
                     return TrrntZipStatus.ErrorOutputFile;
@@ -95,7 +94,11 @@ namespace TrrntZip
                         zrInput = ZipReturn.ZipGood;
                     }
 
-                    ZipReturn zrOutput = zipFileOut.ZipFileOpenWriteStream(false, t.Name, streamSize, (ushort)(outputType == ZipStructure.ZipZSTD ? 93 : 8), out Stream writeStream, threadCount: threadCount);
+
+                    ZipCompression outputcompressionType = StructuredArchive.GetCompressionType(outputType, t.Size);
+
+
+                    ZipReturn zrOutput = zipFileOut.ZipFileOpenWriteStream(false, t.Name, streamSize, outputcompressionType, out Stream writeStream, threadCount: threadCount);
 
                     if ((zrInput != ZipReturn.ZipGood) || (zrOutput != ZipReturn.ZipGood))
                     {

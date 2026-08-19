@@ -17,6 +17,8 @@ namespace TrrntZip
         Cancel=256,
         ErrorOutputFile=512,
         SourceFileLocked=1024,
-        CatchError=2048
+        CatchError=2048,
+        NeedsRepaired=4096,
+        DryRun=8192
     }
 }

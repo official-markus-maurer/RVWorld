@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using RVIO;
 using TrrntZip;
-using TrrntZipUICore;
 
 namespace TrrntZipUICore
 {
@@ -17,16 +16,18 @@ namespace TrrntZipUICore
         private readonly BlockingCollection<cFile> _fileCollection;
         private readonly ProcessFileEndCallback _processFileEndCallBack;
         private readonly Settings _settings;
+        private readonly PauseCancel _pc;
 
         private int fileCount;
 
-        public FileAdder(BlockingCollection<cFile> fileCollectionIn, string[] file, UpdateFileCount updateFileCount, ProcessFileEndCallback ProcessFileEndCallBack,Settings settings)
+        public FileAdder(BlockingCollection<cFile> fileCollectionIn, string[] file, UpdateFileCount updateFileCount, ProcessFileEndCallback ProcessFileEndCallBack, Settings settings, PauseCancel pc)
         {
             _fileCollection = fileCollectionIn;
             _file = file;
             _updateFileCount = updateFileCount;
             _processFileEndCallBack = ProcessFileEndCallBack;
             _settings = settings;
+            _pc = pc;
         }
 
         public void ProcFiles()
@@ -57,7 +58,7 @@ namespace TrrntZipUICore
                         AddDirectory(t);
                 }
             }
-            _processFileEndCallBack?.Invoke(-1, 0, TrrntZipStatus.Unknown);
+            _processFileEndCallBack?.Invoke(-1, 0, TrrntZipStatus.Unknown, Compress.StructuredZip.ZipStructure.None);
         }
 
         private bool AddFile(string filename)
@@ -117,6 +118,13 @@ namespace TrrntZipUICore
             foreach (DirectoryInfo t in diChild)
             {
                 AddDirectory(t.FullName);
+
+                if (_pc != null)
+                {
+                    _pc.WaitOne();
+                    if (_pc.Cancelled)
+                        return;
+                }
             }
         }
 

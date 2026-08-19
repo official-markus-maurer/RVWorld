@@ -1,6 +1,4 @@
-﻿using Compress.StructuredZip;
-
-namespace Compress
+﻿namespace Compress.StructuredZip
 {
     public enum ZipStructure
     {
@@ -28,30 +26,44 @@ namespace Compress
     public static class StructuredArchive
     {
 
-        public static ushort GetCompressionType(ZipStructure zipStruct)
+        public static ZipCompression GetCompressionType(ZipStructure zipStruct,ulong? uncompressSize)
         {
             switch (zipStruct)
             {
                 case ZipStructure.None:
-                    return 0;
+                    return ZipCompression.Stored;
 
                 case ZipStructure.ZipTrrnt:
                 case ZipStructure.ZipTDC:
                 case ZipStructure.ZipDTD:
-                    return 8;
+                    return ZipCompression.Deflated;
                 case ZipStructure.SevenZipTrrnt:
-                    return ushort.MaxValue;
+                    return (ZipCompression)ushort.MaxValue;
                 case ZipStructure.ZipZSTD:
                 case ZipStructure.ZipDTZ:
-                    return 93;
+                    return uncompressSize == 0 ? ZipCompression.Stored : ZipCompression.ZStandard;
                 case ZipStructure.SevenZipSLZMA:
                 case ZipStructure.SevenZipNLZMA:
-                    return 14;
+                    return ZipCompression.LZMA;
                 case ZipStructure.SevenZipSZSTD:
                 case ZipStructure.SevenZipNZSTD:
-                    return 93;
+                    return ZipCompression.ZStandard;
             }
-            return ushort.MaxValue;
+            return (ZipCompression)ushort.MaxValue;
+        }
+
+        public static bool IsSolid(ZipStructure zipStruct)
+        {
+            switch (zipStruct)
+            {
+                case ZipStructure.SevenZipSLZMA:
+                case ZipStructure.SevenZipSZSTD:
+                    return true;
+                case ZipStructure.SevenZipNLZMA:
+                case ZipStructure.SevenZipNZSTD:
+                    return false;
+            }
+            return true;
         }
 
         public static string GetZipCommentId(ZipStructure zipStruct)
@@ -73,6 +85,38 @@ namespace Compress
             }
         }
 
+        public static string GetZipStructureName(ZipStructure zipStruct)
+        {
+            switch (zipStruct)
+            {
+                case ZipStructure.None:
+                    return "Unstructured";
+
+                case ZipStructure.ZipTrrnt:
+                    return "TrrntZip";
+                case ZipStructure.ZipTDC:
+                    return "TDC-Zip";
+                case ZipStructure.ZipDTD:
+                    return "DTD-Zip";
+
+                case ZipStructure.SevenZipTrrnt:
+                    return "T7Z";
+                case ZipStructure.ZipZSTD:
+                    return "ZSTD-Zip";
+                case ZipStructure.ZipDTZ:
+                    return "DTZ-Zip";
+                case ZipStructure.SevenZipSLZMA:
+                    return "7Z-Solid-LZMA";
+                case ZipStructure.SevenZipNLZMA:
+                    return "7Z-NonSolid-LZMA";
+                case ZipStructure.SevenZipSZSTD:
+                    return "7Z-Solid-zSTD";
+                case ZipStructure.SevenZipNZSTD:
+                    return "7Z-NonSolid-zSTD";
+                default:
+                    return "Undefined";
+            }
+        }
 
         public static zipDateType GetZipDateTimeType(ZipStructure zipStruct)
         {

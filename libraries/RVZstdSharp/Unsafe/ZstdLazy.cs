@@ -1,6 +1,5 @@
 using static RVZstdSharp.UnsafeHelper;
 using System.Runtime.CompilerServices;
-using System.Runtime.Intrinsics;
 #if NETCOREAPP3_0_OR_GREATER
 using System.Runtime.Intrinsics.X86;
 #endif

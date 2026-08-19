@@ -1,7 +1,7 @@
-﻿using System;
+﻿using DATReader.DatStore;
+using RVUtils;
+using System;
 using System.Collections.Generic;
-using DATReader.DatStore;
-using SortMethods;
 
 namespace DATReader.DatClean
 {
@@ -144,7 +144,7 @@ namespace DATReader.DatClean
 
                             DatDir dirFind = new DatDir(part0, FileType.Dir);
                             dDir.ChildNameSearchAdd(ref dirFind);
-                            
+
                             if (part1.Length > 0)
                                 dirFind.ChildAdd(db);
                             continue;
@@ -199,6 +199,43 @@ namespace DATReader.DatClean
                     CheckDeDuped(ddir);
                 }
 
+            }
+        }
+
+        public static void CheckZeroCRC(DatDir dDir)
+        {
+            for (int g = 0; g < dDir.Count; g++)
+            {
+                if (dDir[g] is DatDir ddir)
+                {
+                    CheckZeroCRC(ddir);
+                    continue;
+                }
+
+                if (dDir[g] is DatFile dbFile)
+                {
+                    if (dbFile.CRC == null)
+                        continue;
+
+                    if (ByteUtils.ByteArrEquals(dbFile.CRC, ByteUtils.ZeroByteCRC))
+                    {
+                        if (dbFile.Size != null && dbFile.Size != 0)
+                        {
+                            dbFile.CRC = null;
+                            continue;
+                        }
+                        if (dbFile.MD5 != null && !ByteUtils.ByteArrEquals(dbFile.MD5, ByteUtils.ZeroByteMD5))
+                        {
+                            dbFile.CRC = null;
+                            continue;
+                        }
+                        if (dbFile.SHA1 != null && !ByteUtils.ByteArrEquals(dbFile.SHA1, ByteUtils.ZeroByteSHA1))
+                        {
+                            dbFile.CRC = null;
+                            continue;
+                        }
+                    }
+                }
             }
         }
 

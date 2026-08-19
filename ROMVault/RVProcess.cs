@@ -5,14 +5,15 @@ namespace ROMVault
 {
     public static class RVProcess
     {
-        public static void StartURL(string url)
+        public static void StartURL(string url,string args=null)
         {
             try
             {
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = url,
-                    UseShellExecute = true
+                    UseShellExecute = true,
+                    Arguments=args
                 });
             }
             catch { }

@@ -3,6 +3,7 @@ using Compress;
 using Compress.StructuredZip;
 using DATReader.DatStore;
 using RVIO;
+using RVUtils;
 
 namespace DATReader.DatWriter
 {
@@ -103,11 +104,6 @@ namespace DATReader.DatWriter
             }
         }
 
-        private static string ByteToStr(byte[] b)
-        {
-            return b == null ? "" : BitConverter.ToString(b).ToLower().Replace("-", "");
-        }
-
         private class DatStreamWriter : IDisposable
         {
             private int _tabDepth;
@@ -204,7 +200,7 @@ namespace DATReader.DatWriter
             {
                 if (value == null)
                     return;
-                _sw.Write(@" " + name + @" " + ByteToStr(value));
+                _sw.Write(@" " + name + @" " + value.ToHexString());
             }
         }
     }

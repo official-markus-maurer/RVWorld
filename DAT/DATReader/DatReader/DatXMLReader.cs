@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Xml;
-using Compress;
 using DATReader.DatStore;
 using DATReader.Utils;
 
@@ -164,12 +164,11 @@ namespace DATReader.DatReader
 
                 // noautodir, nogame
                 datHeader.Dir = VarFix.String(packingNode.Attributes.GetNamedItem("dir")).ToLower();
-
             }
 
             // Look for: <notzipped>true</notzipped>
             string notzipped = VarFix.String(head.SelectSingleNode("notzipped"));
-            datHeader.NotZipped = ((notzipped.ToLower() == "true") || (notzipped.ToLower() == "yes"));
+            datHeader.NotZipped = string.Equals(notzipped, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(notzipped, "yes", StringComparison.OrdinalIgnoreCase);
 
             return true;
         }
@@ -269,13 +268,17 @@ namespace DATReader.DatReader
             dGame.CloneOfId = VarFix.String(gameNode.Attributes.GetNamedItem("cloneofid"));
             dGame.SampleOf = VarFix.String(gameNode.Attributes.GetNamedItem("sampleof"));
             dGame.Description = VarFix.String(gameNode.SelectSingleNode("description"));
-            dGame.SourceFile = VarFix.String(gameNode.Attributes?.GetNamedItem("sourcefile"));
-            dGame.IsBios = VarFix.String(gameNode.Attributes?.GetNamedItem("isbios"));
-            dGame.IsDevice = VarFix.String(gameNode.Attributes?.GetNamedItem("isdevice"));
-            dGame.Board = VarFix.String(gameNode.Attributes?.GetNamedItem("board"));
+            dGame.SourceFile = VarFix.String(gameNode.Attributes.GetNamedItem("sourcefile"));
+            dGame.IsBios = VarFix.String(gameNode.Attributes.GetNamedItem("isbios"));
+            dGame.IsDevice = VarFix.String(gameNode.Attributes.GetNamedItem("isdevice"));
+            dGame.Board = VarFix.String(gameNode.Attributes.GetNamedItem("board"));
             dGame.Year = VarFix.String(gameNode.SelectSingleNode("year"));
             dGame.Manufacturer = VarFix.String(gameNode.SelectSingleNode("manufacturer"));
-            dGame.Runnable = VarFix.String(gameNode.Attributes?.GetNamedItem("runnable"));
+            dGame.Runnable = VarFix.String(gameNode.Attributes.GetNamedItem("runnable"));
+
+            dGame.Serial = VarFix.String(gameNode.SelectSingleNode("serial"));
+            dGame.Version = VarFix.String(gameNode.SelectSingleNode("version"));
+            dGame.GameId = VarFix.String(gameNode.SelectSingleNode("game_id"));
 
             XmlNode emuArc = gameNode.SelectSingleNode("tea") ?? gameNode.SelectSingleNode("trurip") ?? gameNode.SelectSingleNode("EmuArc");
             if (emuArc != null)

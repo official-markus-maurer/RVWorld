@@ -1,15 +1,13 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
-using Compress;
-using DATReader.Utils;
 using FileScanner;
-using RomVaultCore.Utils;
 using System;
 using System.Collections.Generic;
 using RVUtils;
+using Compress.StructuredZip;
 
 namespace RomVaultCore.RvDB
 {
@@ -174,6 +172,8 @@ namespace RomVaultCore.RvDB
         {
             if (altFile)
                 SetAsAltFile();
+
+            FileCheckName(file);
 
             if (Size == null && file.Size != null) Size = file.Size;
             if (CRC == null && file.CRC != null) CRC = file.CRC;

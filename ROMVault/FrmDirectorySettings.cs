@@ -2,14 +2,11 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
-using System.Windows.Forms.VisualStyles;
-using Compress;
-using Compress.ZipFile;
+using Compress.StructuredZip;
 using DATReader.DatClean;
 using RomVaultCore;
 using RomVaultCore.ReadDat;
 using RomVaultCore.RvDB;
-using RomVaultCore.Utils;
 
 namespace ROMVault
 {

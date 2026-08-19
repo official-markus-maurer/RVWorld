@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Compress;
+using Compress.StructuredZip;
 using RomVaultCore.FixFile.Utils;
 using RomVaultCore.RvDB;
 using RVIO;
@@ -114,6 +115,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
                 if (fixStyle == FixStyle.ExtractToCache)
                 {
                     ReportError.LogOut($"DecompressSource7Zip: {fixFileSource.Parent.FileName} return {returnCode1}");
+                    errorMessage = $"DecompressSource7Zip: {fixFileSource.Parent.FileName} return {returnCode1}";
                     return ReturnCode.FileSystemError;
                 }
             }

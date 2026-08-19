@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -20,6 +20,7 @@ namespace RomVaultCore.ReadDat
         private static int _datsProcessed;
         private static ThreadWorker _thWrk;
 
+        public static Action UpdateMIAExternal;
 
         private static void ShowDat(string message, string filename)
         {
@@ -79,6 +80,9 @@ namespace RomVaultCore.ReadDat
 
                 // setBackTreeValues
                 treeStore.SetBackTreeValues(DB.DirRoot.Child(0), true);
+
+                _thWrk.Report(new bgwText("Updating MIA"));
+                UpdateMIAExternal?.Invoke();
 
                 _thWrk.Report(new bgwText("Updating Cache"));
                 DB.Write();

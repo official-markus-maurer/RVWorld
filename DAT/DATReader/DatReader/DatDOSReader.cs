@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using Compress;
 using DATReader.DatStore;
 using DATReader.Utils;
 
@@ -25,7 +24,7 @@ namespace DATReader.DatReader
                 {
                     return false;
                 }
-                if (dfl.Next.ToLower() == "doscenter")
+                if (string.Equals(dfl.Next, "doscenter", StringComparison.OrdinalIgnoreCase))
                 {
                     dfl.Gn();
                     if (!LoadHeaderFromDat(dfl, strFilename, datHeader, errorReport))
@@ -139,9 +138,7 @@ namespace DATReader.DatReader
             }
             dfl.Gn();
 
-            string sNext = dfl.Next.ToLower();
-
-            if (sNext != "name")
+            if (!string.Equals(dfl.Next, "name", StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;
@@ -196,7 +193,7 @@ namespace DATReader.DatReader
             }
             dfl.Gn();
 
-            if (dfl.Next.ToLower() != "name")
+            if (!string.Equals(dfl.Next, "name", StringComparison.OrdinalIgnoreCase))
             {
                 errorReport?.Invoke(dfl.Filename, "Name not found as first object in ( ), on line " + dfl.LineNumber);
                 return false;

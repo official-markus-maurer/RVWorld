@@ -1,6 +1,6 @@
-﻿using System.IO;
+﻿using Compress.Support.Utils;
+using System.IO;
 using System.Text;
-using Compress.Support.Utils;
 
 namespace Compress.SevenZip.Structure
 {
@@ -8,15 +8,33 @@ namespace Compress.SevenZip.Structure
     {
         private static readonly byte[] Signature = [(byte)'7', (byte)'z', 0xBC, 0xAF, 0x27, 0x1C];
 
-        private uint _startHeaderCRC;
-
         public ulong NextHeaderOffset;
         public ulong NextHeaderSize;
         public uint NextHeaderCRC;
 
-
-        private long _crcOffset;
         public long BaseOffset { get; private set; }
+
+
+        public ulong NextHeaderLocation
+        {
+            get { return (ulong)BaseOffset + NextHeaderOffset; } 
+            set { NextHeaderOffset = value - (ulong)BaseOffset; }
+        }
+
+
+
+        /* First Signature is:
+         * 6 bytes : '7','z',0xbc,0xaf,0x270x1c
+         * 2 bytes : Major version, Minor version
+         * 4 bytes : CRC of this header (next 20 bytes)
+         * 8 bytes : Offset of the next header  (NextHeaderOffset)
+         * 8 bytes : Size of the next header    (NextHeaderSize)
+         * 4 bytes : CRC of the next header     (NextHeaderCRC)
+         *
+         * which should always make BaseOffset = 32
+         */
+
+
 
         public bool Read(Stream stream)
         {
@@ -30,12 +48,12 @@ namespace Compress.SevenZip.Structure
             br.ReadByte(); // major version
             br.ReadByte(); // minor version
 
-            _startHeaderCRC = br.ReadUInt32();
+            uint startHeaderCRC = br.ReadUInt32();
 
             long pos = br.BaseStream.Position;
             byte[] mainHeader = new byte[8 + 8 + 4];
             br.BaseStream.Read(mainHeader, 0, mainHeader.Length);
-            if (!CRC.VerifyDigest(_startHeaderCRC, mainHeader, 0, (uint)mainHeader.Length))
+            if (!CRC.VerifyDigest(startHeaderCRC, mainHeader, 0, (uint)mainHeader.Length))
             {
                 return false;
             }
@@ -45,60 +63,44 @@ namespace Compress.SevenZip.Structure
             NextHeaderOffset = br.ReadUInt64();
             NextHeaderSize = br.ReadUInt64();
             NextHeaderCRC = br.ReadUInt32();
+
+            BaseOffset = br.BaseStream.Position;
             return true;
         }
 
-        public void Write(BinaryWriter bw)
+        public void Write(Stream stream)
         {
+            using BinaryWriter bw = new(stream, Encoding.UTF8, true);
             //SignatureHeader
             //~~~~~~~~~~~~~~~
 
+            bw.BaseStream.Position = 0;
             bw.Write(Signature);
 
             //ArchiveVersion
-            //{
             bw.Write((byte)0); //  BYTE Major
             bw.Write((byte)3); //  BYTE Minor
-            //};
-
-            _crcOffset = bw.BaseStream.Position;
-            bw.Write((uint)0); //HeaderCRC
-
-            //StartHeader
-            //{
-            bw.Write((ulong)0); //NextHeaderOffset
-            bw.Write((ulong)0); //NextHeaderSize
-            bw.Write((uint)0); //NextHeaderCRC
-            //}
-
-            BaseOffset = bw.BaseStream.Position;
-        }
-
-        public void WriteFinal(BinaryWriter bw, ulong headerpos, ulong headerLength, uint headerCRC)
-        {
-            long fileEnd = bw.BaseStream.Position;
-
 
             byte[] sigHeaderBytes;
             using (MemoryStream sigHeaderMem = new())
             {
                 using BinaryWriter sigHeaderBw = new(sigHeaderMem, Encoding.UTF8, true);
-                sigHeaderBw.Write((ulong)((long)headerpos - BaseOffset)); //NextHeaderOffset
-                sigHeaderBw.Write(headerLength); //NextHeaderSize
-                sigHeaderBw.Write(headerCRC); //NextHeaderCRC
-
-                sigHeaderBytes = new byte[sigHeaderMem.Length];
-                sigHeaderMem.Position = 0;
-                sigHeaderMem.Read(sigHeaderBytes, 0, sigHeaderBytes.Length);
+                sigHeaderBw.Write(NextHeaderOffset); //NextHeaderOffset
+                sigHeaderBw.Write(NextHeaderSize); //NextHeaderSize
+                sigHeaderBw.Write(NextHeaderCRC); //NextHeaderCRC
+                sigHeaderBytes = sigHeaderMem.ToArray();
             }
 
             uint sigHeaderCRC = CRC.CalculateDigest(sigHeaderBytes, 0, (uint)sigHeaderBytes.Length);
 
-            bw.BaseStream.Position = _crcOffset;
-            bw.Write(sigHeaderCRC); //Header CRC
+
+
+            bw.Write(sigHeaderCRC); //HeaderCRC
+
+            //StartHeader
             bw.Write(sigHeaderBytes);
 
-            bw.BaseStream.Seek(fileEnd, SeekOrigin.Begin);
+            BaseOffset = bw.BaseStream.Position;
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using System;
@@ -170,7 +170,7 @@ namespace RomVaultCore.Scanner
                 _thWrk?.Report(new bgwValue2((int)checkIndex));
             _thWrk?.Report(new bgwText2(dbDir.FullName));
 
-            // this is a ScannedITem structure to store the data about the actual directory/files we are scanning
+            // this is a ScannedItem structure to store the data about the actual directory/files we are scanning
             // we will first populate this variable with the real file data from the directory, and then compare it
             // with the data in dbDir.
             ScannedFile fileDir = Populate.FromADir(dbDir, EScanLevel, _thWrk, checkIndex, ref _fileErrorAbort);

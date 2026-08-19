@@ -1,4 +1,4 @@
-﻿using Compress;
+﻿using Compress.StructuredZip;
 using SortMethods;
 using StorageList;
 using System.Collections.Generic;

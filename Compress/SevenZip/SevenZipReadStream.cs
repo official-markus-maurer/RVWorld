@@ -20,9 +20,9 @@ namespace Compress.SevenZip
 
         public ZipReturn ZipFileOpenReadStream(int index, out Stream stream, out ulong streamSize)
         {
-            return ZipFileOpenReadStream(index, false, out stream, out streamSize, out ushort _ ,out byte[] _);
+            return ZipFileOpenReadStream(index, false, out stream, out streamSize, out ZipCompression _, out byte[] _);
         }
-        public ZipReturn ZipFileOpenReadStream(int index, bool raw, out Stream stream, out ulong streamSize, out ushort compressionMethod,out byte[] properties)
+        public ZipReturn ZipFileOpenReadStream(int index, bool raw, out Stream stream, out ulong streamSize, out ZipCompression compressionMethod, out byte[] properties)
         {
             compressionMethod = 0;
             properties = null;
@@ -74,11 +74,11 @@ namespace Compress.SevenZip
                     switch (rawFolder.Coders[0].DecoderType)
                     {
                         case DecompressType.LZMA:
-                            compressionMethod = 14; break;
+                            compressionMethod = ZipCompression.LZMA; break;
                         case DecompressType.ZSTD:
-                            compressionMethod = 93; break;
+                            compressionMethod = ZipCompression.ZStandard; break;
                         case DecompressType.Stored:
-                            compressionMethod = 0; break;
+                            compressionMethod = ZipCompression.Stored; break;
                         default:
                             return ZipReturn.ZipErrorGettingDataStream;
                     }
@@ -86,7 +86,7 @@ namespace Compress.SevenZip
                     ulong StreamPosition = _header.StreamsInfo.PackedStreams[(int)packedStreamIndex].StreamPosition;
                     streamSize = _header.StreamsInfo.PackedStreams[(int)packedStreamIndex].PackedSize;
                     properties = rawFolder.Coders[0].Properties;
-                    _zipFs.Seek(_baseOffset + (long)StreamPosition, SeekOrigin.Begin);
+                    _zipFs.Seek(_signatureHeader.BaseOffset + (long)StreamPosition, SeekOrigin.Begin);
                     stream = _zipFs;
                     return ZipReturn.ZipGood;
                 }
@@ -109,7 +109,7 @@ namespace Compress.SevenZip
                     return ZipReturn.ZipGood;
                 }
 
-                if (_header.StreamsInfo.Folders.Length==0)
+                if (_header.StreamsInfo.Folders.Length == 0)
                 {
                     stream = null;
                     _streamIndex = -1;
@@ -149,7 +149,7 @@ namespace Compress.SevenZip
                         _header.StreamsInfo.PackedStreams[packedStreamIndex].PackedStream = CloneStream(_zipFs);
                     }
                     _header.StreamsInfo.PackedStreams[packedStreamIndex].PackedStream.Seek(
-                        _baseOffset + (long)_header.StreamsInfo.PackedStreams[packedStreamIndex].StreamPosition, SeekOrigin.Begin);
+                        _signatureHeader.BaseOffset + (long)_header.StreamsInfo.PackedStreams[packedStreamIndex].StreamPosition, SeekOrigin.Begin);
 
 
                     allInputStreams[(int)folder.PackedStreamIndices[i]].InStreamSource = InStreamSource.FileStream;
@@ -230,8 +230,8 @@ namespace Compress.SevenZip
                                     coder.DecoderStream = new BCJ2Filter(inputCoders[0], inputCoders[1], inputCoders[2], inputCoders[3]);
                                     break;
 
-//                                case DecompressType.ARM64:
-//                                    break;
+                                //                                case DecompressType.ARM64:
+                                //                                    break;
                                 case DecompressType.ARMT:
                                     coder.DecoderStream = new BCJFilterARMT(false, inputCoders[0]);
                                     break;
@@ -350,5 +350,13 @@ namespace Compress.SevenZip
             return ZipReturn.ZipGood;
         }
 
+
+
+        public int StreamCount => _header?.StreamsInfo?.PackedStreams?.Length ?? 0;
+
+        public PackedStreamInfo GetPackedStreamInfo(int i)
+        {
+            return _header?.StreamsInfo?.PackedStreams?[i];
+        }
     }
 }

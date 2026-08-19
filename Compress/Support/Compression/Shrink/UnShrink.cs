@@ -130,7 +130,8 @@ namespace Compress.Support.Compression.Shrink
             {
                 unshrink();
             }
-            catch(Exception e) {
+            catch
+            {
                 result = ZipReturn.ZipDecodeError;
                 return;
             }

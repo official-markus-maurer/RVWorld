@@ -1,4 +1,5 @@
 ﻿using CodePage;
+using Compress.StructuredZip;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -58,26 +59,6 @@ namespace Compress.ZipFile
 
         internal ulong offset = 0;
         internal bool ExtraDataFoundOnEndOfFile = false;
-
-        public void ZipFileClose()
-        {
-            switch (ZipOpen)
-            {
-                case ZipOpenType.Closed:
-                    return;
-
-                case ZipOpenType.OpenRead:
-                    zipFileCloseRead();
-                    return;
-
-                default:
-                    CentralDirectoryWrite();
-                    EndOfCentralDirectoryWrite();
-                    zipFileCloseWrite();
-                    break;
-            }
-        }
-
 
 
 

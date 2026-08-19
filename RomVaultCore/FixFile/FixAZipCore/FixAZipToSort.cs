@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Compress;
+using Compress.StructuredZip;
 using RomVaultCore.FixFile.Utils;
 using RomVaultCore.RvDB;
 using RVIO;
@@ -51,7 +52,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
                 toSortFullName = toSortZipOut.ZipFilename;
 
             RvFile toSortRom = new RvFile(fixZippedFile.FileType);
-            fixZippedFile.CopyTo(toSortRom);
+            fixZippedFile.CopyTo(toSortRom, false, false);
             toSortRom.Dat = null;
             toSortRom.SetDatGotStatus(DatStatus.InToSort, GotStatus.Got);
 
@@ -95,6 +96,7 @@ namespace RomVaultCore.FixFile.FixAZipCore
                 if (fixStyle == FixStyle.ExtractToCache)
                 {
                     ReportError.LogOut($"DecompressSource7Zip: {fileIn.Parent.FileName} return {returnCode1}");
+                    errorMessage = $"DecompressSource7Zip: {fileIn.Parent.FileName} return {returnCode1}";
                     return ReturnCode.FileSystemError;
                 }
             }

@@ -21,9 +21,7 @@ namespace Compress.ZipFile
         HeadersMismatch = 0x00004,
         FilenameMisMatch = 0x00010,
         DirectoryLengthError = 0x00020,
-        DateTimeMisMatch = 0x00040,
-
-        UnknownDataSource = 0x00080,
+        DateTimeMisMatch = 0x00040
     }
 
 
@@ -36,7 +34,7 @@ namespace Compress.ZipFile
         public ushort VersionMadeBy { get; internal set; }
         public ushort VersionNeededToExtract { get; internal set; }
 
-        public ushort CompressionMethod { get; internal set; }
+        public ZipCompression CompressionMethod { get; internal set; }
 
         public ulong CompressedSize { get; internal set; }
         internal ulong RelativeOffsetOfLocalHeader; // only in central directory
@@ -85,7 +83,7 @@ namespace Compress.ZipFile
             IsZip64 = false;
             ExtraDataFound = false;
             GeneralPurposeBitFlag = 2; // Maximum Compression Deflating
-            CompressionMethod = 8; // Compression Method Deflate
+            CompressionMethod = ZipCompression.Deflated; // Compression Method Deflated
             HeaderLastModified = modTime;
             Filename = filename;
         }
@@ -105,7 +103,7 @@ namespace Compress.ZipFile
                 centralFile.VersionNeededToExtract = br.ReadUInt16(); // Version Needed To Extract
 
                 centralFile.GeneralPurposeBitFlag = br.ReadUInt16();
-                centralFile.CompressionMethod = br.ReadUInt16();
+                centralFile.CompressionMethod = (ZipCompression)br.ReadUInt16();
 
                 ushort lastModFileTime = br.ReadUInt16();
                 ushort lastModFileDate = br.ReadUInt16();
@@ -166,6 +164,14 @@ namespace Compress.ZipFile
             }
         }
 
+        internal ushort GetVersionNeededToExtract()
+        {
+            if (CompressionMethod==ZipCompression.ZStandard)
+                return 63;
+
+            return (ushort)(IsZip64 ? 45 : 20);
+        }
+
         internal void CentralDirectoryWrite(Stream crcStream)
         {
             using BinaryWriter bw = new(crcStream, Encoding.UTF8, true);
@@ -185,7 +191,7 @@ namespace Compress.ZipFile
 
             ushort fileNameLength = (ushort)bFileName.Length;
 
-            ushort versionNeededToExtract = (ushort)(CompressionMethod == 93 ? 63 : (IsZip64 ? 45 : 20));
+            ushort versionNeededToExtract = GetVersionNeededToExtract();
 
             CompressUtils.UtcTicksToDosDateTime(HeaderLastModified, out ushort lastModFileDate, out ushort lastModFileTime);
 
@@ -193,7 +199,7 @@ namespace Compress.ZipFile
             bw.Write((ushort)0);
             bw.Write(versionNeededToExtract);
             bw.Write(GeneralPurposeBitFlag);
-            bw.Write(CompressionMethod);
+            bw.Write((ushort)CompressionMethod);
             bw.Write(lastModFileTime);
             bw.Write(lastModFileDate);
             WriteCRC(bw, CRC);
@@ -229,7 +235,7 @@ namespace Compress.ZipFile
                 localFile.VersionNeededToExtract = br.ReadUInt16(); // version needed to extract
                 localFile.GeneralPurposeBitFlag = br.ReadUInt16();
 
-                localFile.CompressionMethod = br.ReadUInt16();
+                localFile.CompressionMethod = (ZipCompression)br.ReadUInt16();
 
                 ushort lastModFileTime = br.ReadUInt16();
                 ushort lastModFileDate = br.ReadUInt16();
@@ -316,13 +322,13 @@ namespace Compress.ZipFile
                 bFileName = Encoding.UTF8.GetBytes(Filename);
             }
 
-            ushort versionNeededToExtract = (ushort)(CompressionMethod == 93 ? 63 : (IsZip64 ? 45 : 20));
+            ushort versionNeededToExtract = GetVersionNeededToExtract();
 
             RelativeOffsetOfLocalHeader = (ulong)zipFs.Position;
             bw.Write(LocalFileHeaderSignature);
             bw.Write(versionNeededToExtract);
             bw.Write(GeneralPurposeBitFlag);
-            bw.Write(CompressionMethod);
+            bw.Write((ushort)CompressionMethod);
 
             CompressUtils.UtcTicksToDosDateTime(HeaderLastModified, out ushort lastModFileDate, out ushort lastModFileTime);
             bw.Write(lastModFileTime);
@@ -387,7 +393,7 @@ namespace Compress.ZipFile
         }
 
 
-        internal void LocalFileHeaderFake(ulong filePosition, ulong uncompressedSize, ulong compressedSize, byte[] crc32, ushort compressionMethod, long headerLastModified, MemoryStream ms)
+        internal void LocalFileHeaderFake(ulong filePosition, ulong uncompressedSize, ulong compressedSize, byte[] crc32, ZipCompression compressionMethod, long headerLastModified, MemoryStream ms)
         {
             using BinaryWriter bw = new(ms, Encoding.UTF8, true);
             RelativeOffsetOfLocalHeader = filePosition;
@@ -408,12 +414,12 @@ namespace Compress.ZipFile
                 bFileName = Encoding.UTF8.GetBytes(Filename);
             }
 
-            ushort versionNeededToExtract = (ushort)(CompressionMethod == 93 ? 63 : (IsZip64 ? 45 : 20));
+            ushort versionNeededToExtract = GetVersionNeededToExtract();
 
             bw.Write(LocalFileHeaderSignature);
             bw.Write(versionNeededToExtract);
             bw.Write(GeneralPurposeBitFlag);
-            bw.Write(CompressionMethod);
+            bw.Write((ushort)CompressionMethod);
 
             CompressUtils.UtcTicksToDosDateTime(HeaderLastModified, out ushort lastModFileDate, out ushort lastModFileTime);
             bw.Write(lastModFileTime);
@@ -434,7 +440,7 @@ namespace Compress.ZipFile
             bw.Write(bExtraField);
         }
 
-        internal ZipReturn LocalFileOpenReadStream(Stream zipFs, bool raw, out Stream readStream, out ulong streamSize, out ushort compressionMethod)
+        internal ZipReturn LocalFileOpenReadStream(Stream zipFs, bool raw, out Stream readStream, out ulong streamSize, out ZipCompression compressionMethod)
         {
             compressionMethod = CompressionMethod;
             if (zipFs.Position != (long)DataLocation)
@@ -449,19 +455,19 @@ namespace Compress.ZipFile
             return OpenStream(zipFs, CompressionMethod, CompressedSize, UncompressedSize, GeneralPurposeBitFlag, out streamSize, out readStream);
         }
 
-        public static ZipReturn OpenStream(Stream zipFs, int CompressionMethod, ulong CompressedSize, ulong UncompressedSize, ushort GeneralPurposeBitFlag, out ulong streamSize, out Stream readStream)
+        public static ZipReturn OpenStream(Stream zipFs, ZipCompression CompressionMethod, ulong CompressedSize, ulong UncompressedSize, ushort GeneralPurposeBitFlag, out ulong streamSize, out Stream readStream)
         {
             streamSize = 0;
             readStream = null;
 
             switch (CompressionMethod)
             {
-                case 0:
+                case ZipCompression.Stored:
                     readStream = zipFs;
                     streamSize = CompressedSize; // same as UncompressedSize
                     break;
 
-                case 1:
+                case ZipCompression.Shrunk:
                     readStream = new UnShrink(zipFs, CompressedSize, UncompressedSize, out ZipReturn result);
                     if (result != ZipReturn.ZipGood)
                     {
@@ -473,41 +479,40 @@ namespace Compress.ZipFile
                     }
                     streamSize = UncompressedSize;
                     break;
-                case 2:
-                case 3:
-                case 4:
-                case 5:
-                    readStream = new UnReduce(zipFs, CompressedSize, UncompressedSize, CompressionMethod - 1);
+                case ZipCompression.Reduced1:
+                case ZipCompression.Reduced2:
+                case ZipCompression.Reduced3:
+                case ZipCompression.Reduced4:
+                    readStream = new UnReduce(zipFs, CompressedSize, UncompressedSize, (int)CompressionMethod - 1);
                     streamSize = UncompressedSize;
                     break;
-                case 6:
+                case ZipCompression.Imploded:
                     readStream = new ExplodeStream(zipFs, CompressedSize, UncompressedSize, GeneralPurposeBitFlag);
                     streamSize = UncompressedSize;
                     break;
 
-                case 8:
-
+                case ZipCompression.Deflated:
                     //readStream = new ZlibBaseStream(zipFs, CompressionMode.Decompress, CompressionLevel.Default, ZlibStreamFlavor.DEFLATE, true);
                     readStream = new DeflateStream(zipFs, System.IO.Compression.CompressionMode.Decompress, true);
                     streamSize = UncompressedSize;
                     break;
 
-                case 9:
+                case ZipCompression.Deflate64:
                     readStream = new Deflate64Stream(zipFs, System.IO.Compression.CompressionMode.Decompress);
                     streamSize = UncompressedSize;
                     break;
 
-                //case 10:
+                //case ZipCompression.Imploding:
                 //    readStream = new BlastStream(zipFs);
                 //    streamSize = UncompressedSize;
                 //    break;
 
-                case 12:
+                case ZipCompression.Bzip2:
                     readStream = new CBZip2InputStream(zipFs, false);
                     streamSize = UncompressedSize;
                     break;
 
-                case 14:
+                case ZipCompression.LZMA:
                     {
                         zipFs.ReadByte(); // Major version
                         zipFs.ReadByte(); // Minor version
@@ -519,13 +524,13 @@ namespace Compress.ZipFile
                         break;
                     }
 
-                case 20:
-                case 93:
+                case ZipCompression.ZStandardDeprecated:
+                case ZipCompression.ZStandard:
                     readStream = new RVZStdSharp(zipFs);
                     streamSize = UncompressedSize;
                     break;
 
-                case 98:
+                case ZipCompression.PPMd:
                     {
                         int headerSize = 2;
                         byte[] header = new byte[headerSize];
@@ -539,7 +544,7 @@ namespace Compress.ZipFile
             return readStream == null ? ZipReturn.ZipErrorGettingDataStream : ZipReturn.ZipGood;
         }
 
-        internal ZipReturn LocalFileOpenWriteStream(Stream zipFs, bool raw, ulong uncompressedSize, ushort compressionMethod, out Stream writeStream, int? threadCount)
+        internal ZipReturn LocalFileOpenWriteStream(Stream zipFs, bool raw, ulong uncompressedSize, ZipCompression compressionMethod, out Stream writeStream, int? threadCount)
         {
             UncompressedSize = uncompressedSize;
             CompressedSize = 0;
@@ -550,25 +555,18 @@ namespace Compress.ZipFile
             DataLocation = (ulong)zipFs.Position;
 
             writeStream = null;
-            if (raw)
+            if (raw || compressionMethod == ZipCompression.Stored)
             {
                 writeStream = zipFs;
             }
-            else
+            else if (compressionMethod == ZipCompression.ZStandard)
             {
-                if (compressionMethod == 0)
-                {
-                    writeStream = zipFs;
-                }
-                else if (compressionMethod == 93)
-                {
-                    writeStream = new RVZstdSharp.CompressionStream(zipFs, 19);
-                    ((RVZstdSharp.CompressionStream)writeStream).SetParameter(RVZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_nbWorkers, CompressUtils.SetThreadCount(threadCount));
-                }
-                else if (compressionMethod == 8)
-                {
-                    writeStream = new ZlibBaseStream(zipFs, CompressionMode.Compress, CompressionLevel.BestCompression, ZlibStreamFlavor.DEFLATE, true);
-                }
+                writeStream = new RVZstdSharp.CompressionStream(zipFs, 19);
+                ((RVZstdSharp.CompressionStream)writeStream).SetParameter(RVZstdSharp.Unsafe.ZSTD_cParameter.ZSTD_c_nbWorkers, CompressUtils.SetThreadCount(threadCount));
+            }
+            else if (compressionMethod == ZipCompression.Deflated)
+            {
+                writeStream = new ZlibBaseStream(zipFs, CompressionMode.Compress, CompressionLevel.BestCompression, ZlibStreamFlavor.DEFLATE, true);
             }
 
             return writeStream == null ? ZipReturn.ZipErrorGettingDataStream : ZipReturn.ZipGood;
@@ -578,7 +576,7 @@ namespace Compress.ZipFile
         {
             CompressedSize = (ulong)zipFs.Position - DataLocation;
 
-            if (CompressedSize == 0 && UncompressedSize == 0 && CompressionMethod == 8)
+            if (CompressedSize == 0 && UncompressedSize == 0 && CompressionMethod == ZipCompression.Deflated)
             {
                 LocalFileAddZeroLengthFile(zipFs);
                 CompressedSize = (ulong)zipFs.Position - DataLocation;

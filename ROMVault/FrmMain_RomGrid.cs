@@ -1,8 +1,6 @@
 ﻿using Compress;
-using DATReader.Utils;
 using RomVaultCore;
 using RomVaultCore.RvDB;
-using RomVaultCore.Utils;
 using RVUtils;
 using StorageList;
 using System;
@@ -180,10 +178,12 @@ namespace ROMVault
                             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 
                             string bitPlusMIA = "";
-                            if (tFile.MIAStatusIs(MIAStatus.MIA)) bitPlusMIA = "_MIA";
-                            else if (tFile.MIAStatusIs(MIAStatus.MIAFromDat)) bitPlusMIA = "_MIA";
-                            else if (tFile.MIAStatusIs(MIAStatus.New)) bitPlusMIA = "_NEW";
-
+                            if (tFile.DatStatus == DatStatus.InDatCollect || tFile.DatStatus == DatStatus.InDatMerged)
+                            {
+                                if (tFile.MIAStatusIs(MIAStatus.MIA)) bitPlusMIA = "_MIA";
+                                else if (tFile.MIAStatusIs(MIAStatus.MIAFromDat)) bitPlusMIA = "_MIA";
+                                else if (tFile.MIAStatusIs(MIAStatus.New)) bitPlusMIA = "_NEW";
+                            }
 
                             string bitmapName = "R_" + tFile.DatStatus + "_" + tFile.RepStatus + bitPlusMIA;
                             Bitmap romIcon = rvImages.GetBitmap(bitmapName, false);

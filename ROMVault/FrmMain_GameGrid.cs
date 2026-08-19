@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Text;
 using System.Windows.Forms;
 using Compress;
+using Compress.StructuredZip;
 using RomVaultCore;
 using RomVaultCore.RvDB;
 using RVIO;
@@ -40,8 +41,8 @@ namespace ROMVault
         ToolStripMenuItem mnuGameScan3;
         ToolStripMenuItem mnuOpenDir;
         ToolStripMenuItem mnuOpenParentDir;
+        ToolStripMenuItem mnuDir2Dat;
         ToolStripMenuItem mnuLaunchEmulator;
-        ToolStripMenuItem mnuOpenPage;
 
         private void InitGameGridMenu()
         {
@@ -84,6 +85,12 @@ namespace ROMVault
             mnuOpenParentDir.Click += MnuOpenParentDir;
 
 
+            mnuDir2Dat = new ToolStripMenuItem
+            {
+                Text = @"Dir2Dat",
+                Tag = null
+            };
+            mnuDir2Dat.Click += MnuDir2Dat;
 
             mnuLaunchEmulator = new ToolStripMenuItem
             {
@@ -91,14 +98,6 @@ namespace ROMVault
                 Tag = null
             };
             mnuLaunchEmulator.Click += LaunchEmulator;
-
-            mnuOpenPage = new ToolStripMenuItem
-            {
-                Text = @"Open Web Page",
-                Tag = null
-            };
-            mnuOpenPage.Click += OpenWebPage;
-
         }
 
 
@@ -146,7 +145,6 @@ namespace ROMVault
 
             try
             {
-
                 _updatingGameGrid = true;
                 showDescription = false;
 
@@ -726,25 +724,11 @@ namespace ROMVault
                         _mnuGameGrid.Items.Insert(3, item);
                     }
 
-                    if (thisGame.Game != null && thisGame.Dat?.GetData(RvDat.DatData.HomePage) == "No-Intro")
-                    {
-                        string gameId = thisGame.Game.GetData(RvGame.GameData.Id);
-                        string datId = thisGame.Dat.GetData(RvDat.DatData.Id);
-                        if (!string.IsNullOrWhiteSpace(gameId) && !string.IsNullOrWhiteSpace(datId))
-                            _mnuGameGrid.Items.Add(mnuOpenPage);
-                    }
-                    if (thisGame.Game != null && thisGame.Dat?.GetData(RvDat.DatData.HomePage) == "redump.org")
-                    {
-                        string gameId = thisGame.Game.GetData(RvGame.GameData.Id);
-                        if (!string.IsNullOrWhiteSpace(gameId))
-                            _mnuGameGrid.Items.Add(mnuOpenPage);
-                    }
-
-
-
                     bool found = false;
                     if (thisGame.FileType == FileType.Dir)
                     {
+                        if ((Settings.rvSettings.Permissions & 4) == 4)
+                            _mnuGameGrid.Items.Add(mnuDir2Dat);
 
                         string folderPath = thisGame.FullNameCase;
                         if (Directory.Exists(folderPath))
@@ -869,6 +853,20 @@ namespace ROMVault
         }
 
 
+        frmDir2Dat d2d = null;
+
+        private void MnuDir2Dat(object sender, EventArgs e)
+        {
+            if (d2d == null)
+                d2d = new frmDir2Dat();
+
+            d2d.PopulateFrom((RvFile)_mnuGameGrid.Tag);
+            d2d.ShowDialog();
+        }
+
+
+
+
         private void LaunchEmulator(object sender, EventArgs e)
         {
             RvFile tGame = _mnuGameGrid.Tag as RvFile;
@@ -899,28 +897,6 @@ namespace ROMVault
             }
             return null;
         }
-
-
-        private void OpenWebPage(object sender, EventArgs e)
-        {
-            RvFile thisGame = ((RvFile)_mnuGameGrid.Tag);
-
-            if (thisGame.Game != null && thisGame.Dat?.GetData(RvDat.DatData.HomePage) == "No-Intro")
-            {
-                string gameId = thisGame.Game.GetData(RvGame.GameData.Id);
-                string datId = thisGame.Dat.GetData(RvDat.DatData.Id);
-                if (!string.IsNullOrWhiteSpace(gameId) && !string.IsNullOrWhiteSpace(datId))
-                    RVProcess.StartURL($"https://datomatic.no-intro.org/index.php?page=show_record&s={datId}&n={gameId}");
-            }
-            if (thisGame.Game != null && thisGame.Dat?.GetData(RvDat.DatData.HomePage) == "redump.org")
-            {
-                string gameId = thisGame.Game.GetData(RvGame.GameData.Id);
-                if (!string.IsNullOrWhiteSpace(gameId))
-                    RVProcess.StartURL($"http://redump.org/disc/{gameId}/");
-            }
-        }
-
-
 
         private void LaunchEmulator(RvFile tGame)
         {

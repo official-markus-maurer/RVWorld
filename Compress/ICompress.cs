@@ -1,6 +1,5 @@
-﻿using System;
-using System.IO;
-using Compress.Support.Utils;
+﻿using System.IO;
+using Compress.StructuredZip;
 
 namespace Compress
 {
@@ -29,7 +28,7 @@ namespace Compress
         string FileComment { get; }
 
         ZipReturn ZipFileCreate(string newFilename);
-        ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ushort compressionMethod, out Stream stream, long? modTime = null, int? threadCount = null);
+        ZipReturn ZipFileOpenWriteStream(bool raw, string filename, ulong uncompressedSize, ZipCompression compressionMethod, out Stream stream, long? modTime = null, int? threadCount = null, byte[] properties = null);
         ZipReturn ZipFileCloseWriteStream(byte[] crc32);
         void ZipFileCloseFailed();
     }

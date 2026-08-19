@@ -88,13 +88,13 @@ namespace RomVaultCore.FixFile.Utils
                         string fullPathCheckDelete = fileToCheck.Parent.FullNameCase;
                         if (!File.Exists(fullPathCheckDelete))
                         {
-                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file not found. Resan for " + fullPathCheckDelete;
+                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file not found. Rescan for " + fullPathCheckDelete;
                             return ReturnCode.RescanNeeded;
                         }
                         FileInfo fi = new FileInfo(fullPathCheckDelete);
                         if (fi.LastWriteTime != fileToCheck.Parent.FileModTimeStamp)
                         {
-                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file timestamp not found. Resan for " + fileToCheck.FullName;
+                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file timestamp not found. Rescan for " + fileToCheck.FullName;
                             return ReturnCode.RescanNeeded;
                         }
 
@@ -121,13 +121,13 @@ namespace RomVaultCore.FixFile.Utils
                         string fullPathCheckDelete = fileToCheck.FullNameCase;
                         if (!File.Exists(fullPathCheckDelete))
                         {
-                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file not found. Resan for " + fullPathCheckDelete;
+                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file not found. Rescan for " + fullPathCheckDelete;
                             return ReturnCode.RescanNeeded;
                         }
                         FileInfo fi = new FileInfo(fullPathCheckDelete);
                         if (fi.LastWriteTime != fileToCheck.FileModTimeStamp)
                         {
-                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file timestamp not found. Resan for " + fileToCheck.FullName;
+                            errorMessage = "Deleting " + fileDeleting.FullName + " Correct file timestamp not found. Rescan for " + fileToCheck.FullName;
                             return ReturnCode.RescanNeeded;
                         }
 

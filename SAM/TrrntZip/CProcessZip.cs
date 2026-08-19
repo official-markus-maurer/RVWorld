@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading;
+using Compress.StructuredZip;
 using RVIO;
 
 namespace TrrntZip
@@ -13,7 +14,7 @@ namespace TrrntZip
     }
 
     public delegate void ProcessFileStartCallback(int threadId, int fileId, string filename);
-    public delegate void ProcessFileEndCallback(int threadId, int fileId, TrrntZipStatus trrntZipStatus);
+    public delegate void ProcessFileEndCallback(int threadId, int fileId, TrrntZipStatus trrntZipStatus, ZipStructure zipStructure);
     public class CProcessZip
     {
         public int ThreadId;
@@ -45,7 +46,7 @@ namespace TrrntZip
             {
                 if (pauseCancel.Cancelled)
                 {
-                    ProcessFileEndCallBack?.Invoke(ThreadId, file.fileId, TrrntZipStatus.Cancel);
+                    ProcessFileEndCallBack?.Invoke(ThreadId, file.fileId, TrrntZipStatus.Cancel, ZipStructure.None);
                     continue;
                 }
                 pauseCancel.WaitOne();
@@ -53,17 +54,19 @@ namespace TrrntZip
                 ProcessFileStartCallBack?.Invoke(ThreadId, file.fileId, file.filename);
                 Debug.WriteLine($"Thread {ThreadId} Starting to Process File {file.filename}");
                 TrrntZipStatus trrntZipFileStatus;
+
+                ZipStructure zipStructure = ZipStructure.None;
                 if (file.isDir)
                 {
                     DirectoryInfo dirInfo = new DirectoryInfo(file.filename);
-                    trrntZipFileStatus = tz.Process(dirInfo, pauseCancel);
+                    trrntZipFileStatus = tz.Process(dirInfo, out zipStructure, pauseCancel);
                 }
                 else
                 {
                     FileInfo fileInfo = new FileInfo(file.filename);
-                    trrntZipFileStatus = tz.Process(fileInfo, pauseCancel);
+                    trrntZipFileStatus = tz.Process(fileInfo, out zipStructure, pauseCancel);
                 }
-                ProcessFileEndCallBack?.Invoke(ThreadId, file.fileId, trrntZipFileStatus);
+                ProcessFileEndCallBack?.Invoke(ThreadId, file.fileId, trrntZipFileStatus, zipStructure);
                 Debug.WriteLine($"Thread {ThreadId} Finished Process File {file.filename}");
             }
 

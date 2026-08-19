@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Compress
+﻿namespace Compress
 {
     public class FileHeader
     {

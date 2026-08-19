@@ -1,7 +1,6 @@
 ﻿using System;
 using FileScanner;
 using RomVaultCore.RvDB;
-using RomVaultCore.Utils;
 using RVUtils;
 
 /*

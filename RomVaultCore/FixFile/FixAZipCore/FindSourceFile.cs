@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
-using Compress;
+using Compress.StructuredZip;
 using RomVaultCore.RvDB;
-using RomVaultCore.Scanner;
 
 namespace RomVaultCore.FixFile.FixAZipCore
 {

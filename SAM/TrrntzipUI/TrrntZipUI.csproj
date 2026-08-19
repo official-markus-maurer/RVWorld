@@ -4,10 +4,16 @@
     <OutputType>WinExe</OutputType>
     <TargetFrameworks>net10.0-windows;net48</TargetFrameworks>
     <Nullable>disable</Nullable>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>disable</ImplicitUsings>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo> 
+	<ApplicationIcon>chip.ico</ApplicationIcon>    
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="chip.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\TrrntZipUICore\TrrntZipUICore.csproj" />

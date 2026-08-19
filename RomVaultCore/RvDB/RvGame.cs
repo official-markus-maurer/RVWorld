@@ -1,7 +1,7 @@
 ﻿/******************************************************
  *     ROMVault3 is written by Gordon J.              *
  *     Contact gordon@romvault.com                    *
- *     Copyright 2026                                 *
+ *     Copyright 2024                                 *
  ******************************************************/
 
 using DATReader.DatStore;
@@ -41,6 +41,9 @@ namespace RomVaultCore.RvDB
 
             Category = 23,
 
+            Serial = 25,
+            Version = 26,
+            GameId = 27
         }
 
         private readonly List<GameMetaData> _gameMetaData = new List<GameMetaData>();
@@ -78,6 +81,9 @@ namespace RomVaultCore.RvDB
             CheckAttribute(dGame.Board, GameData.Board);
             CheckAttribute(dGame.Year, GameData.Year);
             CheckAttribute(dGame.Manufacturer, GameData.Manufacturer);
+            CheckAttribute(dGame.Serial, GameData.Serial);
+            CheckAttribute(dGame.Version, GameData.Version);
+            CheckAttribute(dGame.GameId, GameData.GameId);
 
             if (dGame.IsEmuArc)
             {
